@@ -6,10 +6,21 @@ echo   OmniVoice Gateway Auto-Deployment Tool (Windows)
 echo =======================================================
 echo.
 
-:: Check if git remote 'hf' is configured
+:: Check if git remote 'hf' is configured and contains credentials
 git remote get-url hf >nul 2>&1
-if errorlevel 1 (
-    echo [INFO] Hugging Face remote 'hf' chua duoc cau hinh.
+set has_hf=%errorlevel%
+set needs_setup=0
+
+if "%has_hf%"=="0" (
+    for /f "tokens=*" %%i in ('git remote get-url hf') do set hf_url=%%i
+    echo !hf_url! | findstr /C:"@" >nul
+    if errorlevel 1 set needs_setup=1
+) else (
+    set needs_setup=1
+)
+
+if "%needs_setup%"=="1" (
+    echo [INFO] Hugging Face remote 'hf' chua duoc cau hinh credentials tu dong.
     echo Vui long cung cap thong tin de tu dong hoa luu credentials.
     echo.
     set /p hf_user="1. Username Hugging Face: "
@@ -20,7 +31,11 @@ if errorlevel 1 (
     
     echo.
     echo [INFO] Dang thiet lap remote 'hf' voi credentials bao mat...
-    git remote add hf https://!hf_user!:!hf_token!@huggingface.co/spaces/!hf_user!/!hf_space!
+    if "%has_hf%"=="0" (
+        git remote set-url hf https://!hf_user!:!hf_token!@huggingface.co/spaces/!hf_user!/!hf_space!
+    ) else (
+        git remote add hf https://!hf_user!:!hf_token!@huggingface.co/spaces/!hf_user!/!hf_space!
+    )
     echo [SUCCESS] Da thiet lap remote hf thanh cong!
     echo.
 )
