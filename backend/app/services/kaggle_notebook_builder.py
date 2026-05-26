@@ -19,9 +19,9 @@ class KaggleNotebookBuilder:
         metadata = {
             "id": f"{username}/{slug}",
             "title": title,
-            "code_file": "worker.py",
+            "code_file": "worker.ipynb",
             "language": "python",
-            "kernel_type": "script",
+            "kernel_type": "notebook",
             "is_private": True,
             "enable_gpu": True,
             "enable_internet": True,
@@ -64,8 +64,8 @@ class KaggleNotebookBuilder:
 
     @staticmethod
     def generate_worker_code(worker_dir: str, public_api_url: str = "", worker_token: str = "", worker_id: str = "") -> str:
-        """Generates the worker.py script containing the OmniVoice polling logic."""
-        worker_path = os.path.join(worker_dir, "worker.py")
+        """Generates the worker.ipynb notebook containing the OmniVoice polling logic."""
+        worker_path = os.path.join(worker_dir, "worker.ipynb")
         
         # Fallback values
         if not public_api_url:
@@ -380,17 +380,42 @@ if __name__ == "__main__":
             f'WORKER_ID = {repr(worker_id)}'
         )
 
+        # Convert code string to Jupyter Notebook JSON structure
+        notebook = {
+            "cells": [
+                {
+                    "cell_type": "code",
+                    "execution_count": None,
+                    "metadata": {},
+                    "outputs": [],
+                    "source": code.splitlines(keepends=True)
+                }
+            ],
+            "metadata": {
+                "kernelspec": {
+                    "display_name": "Python 3",
+                    "language": "python",
+                    "name": "python3"
+                },
+                "language_info": {
+                    "name": "python"
+                }
+            },
+            "nbformat": 4,
+            "nbformat_minor": 2
+        }
+
         with open(worker_path, "w", encoding="utf-8") as f:
-            f.write(code)
+            json.dump(notebook, f, indent=2)
             
-        print(f"[KaggleNotebookBuilder] Generated worker script at: {worker_path}")
+        print(f"[KaggleNotebookBuilder] Generated worker notebook at: {worker_path}")
         return worker_path
 
     @staticmethod
     def prepare_all(db=None, public_api_url: str = None) -> str:
         """
         Runs the full prepare pipeline: ensures directory,
-        writes requirements.txt, kernel-metadata.json, and worker.py.
+        writes requirements.txt, kernel-metadata.json, and worker.ipynb.
         Returns the absolute path of the worker directory.
         """
         # Resolve settings/DB configs

@@ -94,7 +94,7 @@ def test_kaggle_notebook_builder(tmp_path):
         data = json.load(f)
     assert data["id"] == "username/slug"
     assert data["title"] == "title"
-    assert data["code_file"] == "worker.py"
+    assert data["code_file"] == "worker.ipynb"
     
     # Test generate_requirements
     req_path = KaggleNotebookBuilder.generate_requirements(abs_path)
