@@ -145,14 +145,7 @@ class KaggleOrchestrator:
             import sys
             # Run 'kaggle kernels push' via python -c entrypoint
             cmd = [sys.executable, "-c", "from kaggle.cli import main; main()", "kernels", "push", "-p", worker_dir_abs, "--timeout", str(timeout)]
-            if accelerator:
-                acc_lower = accelerator.lower()
-                if "t4" in acc_lower:
-                    cmd.extend(["--accelerator", "nvidia-t4-x2"])
-                elif "p100" in acc_lower:
-                    cmd.extend(["--accelerator", "nvidia-p100"])
-                else:
-                    cmd.extend(["--accelerator", accelerator])
+
 
             
             # Executing subprocess
