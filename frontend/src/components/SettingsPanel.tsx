@@ -248,27 +248,23 @@ export const SettingsPanel: React.FC = () => {
                 </div>
                 {pushResult.success && pushResult.url && (
                   <div className="bg-slate-950 p-3 rounded-lg border border-slate-900 text-[11px] text-slate-400 flex flex-col gap-2">
-                    <p className="font-semibold text-slate-200">Các bước tiếp theo cần làm để bật máy GPU:</p>
-                    <ol className="list-decimal list-inside space-y-1.5 text-slate-400">
-                      <li>
-                        Nhấp vào liên kết sau để mở Notebook trên Kaggle:{" "}
-                        <a
-                          href={pushResult.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-indigo-400 hover:text-indigo-300 font-bold underline inline-flex items-center gap-0.5"
-                        >
-                          Mở Kaggle Notebook
-                          <ExternalLink className="w-3 h-3 inline-block" />
-                        </a>
-                      </li>
-                      <li>
-                        Nhấn nút <span className="text-slate-200 font-bold">"Start Session"</span> (ở góc phải) và chọn Accelerator là <span className="text-slate-200 font-bold">"GPU T4 x2"</span>.
-                      </li>
-                      <li>
-                        Khi máy ảo đã được bật (Active), bấm nút <span className="text-slate-200 font-bold">"Run All"</span> (hoặc chạy cell code duy nhất trong notebook) để khởi chạy worker.
-                      </li>
-                    </ol>
+                    <p className="font-semibold text-slate-200">Thông báo từ hệ thống Batch Worker:</p>
+                    <p className="leading-relaxed text-slate-400">
+                      Notebook thử nghiệm đã được đẩy thành công lên Kaggle (
+                      <a
+                        href={pushResult.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-indigo-400 hover:text-indigo-300 font-bold underline inline-flex items-center gap-0.5"
+                      >
+                        Xem trên Kaggle
+                        <ExternalLink className="w-3 h-3 inline-block" />
+                      </a>
+                      ).
+                    </p>
+                    <p className="leading-relaxed text-slate-400">
+                      Hệ thống đã chuyển sang mô hình <strong className="text-indigo-300">Kaggle Batch Job (Push-and-Poll)</strong> tự động hoàn toàn. Mỗi khi bạn gửi yêu cầu tạo âm thanh, backend sẽ tự tạo file script, tự động đẩy lên Kaggle dưới dạng batch job và poll tải file âm thanh kết quả về. Bạn <strong className="text-amber-450 font-semibold">không cần</strong> bật máy ảo hoặc chạy cell thủ công trên Kaggle.
+                    </p>
                   </div>
                 )}
               </div>

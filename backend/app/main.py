@@ -26,7 +26,9 @@ async def lifespan(app: FastAPI):
         print("[Main] Running in MOCK worker mode. Initializing MockWorker background thread...")
         MockWorker.start()
     else:
-        print(f"[Main] Running in KAGGLE worker mode. Pull-based worker API active at /v1/internal.")
+        print(f"[Main] Running in KAGGLE worker mode. Initializing KaggleOrchestrator queue runner...")
+        from app.services.kaggle_orchestrator import KaggleOrchestrator
+        KaggleOrchestrator.start_queue_runner()
         
     yield
     
@@ -34,7 +36,12 @@ async def lifespan(app: FastAPI):
     if settings.WORKER_MODE == "mock":
         print("[Main] Shutting down MockWorker background thread...")
         MockWorker.stop()
+    else:
+        print("[Main] Shutting down KaggleOrchestrator queue runner...")
+        from app.services.kaggle_orchestrator import KaggleOrchestrator
+        KaggleOrchestrator.stop_queue_runner()
     print("[Main] Gateway shutdown complete.")
+
 
 app = FastAPI(
     title="OmniVoice On-Demand Gateway",
