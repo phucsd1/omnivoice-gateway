@@ -1,0 +1,171 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import Optional
+from app.database import get_db
+from app.models import SystemSetting
+from app.config import settings
+
+router = APIRouter(prefix="/v1/settings", tags=["Settings"])
+
+class SettingsResponse(BaseModel):
+  kaggle_username: str
+  kaggle_key_configured: bool
+  kaggle_kernel_ref: str
+  kaggle_kernel_slug: str
+  kaggle_kernel_title: str
+  kaggle_accelerator: str
+  kaggle_timeout_seconds: int
+  kaggle_worker_dir: str
+  worker_mode: str
+
+class SettingsUpdateRequest(BaseModel):
+  kaggle_username: Optional[str] = None
+  kaggle_key: Optional[str] = None
+  kaggle_kernel_ref: Optional[str] = None
+  kaggle_kernel_slug: Optional[str] = None
+  kaggle_kernel_title: Optional[str] = None
+  kaggle_accelerator: Optional[str] = None
+  kaggle_timeout_seconds: Optional[int] = None
+  kaggle_worker_dir: Optional[str] = None
+
+@router.get("", response_model=SettingsResponse)
+def get_system_settings(db: Session = Depends(get_db)):
+    """Retrieves current settings, masking the Kaggle key for security."""
+    # Load defaults
+    username = settings.KAGGLE_USERNAME
+    key_configured = bool(settings.KAGGLE_KEY)
+    kernel_ref = settings.KAGGLE_KERNEL_REF
+    kernel_slug = settings.KAGGLE_KERNEL_SLUG
+    kernel_title = settings.KAGGLE_KERNEL_TITLE
+    accelerator = settings.KAGGLE_ACCELERATOR
+    timeout_seconds = settings.KAGGLE_TIMEOUT_SECONDS
+    worker_dir = settings.KAGGLE_WORKER_DIR
+
+    # Load DB overrides
+    db_username = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_username").first()
+    db_key = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_key").first()
+    db_kernel_ref = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_kernel_ref").first()
+    db_kernel_slug = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_kernel_slug").first()
+    db_kernel_title = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_kernel_title").first()
+    db_accelerator = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_accelerator").first()
+    db_timeout_seconds = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_timeout_seconds").first()
+    db_worker_dir = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_worker_dir").first()
+
+    if db_username and db_username.value.strip():
+        username = db_username.value.strip()
+    if db_key and db_key.value.strip():
+        key_configured = True
+    if db_kernel_ref and db_kernel_ref.value.strip():
+        kernel_ref = db_kernel_ref.value.strip()
+    if db_kernel_slug and db_kernel_slug.value.strip():
+        kernel_slug = db_kernel_slug.value.strip()
+    if db_kernel_title and db_kernel_title.value.strip():
+        kernel_title = db_kernel_title.value.strip()
+    if db_accelerator and db_accelerator.value.strip():
+        accelerator = db_accelerator.value.strip()
+    if db_timeout_seconds and db_timeout_seconds.value.strip():
+        try:
+            timeout_seconds = int(db_timeout_seconds.value.strip())
+        except ValueError:
+            pass
+    if db_worker_dir and db_worker_dir.value.strip():
+        worker_dir = db_worker_dir.value.strip()
+
+    return SettingsResponse(
+        kaggle_username=username,
+        kaggle_key_configured=key_configured,
+        kaggle_kernel_ref=kernel_ref,
+        kaggle_kernel_slug=kernel_slug,
+        kaggle_kernel_title=kernel_title,
+        kaggle_accelerator=accelerator,
+        kaggle_timeout_seconds=timeout_seconds,
+        kaggle_worker_dir=worker_dir,
+        worker_mode=settings.WORKER_MODE
+    )
+
+@router.post("", response_model=dict)
+def update_system_settings(payload: SettingsUpdateRequest, db: Session = Depends(get_db)):
+    """Saves updated Kaggle settings in the database."""
+    def save_setting(key: str, val: Optional[str]):
+        if val is None:
+            return
+        entry = db.query(SystemSetting).filter(SystemSetting.key == key).first()
+        if not entry:
+            entry = SystemSetting(key=key, value=str(val))
+            db.add(entry)
+        else:
+            entry.value = str(val)
+
+    try:
+        save_setting("kaggle_username", payload.kaggle_username)
+        save_setting("kaggle_key", payload.kaggle_key)
+        save_setting("kaggle_kernel_ref", payload.kaggle_kernel_ref)
+        save_setting("kaggle_kernel_slug", payload.kaggle_kernel_slug)
+        save_setting("kaggle_kernel_title", payload.kaggle_kernel_title)
+        save_setting("kaggle_accelerator", payload.kaggle_accelerator)
+        save_setting("kaggle_timeout_seconds", payload.kaggle_timeout_seconds)
+        save_setting("kaggle_worker_dir", payload.kaggle_worker_dir)
+        db.commit()
+        return {"status": "success", "message": "Cập nhật cấu hình thành công."}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Lỗi ghi cấu hình: {e}"
+        )
+
+@router.post("/test-kaggle", response_model=dict)
+def test_kaggle_connection(db: Session = Depends(get_db)):
+    """Tests the connection to Kaggle API using the saved credentials."""
+    import os
+    import sys
+    import subprocess
+    from app.services.kaggle_orchestrator import KaggleOrchestrator
+    
+    username, key, _, _ = KaggleOrchestrator.get_credentials(db)
+    
+    if not username or not key:
+        return {
+            "success": False,
+            "message": "Cấu hình Kaggle Username hoặc API Key đang để trống."
+        }
+        
+    env = os.environ.copy()
+    env["KAGGLE_USERNAME"] = username
+    env["KAGGLE_KEY"] = key
+    env["PYTHONUTF8"] = "1"
+    
+    # Run using sys.executable -c entrypoint to prevent Windows PATH lookup errors and module errors
+    cmd = [sys.executable, "-c", "from kaggle.cli import main; main()", "kernels", "list", "--mine", "--page-size", "1"]
+    
+    try:
+        res = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            text=True,
+            shell=False
+        )
+        stdout, stderr = res.communicate()
+        
+        if res.returncode == 0:
+            return {
+                "success": True,
+                "message": "Kết nối thành công tới Kaggle API!"
+            }
+        else:
+            err_msg = stderr.strip() or stdout.strip() or "Kaggle CLI returned non-zero code."
+            return {
+                "success": False,
+                "message": f"Kết nối thất bại: {err_msg}"
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Lỗi hệ thống khi gọi Kaggle CLI: {e}"
+        }
+
+
+
