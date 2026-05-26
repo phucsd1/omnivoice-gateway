@@ -7,4 +7,5 @@ python-multipart>=0.0.6
 soundfile>=0.12.1
 requests>=2.31.0
 pytest>=7.3.0
-kaggle>=1.5.16
+kaggle>=2.1.2
+
