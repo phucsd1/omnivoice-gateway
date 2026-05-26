@@ -11,7 +11,7 @@ class KaggleNotebookBuilder:
         return worker_dir_abs
 
     @staticmethod
-    def generate_metadata(worker_dir: str, username: str, slug: str, title: str) -> str:
+    def generate_metadata(worker_dir: str, username: str, slug: str, title: str, accelerator: str = None) -> str:
         """Generates or updates kernel-metadata.json from configurations."""
         metadata_path = os.path.join(worker_dir, "kernel-metadata.json")
         
@@ -29,6 +29,19 @@ class KaggleNotebookBuilder:
             "kernel_sources": [],
             "competition_sources": []
         }
+        
+        # Map accelerator values to Kaggle API expected format
+        if accelerator:
+            acc_lower = accelerator.lower()
+            if "t4" in acc_lower:
+                metadata["accelerator"] = "nvidia-t4-x2"
+            elif "p100" in acc_lower:
+                metadata["accelerator"] = "nvidia-p100"
+            else:
+                metadata["accelerator"] = accelerator
+        else:
+            # Default to nvidia-t4-x2 if none is specified but GPU is enabled
+            metadata["accelerator"] = "nvidia-t4-x2"
         
         with open(metadata_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2)
@@ -383,13 +396,30 @@ if __name__ == "__main__":
         from app.services.kaggle_orchestrator import KaggleOrchestrator
         username, _, kernel_ref, worker_dir = KaggleOrchestrator.get_credentials(db)
         
+        # Resolve public_api_url dynamically if not passed
+        if not public_api_url:
+            public_api_url = settings.PUBLIC_API_BASE_URL
+            
+        # Hugging Face Space auto-detection
+        if not public_api_url and os.environ.get("SPACE_HOST"):
+            public_api_url = f"https://{os.environ.get('SPACE_HOST')}"
+            print(f"[KaggleNotebookBuilder] Auto-detected Hugging Face Space Host URL: {public_api_url}")
+            
+        # Resolve accelerator settings
+        accelerator = settings.KAGGLE_ACCELERATOR
+        if db:
+            from app.models import SystemSetting
+            db_acc = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_accelerator").first()
+            if db_acc and db_acc.value.strip():
+                accelerator = db_acc.value.strip()
+        
         # Extract slug from sanitized kernel_ref
         slug = kernel_ref.split("/")[-1] if "/" in kernel_ref else settings.KAGGLE_KERNEL_SLUG
         title = slug.replace("-", " ").title()
 
         worker_dir_abs = KaggleNotebookBuilder.ensure_worker_dir(worker_dir)
         KaggleNotebookBuilder.generate_requirements(worker_dir_abs)
-        KaggleNotebookBuilder.generate_metadata(worker_dir_abs, username, slug, title)
+        KaggleNotebookBuilder.generate_metadata(worker_dir_abs, username, slug, title, accelerator)
         
         # Generate worker script with embedded credentials and API URLs
         import uuid
