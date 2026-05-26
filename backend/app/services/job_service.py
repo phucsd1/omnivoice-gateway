@@ -1,5 +1,6 @@
 import os
 import shutil
+from typing import Optional, List
 from sqlalchemy.orm import Session
 from datetime import datetime
 from app.models import TTSJob, VoiceDesignPreview, VoiceSample
