@@ -142,9 +142,20 @@ class KaggleOrchestrator:
             env["KAGGLE_KEY"] = key
             env["PYTHONUTF8"] = "1"
 
+            # Map accelerator values to Kaggle API expected format
+            mapped_acc = "NvidiaTeslaT4"
+            if accelerator:
+                acc_lower = accelerator.lower()
+                if "p100" in acc_lower:
+                    mapped_acc = "NvidiaTeslaP100"
+                elif "t4" in acc_lower:
+                    mapped_acc = "NvidiaTeslaT4"
+                else:
+                    mapped_acc = accelerator
+
             import sys
             # Run 'kaggle kernels push' via python -c entrypoint
-            cmd = [sys.executable, "-c", "from kaggle.cli import main; main()", "kernels", "push", "-p", worker_dir_abs, "--timeout", str(timeout)]
+            cmd = [sys.executable, "-c", "from kaggle.cli import main; main()", "kernels", "push", "-p", worker_dir_abs, "--timeout", str(timeout), "--accelerator", mapped_acc]
 
 
             

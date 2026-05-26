@@ -31,17 +31,18 @@ class KaggleNotebookBuilder:
         }
         
         # Map accelerator values to Kaggle API expected format
+        mapped_acc = "NvidiaTeslaT4"
         if accelerator:
             acc_lower = accelerator.lower()
-            if "t4" in acc_lower:
-                metadata["accelerator"] = "nvidia-t4-x2"
-            elif "p100" in acc_lower:
-                metadata["accelerator"] = "nvidia-p100"
+            if "p100" in acc_lower:
+                mapped_acc = "NvidiaTeslaP100"
+            elif "t4" in acc_lower:
+                mapped_acc = "NvidiaTeslaT4"
             else:
-                metadata["accelerator"] = accelerator
-        else:
-            # Default to nvidia-t4-x2 if none is specified but GPU is enabled
-            metadata["accelerator"] = "nvidia-t4-x2"
+                mapped_acc = accelerator
+        
+        metadata["machine_shape"] = mapped_acc
+        metadata["accelerator"] = mapped_acc
         
         with open(metadata_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2)
