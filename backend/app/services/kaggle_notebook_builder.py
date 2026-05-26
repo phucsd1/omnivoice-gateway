@@ -69,14 +69,22 @@ class KaggleNotebookBuilder:
         
         # Fallback values for job parameters
         if job:
-            job_id = getattr(job, "id", "") or job.get("id", "")
-            job_type = getattr(job, "job_type", "") or job.get("job_type", "")
-            text = getattr(job, "text", "") or job.get("text", "")
-            ref_text = getattr(job, "ref_text", None) or job.get("ref_text", None)
-            instruct = getattr(job, "instruct", None) or job.get("instruct", None)
+            if isinstance(job, dict):
+                job_id = job.get("id", "")
+                job_type = job.get("job_type", "")
+                text = job.get("text", "")
+                ref_text = job.get("ref_text", None)
+                instruct = job.get("instruct", None)
+                voice_sample_id = job.get("voice_sample_id", None)
+            else:
+                job_id = getattr(job, "id", "") or ""
+                job_type = getattr(job, "job_type", "") or ""
+                text = getattr(job, "text", "") or ""
+                ref_text = getattr(job, "ref_text", None)
+                instruct = getattr(job, "instruct", None)
+                voice_sample_id = getattr(job, "voice_sample_id", None)
             
             # Resolve ref_audio_url if it has a voice_sample_id
-            voice_sample_id = getattr(job, "voice_sample_id", None) or job.get("voice_sample_id", None)
             ref_audio_url = None
             if voice_sample_id:
                 base_url = public_api_url or settings.PUBLIC_API_BASE_URL
