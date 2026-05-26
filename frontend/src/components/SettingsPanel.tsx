@@ -13,8 +13,10 @@ export const SettingsPanel: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
+  const [pushingNotebook, setPushingNotebook] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [connectionResult, setConnectionResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [pushResult, setPushResult] = useState<{ success: boolean; message: string; url?: string } | null>(null);
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -72,6 +74,24 @@ export const SettingsPanel: React.FC = () => {
       });
     } finally {
       setTestingConnection(false);
+    }
+  };
+
+  const handlePushNotebook = async () => {
+    setPushingNotebook(true);
+    setPushResult(null);
+    setStatusMsg(null);
+    setConnectionResult(null);
+    try {
+      const res = await api.pushNotebook();
+      setPushResult(res);
+    } catch (err: any) {
+      setPushResult({
+        success: false,
+        message: err.message || "Lỗi hệ thống khi đẩy notebook lên Kaggle.",
+      });
+    } finally {
+      setPushingNotebook(false);
     }
   };
 
@@ -210,26 +230,91 @@ export const SettingsPanel: React.FC = () => {
               </div>
             )}
 
-            <div className="md:col-span-2 flex items-center justify-between gap-3 mt-2">
-              <button
-                type="button"
-                onClick={handleTestConnection}
-                disabled={testingConnection || loading || saving}
-                className="flex items-center gap-1.5 bg-slate-850 hover:bg-slate-800 text-slate-200 hover:text-white font-bold text-xs px-4 py-2.5 rounded-lg transition-colors cursor-pointer border border-slate-750/80 disabled:opacity-55 disabled:cursor-not-allowed"
+            {pushResult && (
+              <div
+                className={`md:col-span-2 p-4 rounded-xl text-xs border flex flex-col gap-2.5 ${
+                  pushResult.success
+                    ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-300"
+                    : "bg-rose-500/10 border-rose-500/20 text-rose-450"
+                }`}
               >
-                {testingConnection ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Đang kiểm tra kết nối...</span>
-                  </>
-                ) : (
-                  <span>Kiểm tra kết nối Kaggle</span>
+                <div className="flex items-start gap-1.5">
+                  {pushResult.success ? (
+                    <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-emerald-400" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-rose-500" />
+                  )}
+                  <span className="break-all font-medium">{pushResult.message}</span>
+                </div>
+                {pushResult.success && pushResult.url && (
+                  <div className="bg-slate-950 p-3 rounded-lg border border-slate-900 text-[11px] text-slate-400 flex flex-col gap-2">
+                    <p className="font-semibold text-slate-200">Các bước tiếp theo cần làm để bật máy GPU:</p>
+                    <ol className="list-decimal list-inside space-y-1.5 text-slate-400">
+                      <li>
+                        Nhấp vào liên kết sau để mở Notebook trên Kaggle:{" "}
+                        <a
+                          href={pushResult.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-indigo-400 hover:text-indigo-300 font-bold underline inline-flex items-center gap-0.5"
+                        >
+                          Mở Kaggle Notebook
+                          <ExternalLink className="w-3 h-3 inline-block" />
+                        </a>
+                      </li>
+                      <li>
+                        Nhấn nút <span className="text-slate-200 font-bold">"Start Session"</span> (ở góc phải) và chọn Accelerator là <span className="text-slate-200 font-bold">"GPU T4 x2"</span>.
+                      </li>
+                      <li>
+                        Khi máy ảo đã được bật (Active), bấm nút <span className="text-slate-200 font-bold">"Run All"</span> (hoặc chạy cell code duy nhất trong notebook) để khởi chạy worker.
+                      </li>
+                    </ol>
+                  </div>
                 )}
-              </button>
+              </div>
+            )}
+
+            <div className="md:col-span-2 flex items-center justify-between flex-wrap gap-3 mt-2">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleTestConnection}
+                  disabled={testingConnection || loading || saving || pushingNotebook}
+                  className="flex items-center gap-1.5 bg-slate-850 hover:bg-slate-800 text-slate-200 hover:text-white font-bold text-xs px-4 py-2.5 rounded-lg transition-colors cursor-pointer border border-slate-750/80 disabled:opacity-55 disabled:cursor-not-allowed"
+                >
+                  {testingConnection ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Đang kiểm tra kết nối...</span>
+                    </>
+                  ) : (
+                    <span>Kiểm tra kết nối Kaggle</span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handlePushNotebook}
+                  disabled={pushingNotebook || loading || saving || testingConnection}
+                  className="flex items-center gap-1.5 bg-indigo-950/40 hover:bg-indigo-900/40 text-indigo-400 hover:text-indigo-300 font-bold text-xs px-4 py-2.5 rounded-lg transition-colors cursor-pointer border border-indigo-500/20 disabled:opacity-55 disabled:cursor-not-allowed"
+                >
+                  {pushingNotebook ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Đang đẩy Notebook...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Đẩy Notebook lên Kaggle</span>
+                    </>
+                  )}
+                </button>
+              </div>
 
               <button
                 type="submit"
-                disabled={saving || loading || testingConnection}
+                disabled={saving || loading || testingConnection || pushingNotebook}
                 className="flex items-center gap-1.5 bg-indigo-650 hover:bg-indigo-600 text-white font-bold text-xs px-4 py-2.5 rounded-lg transition-colors cursor-pointer shadow-md shadow-indigo-650/10 disabled:opacity-55 disabled:cursor-not-allowed"
               >
                 {saving ? (

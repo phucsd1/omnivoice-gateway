@@ -161,6 +161,12 @@ export const api = {
       method: "POST",
     });
   },
+
+  pushNotebook: async (): Promise<{ success: boolean; message: string; url?: string }> => {
+    return request<{ success: boolean; message: string; url?: string }>("/v1/settings/push-notebook", {
+      method: "POST",
+    });
+  },
 };
 
 

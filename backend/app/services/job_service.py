@@ -87,20 +87,6 @@ class JobService:
         db.refresh(db_preview)
         db.refresh(db_job)
 
-        # Check worker configuration and start worker if necessary
-        if settings.WORKER_MODE == "kaggle" and not KaggleOrchestrator.has_live_worker(db):
-            started = KaggleOrchestrator.start_worker(db, public_api_url)
-            if started:
-                db_job.status = "starting_worker"
-                db_job.message = "Đang khởi động Kaggle Worker..."
-                db.commit()
-            else:
-                db_job.status = "failed"
-                db_job.message = "Không thể khởi động Kaggle Worker. Hãy kiểm tra cấu hình Kaggle CLI."
-                db_job.error_message = "Kaggle Orchestration failed."
-                db_preview.status = "failed"
-                db.commit()
-
         return db_preview, db_job
 
     @staticmethod
@@ -145,19 +131,6 @@ class JobService:
         db.add(db_job)
         db.commit()
         db.refresh(db_job)
-
-        # Check worker configuration and start worker if necessary
-        if settings.WORKER_MODE == "kaggle" and not KaggleOrchestrator.has_live_worker(db):
-            started = KaggleOrchestrator.start_worker(db, public_api_url)
-            if started:
-                db_job.status = "starting_worker"
-                db_job.message = "Đang khởi động Kaggle Worker..."
-                db.commit()
-            else:
-                db_job.status = "failed"
-                db_job.message = "Không thể khởi động Kaggle Worker. Hãy kiểm tra cấu hình Kaggle CLI."
-                db_job.error_message = "Kaggle Orchestration failed."
-                db.commit()
 
         return db_job
 

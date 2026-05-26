@@ -167,5 +167,89 @@ def test_kaggle_connection(db: Session = Depends(get_db)):
             "message": f"Lỗi hệ thống khi gọi Kaggle CLI: {e}"
         }
 
+@router.post("/push-notebook", response_model=dict)
+def push_notebook_to_kaggle(db: Session = Depends(get_db)):
+    """Prepares and pushes the worker notebook to Kaggle, returning the notebook web URL."""
+    from app.services.kaggle_orchestrator import KaggleOrchestrator
+    from app.services.kaggle_notebook_builder import KaggleNotebookBuilder
+    import os
+    import sys
+    import subprocess
+    
+    if not KaggleOrchestrator.is_configured(db):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Kaggle chưa được cấu hình. Vui lòng cập nhật cài đặt trước."
+        )
+        
+    try:
+        # Prepare files (worker.ipynb, kernel-metadata.json, requirements.txt)
+        worker_dir = KaggleNotebookBuilder.prepare_all(db)
+        username, key, kernel_ref, worker_dir_resolved = KaggleOrchestrator.get_credentials(db)
+        
+        # Resolve accelerator and timeout settings
+        accelerator = settings.KAGGLE_ACCELERATOR
+        timeout = settings.KAGGLE_TIMEOUT_SECONDS
+        
+        db_acc = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_accelerator").first()
+        db_timeout = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_timeout_seconds").first()
+        if db_acc and db_acc.value.strip():
+            accelerator = db_acc.value.strip()
+        if db_timeout and db_timeout.value.strip():
+            try:
+                timeout = int(db_timeout.value.strip())
+            except ValueError:
+                pass
+                
+        # Prepare the environment with credentials
+        env = os.environ.copy()
+        env["KAGGLE_USERNAME"] = username
+        env["KAGGLE_KEY"] = key
+        env["PYTHONUTF8"] = "1"
+
+        # Map accelerator
+        mapped_acc = "NvidiaTeslaT4"
+        if accelerator:
+            acc_lower = accelerator.lower()
+            if "p100" in acc_lower:
+                mapped_acc = "NvidiaTeslaP100"
+            elif "t4" in acc_lower:
+                mapped_acc = "NvidiaTeslaT4"
+            else:
+                mapped_acc = accelerator
+
+        cmd = [sys.executable, "-c", "from kaggle.cli import main; main()", "kernels", "push", "-p", os.path.abspath(worker_dir_resolved), "--timeout", str(timeout), "--accelerator", mapped_acc]
+        
+        res = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            text=True,
+            shell=False
+        )
+        stdout, stderr = res.communicate()
+        
+        if res.returncode == 0:
+            notebook_url = f"https://www.kaggle.com/code/{kernel_ref}"
+            return {
+                "success": True,
+                "message": "Đã đẩy notebook lên Kaggle thành công!",
+                "url": notebook_url
+            }
+        else:
+            err_msg = stderr.strip() or stdout.strip() or "Kaggle CLI returned non-zero code."
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Lỗi đẩy notebook: {err_msg}"
+            )
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Lỗi hệ thống khi đẩy notebook: {e}"
+        )
+
 
 
