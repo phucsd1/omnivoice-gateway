@@ -8,7 +8,7 @@ echo.
 
 :: Check if git remote 'hf' is configured
 git remote get-url hf >nul 2>&1
-if %errorlevel% neq 0 (
+if errorlevel 1 (
     echo [INFO] Hugging Face remote 'hf' chua duoc cau hinh.
     echo Vui long cung cap thong tin de tu dong hoa luu credentials.
     echo.
@@ -27,7 +27,7 @@ if %errorlevel% neq 0 (
 
 :: Check for local uncommitted changes
 git status --porcelain | findstr /R "^" >nul
-if %errorlevel% eq 0 (
+if "%errorlevel%"=="0" (
     echo [INFO] Phat hien thay doi chua commit trong thu muc code.
     set /p commit_msg="Nhap noi dung commit - hoac nhan Enter de dung auto deploy: "
     if "!commit_msg!"=="" set commit_msg=auto deploy: %date% %time%
