@@ -13,9 +13,9 @@ if %errorlevel% neq 0 (
     echo Vui long cung cap thong tin de tu dong hoa luu credentials.
     echo.
     set /p hf_user="1. Username Hugging Face: "
-    set /p hf_space="2. Ten Space (vi du: omnivoice-backend): "
-    echo 3. Nhap Hugging Face Access Token (Quyen WRITE):
-    echo ^(Lay tai: https://huggingface.co/settings/tokens ^)
+    set /p hf_space="2. Ten Space - vi du: omnivoice-backend: "
+    echo 3. Nhap Hugging Face Access Token quyen WRITE:
+    echo    Lay tai dia chi: https://huggingface.co/settings/tokens
     set /p hf_token="Token: "
     
     echo.
@@ -29,7 +29,7 @@ if %errorlevel% neq 0 (
 git status --porcelain | findstr /R "^" >nul
 if %errorlevel% eq 0 (
     echo [INFO] Phat hien thay doi chua commit trong thu muc code.
-    set /p commit_msg="Nhap noi dung commit (hoac nhan Enter de dung 'auto deploy'): "
+    set /p commit_msg="Nhap noi dung commit - hoac nhan Enter de dung auto deploy: "
     if "!commit_msg!"=="" set commit_msg=auto deploy: %date% %time%
     
     echo.
