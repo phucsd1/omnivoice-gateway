@@ -1,4 +1,17 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+export function getApiBaseUrl(): string {
+  const stored = localStorage.getItem("VITE_API_BASE_URL");
+  if (stored !== null) return stored.replace(/\/$/, "");
+  
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (envUrl) return envUrl.replace(/\/$/, "");
+  
+  return window.location.origin.replace(/\/$/, "");
+}
+
+export function setApiBaseUrl(url: string) {
+  localStorage.setItem("VITE_API_BASE_URL", url.trim());
+}
+
 
 export interface HealthResponse {
   status: string;
@@ -51,7 +64,7 @@ export interface JobStatusResponse {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const url = `${API_BASE_URL}${path}`;
+  const url = `${getApiBaseUrl()}${path}`;
   const response = await fetch(url, options);
   
   if (!response.ok) {
@@ -69,7 +82,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  getApiBaseUrl: () => API_BASE_URL,
+  getApiBaseUrl,
+  setApiBaseUrl,
+
   
   getHealth: async (): Promise<HealthResponse> => {
     return request<HealthResponse>("/health");

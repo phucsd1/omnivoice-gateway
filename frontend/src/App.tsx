@@ -61,9 +61,20 @@ function App() {
 
         {/* API Info & Health */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="bg-slate-900 border border-slate-850 px-3 py-1.5 rounded-lg text-xs font-mono text-slate-400 flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-            <span>Base API: {apiBaseUrl}</span>
+          <div className="bg-slate-900 border border-slate-800 focus-within:border-indigo-500/50 px-3 py-1.5 rounded-xl text-xs font-mono text-slate-400 flex items-center gap-2 transition-all">
+            <span className={`w-1.5 h-1.5 rounded-full transition-colors ${connectionStatus === "connected" ? "bg-emerald-500" : connectionStatus === "checking" ? "bg-amber-500 animate-pulse" : "bg-rose-500"}`} />
+            <span className="text-slate-500 select-none">API:</span>
+            <input
+              type="text"
+              value={apiBaseUrl}
+              onChange={(e) => {
+                const val = e.target.value;
+                setApiBaseUrl(val);
+                api.setApiBaseUrl(val);
+              }}
+              placeholder="http://localhost:6458"
+              className="bg-transparent border-none text-slate-200 focus:text-white outline-none w-56 font-mono text-xs"
+            />
           </div>
 
           <div className="flex items-center gap-2">
