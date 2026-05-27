@@ -79,6 +79,8 @@ class KaggleOrchestrator:
 
     _runner_thread = None
     _runner_stop_event = None
+    _consecutive_poll_failures = {}
+    _unknown_status_count = {}
 
     @classmethod
     def start_queue_runner(cls):
@@ -252,6 +254,10 @@ class KaggleOrchestrator:
         """Polls Kaggle for the active job's kernel status and handles the result."""
         username, key, kernel_ref, worker_dir = cls.get_credentials(db)
         if not username or not key:
+            job.status = "failed"
+            job.message = "Chưa cấu hình tài khoản Kaggle."
+            job.error_message = "Kaggle username or key missing during status poll."
+            db.commit()
             return
 
         env = os.environ.copy()
@@ -265,8 +271,20 @@ class KaggleOrchestrator:
         try:
             res = subprocess.run(cmd, capture_output=True, env=env, text=True, shell=False)
             if res.returncode != 0:
-                print(f"[KaggleOrchestrator] Warning: kaggle kernels status CLI failed: {res.stderr.strip()}")
+                err_msg = res.stderr.strip() or res.stdout.strip() or "Kaggle status command failed."
+                print(f"[KaggleOrchestrator] Warning: kaggle kernels status CLI failed: {err_msg}")
+                # Increment failure count
+                cls._consecutive_poll_failures[job.id] = cls._consecutive_poll_failures.get(job.id, 0) + 1
+                if cls._consecutive_poll_failures[job.id] >= 10:  # 10 checks * 10s = 100s
+                    job.status = "failed"
+                    job.message = "Không thể thăm dò trạng thái máy chủ Kaggle."
+                    job.error_message = f"Kaggle CLI status failed consecutively: {err_msg}"
+                    db.commit()
+                    cls._consecutive_poll_failures.pop(job.id, None)
                 return
+
+            # Reset consecutive poll failure counter on success
+            cls._consecutive_poll_failures[job.id] = 0
 
             status_output = res.stdout.strip()
             print(f"[KaggleOrchestrator] Kaggle status for {kernel_ref}: {status_output}")
@@ -274,28 +292,40 @@ class KaggleOrchestrator:
             status_lower = status_output.lower()
             
             if "queued" in status_lower:
+                cls._unknown_status_count.pop(job.id, None)
                 job.status = "queued_kaggle"
                 job.message = "Kaggle chưa cấp runtime/GPU, đang xếp hàng..."
                 job.progress = 15
                 db.commit()
             elif "running" in status_lower:
+                cls._unknown_status_count.pop(job.id, None)
                 job.status = "running"
                 job.message = "Kaggle Worker đang xử lý tạo âm thanh..."
                 job.progress = 50
                 db.commit()
             elif "complete" in status_lower:
+                cls._unknown_status_count.pop(job.id, None)
                 print(f"[KaggleOrchestrator] Kernel run completed. Downloading output...")
                 cls._download_and_complete_job(db, job, kernel_ref, env)
             elif "error" in status_lower or "failed" in status_lower:
+                cls._unknown_status_count.pop(job.id, None)
                 job.status = "failed"
                 job.message = "Kaggle Worker gặp lỗi khi tạo âm thanh."
                 job.error_message = f"Kaggle run error: {status_output}"
                 db.commit()
             else:
                 print(f"[KaggleOrchestrator] Warning: unknown Kaggle status: {status_output}")
+                cls._unknown_status_count[job.id] = cls._unknown_status_count.get(job.id, 0) + 1
+                if cls._unknown_status_count[job.id] >= 10:  # 100 seconds
+                    job.status = "failed"
+                    job.message = "Kaggle Worker trả về trạng thái không xác định."
+                    job.error_message = f"Unknown Kaggle status output: {status_output}"
+                    db.commit()
+                    cls._unknown_status_count.pop(job.id, None)
                 
         except Exception as e:
             print(f"[KaggleOrchestrator] Exception polling job status: {e}")
+
 
     @classmethod
     def _download_and_complete_job(cls, db, job, kernel_ref, env):

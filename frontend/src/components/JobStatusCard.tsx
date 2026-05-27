@@ -15,6 +15,11 @@ const statusMap: Record<string, { label: string; color: string; icon: any }> = {
     color: "text-slate-400 bg-slate-500/10 border-slate-500/20",
     icon: Info,
   },
+  queued_kaggle: {
+    label: "Kaggle đang xếp hàng chờ cấp GPU",
+    color: "text-amber-400 bg-slate-500/10 border-slate-500/20",
+    icon: Loader2,
+  },
   preparing_input: {
     label: "Đang chuẩn bị dữ liệu đầu vào",
     color: "text-amber-400 bg-amber-500/10 border-amber-500/20",

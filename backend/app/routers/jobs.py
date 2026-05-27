@@ -6,6 +6,32 @@ from app.schemas import JobStatusResponse
 
 router = APIRouter(prefix="/v1/jobs", tags=["Generic Jobs"])
 
+@router.get("", response_model=list[JobStatusResponse])
+def list_jobs(db: Session = Depends(get_db)):
+    """
+    Returns list of all jobs in the system, ordered by creation time descending.
+    """
+    jobs = db.query(TTSJob).order_by(TTSJob.created_at.desc()).all()
+    result = []
+    for job in jobs:
+        audio_url = None
+        if job.status == "completed":
+            if job.job_type == "voice_design_preview" and job.preview_id:
+                audio_url = f"/v1/voice-design/previews/{job.preview_id}/audio"
+            else:
+                audio_url = f"/v1/tts/jobs/{job.id}/audio"
+        result.append(
+            JobStatusResponse(
+                job_id=job.id,
+                status=job.status,
+                message=job.message,
+                progress=job.progress,
+                audio_url=audio_url,
+                error_message=job.error_message
+            )
+        )
+    return result
+
 @router.get("/{job_id}", response_model=JobStatusResponse)
 def get_job_status(job_id: str, db: Session = Depends(get_db)):
     """
