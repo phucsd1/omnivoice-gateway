@@ -48,6 +48,10 @@ async def auto_shutdown_monitor():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Reset last request time on startup to avoid immediate shutdown after slow container starts
+    global last_request_time
+    last_request_time = time.time()
+
     # Startup actions
     print("[Main] Initializing OmniVoice On-Demand Gateway...")
     AudioService.ensure_directories()
