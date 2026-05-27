@@ -1,11 +1,11 @@
 export function getApiBaseUrl(): string {
   const stored = localStorage.getItem("VITE_API_BASE_URL");
-  if (stored !== null) return stored.replace(/\/$/, "");
+  if (stored !== null && !stored.includes("pages.dev")) return stored.replace(/\/$/, "");
   
   const envUrl = import.meta.env.VITE_API_BASE_URL;
-  if (envUrl) return envUrl.replace(/\/$/, "");
+  if (envUrl && !envUrl.includes("pages.dev")) return envUrl.replace(/\/$/, "");
   
-  return window.location.origin.replace(/\/$/, "");
+  return "https://phucsd-omnivoice-gateway-backend.hf.space";
 }
 
 export function setApiBaseUrl(url: string) {
