@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     STORAGE_DIR: str = "./storage"
     
     PUBLIC_API_BASE_URL: str = ""
-    FRONTEND_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
+    FRONTEND_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173,https://omnivoice-gateway.pages.dev"
     
     WORKER_TOKEN: str = "default_secure_worker_token_12345"
     WORKER_IDLE_TIMEOUT_SECONDS: int = 600
