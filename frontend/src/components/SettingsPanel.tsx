@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Settings, Save, CheckCircle, AlertCircle, Key, ChevronDown, ChevronUp, HelpCircle, ExternalLink } from "lucide-react";
+import { Settings, Save, CheckCircle, AlertCircle, Key, ChevronDown, ChevronUp, HelpCircle, ExternalLink, Database, Zap, RefreshCw } from "lucide-react";
 import { api } from "../api/client";
 import type { SystemSettings } from "../api/client";
 
@@ -14,6 +14,7 @@ export const SettingsPanel: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [pushingNotebook, setPushingNotebook] = useState(false);
+  const [syncingCache, setSyncingCache] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [connectionResult, setConnectionResult] = useState<{ success: boolean; message: string } | null>(null);
   const [pushResult, setPushResult] = useState<{ success: boolean; message: string; url?: string } | null>(null);
@@ -34,6 +35,41 @@ export const SettingsPanel: React.FC = () => {
   useEffect(() => {
     fetchSettings();
   }, []);
+
+  // Poll settings while Kaggle cache setup is running in the background
+  useEffect(() => {
+    let intervalId: any;
+    if (config?.kaggle_cache_status === "running") {
+      intervalId = setInterval(() => {
+        // Silent update (without loading spinner) to avoid UI flickering
+        api.getSettings().then(res => {
+          setConfig(res);
+          setUsername(res.kaggle_username);
+        }).catch(err => console.error("Error polling settings:", err));
+      }, 5000);
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [config?.kaggle_cache_status]);
+
+  const handleSetupCache = async () => {
+    setSyncingCache(true);
+    setStatusMsg(null);
+    setConnectionResult(null);
+    setPushResult(null);
+    try {
+      const res = await api.setupKaggleCache();
+      setStatusMsg({ type: "success", text: res.message });
+      // Instantly poll settings to change status to running
+      const updated = await api.getSettings();
+      setConfig(updated);
+    } catch (err: any) {
+      setStatusMsg({ type: "error", text: err.message || "Lỗi đồng bộ cache." });
+    } finally {
+      setSyncingCache(false);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -270,12 +306,89 @@ export const SettingsPanel: React.FC = () => {
               </div>
             )}
 
+            {/* Caching Offline Section */}
+            <div className="md:col-span-2 border-t border-slate-850 pt-5 mt-2 flex flex-col gap-3">
+              <div className="flex items-center gap-2 text-indigo-400">
+                <Database className="w-4 h-4 flex-shrink-0" />
+                <h4 className="font-semibold text-xs text-slate-200">Tối ưu tốc độ khởi chạy (Offline Caching)</h4>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Đồng bộ thư viện python (wheels) và trọng số mô hình (model weights) thành các Kaggle Datasets trên tài khoản của bạn. 
+                GPU Worker sẽ tự động phát hiện và nạp mô hình từ các dataset này hoàn toàn offline, giúp giảm thời gian khởi chạy từ 40 giây xuống còn dưới 10 giây.
+              </p>
+
+              {config && (
+                <div className="bg-slate-900/60 border border-slate-850 rounded-xl p-4 flex flex-col gap-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400">Trạng thái cache:</span>
+                    <span className={`font-bold px-2 py-0.5 rounded-full text-[10px] uppercase ${
+                      config.kaggle_cache_status === "success" 
+                        ? "bg-emerald-500/15 text-emerald-450 border border-emerald-500/20" 
+                        : config.kaggle_cache_status === "running"
+                        ? "bg-indigo-500/15 text-indigo-400 border border-indigo-500/20"
+                        : config.kaggle_cache_status === "failed"
+                        ? "bg-rose-500/15 text-rose-455 border border-rose-500/20"
+                        : "bg-slate-800 text-slate-400"
+                    }`}>
+                      {config.kaggle_cache_status === "success" && "Đã tối ưu (Offline)"}
+                      {config.kaggle_cache_status === "running" && "Đang đồng bộ..."}
+                      {config.kaggle_cache_status === "failed" && "Đồng bộ thất bại"}
+                      {config.kaggle_cache_status === "idle" && "Chưa khởi tạo"}
+                    </span>
+                  </div>
+
+                  {config.kaggle_cache_message && (
+                    <div className="text-[11px] text-slate-350 leading-relaxed font-mono flex items-start gap-1.5 bg-slate-950/40 p-2.5 rounded-lg border border-slate-850/40">
+                      {config.kaggle_cache_status === "running" && <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-400 mt-0.5 flex-shrink-0" />}
+                      <span>{config.kaggle_cache_message}</span>
+                    </div>
+                  )}
+
+                  {config.kaggle_cache_status === "running" && (
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-[10px] text-slate-450">
+                        <span>Tiến trình:</span>
+                        <span>{config.kaggle_cache_progress || 0}%</span>
+                      </div>
+                      <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
+                        <div 
+                          className="bg-indigo-500 h-1.5 rounded-full transition-all duration-500"
+                          style={{ width: `${config.kaggle_cache_progress || 0}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end mt-1">
+                    <button
+                      type="button"
+                      onClick={handleSetupCache}
+                      disabled={syncingCache || config.kaggle_cache_status === "running" || !config.kaggle_key_configured}
+                      className="flex items-center gap-1.5 bg-indigo-950/40 hover:bg-indigo-900/40 text-indigo-400 hover:text-indigo-300 font-bold text-[11px] px-3.5 py-2 rounded-lg transition-colors cursor-pointer border border-indigo-500/20 disabled:opacity-55 disabled:cursor-not-allowed"
+                    >
+                      {syncingCache || config.kaggle_cache_status === "running" ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>Đang đồng bộ cache...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-3 h-3" />
+                          <span>Đồng bộ Kaggle Cache (Offline)</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="md:col-span-2 flex items-center justify-between flex-wrap gap-3 mt-2">
               <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={handleTestConnection}
-                  disabled={testingConnection || loading || saving || pushingNotebook}
+                  disabled={testingConnection || loading || saving || pushingNotebook || syncingCache || config?.kaggle_cache_status === "running"}
                   className="flex items-center gap-1.5 bg-slate-850 hover:bg-slate-800 text-slate-200 hover:text-white font-bold text-xs px-4 py-2.5 rounded-lg transition-colors cursor-pointer border border-slate-750/80 disabled:opacity-55 disabled:cursor-not-allowed"
                 >
                   {testingConnection ? (
@@ -291,7 +404,7 @@ export const SettingsPanel: React.FC = () => {
                 <button
                   type="button"
                   onClick={handlePushNotebook}
-                  disabled={pushingNotebook || loading || saving || testingConnection}
+                  disabled={pushingNotebook || loading || saving || testingConnection || syncingCache || config?.kaggle_cache_status === "running"}
                   className="flex items-center gap-1.5 bg-indigo-950/40 hover:bg-indigo-900/40 text-indigo-400 hover:text-indigo-300 font-bold text-xs px-4 py-2.5 rounded-lg transition-colors cursor-pointer border border-indigo-500/20 disabled:opacity-55 disabled:cursor-not-allowed"
                 >
                   {pushingNotebook ? (
@@ -310,7 +423,7 @@ export const SettingsPanel: React.FC = () => {
 
               <button
                 type="submit"
-                disabled={saving || loading || testingConnection || pushingNotebook}
+                disabled={saving || loading || testingConnection || pushingNotebook || syncingCache || config?.kaggle_cache_status === "running"}
                 className="flex items-center gap-1.5 bg-indigo-650 hover:bg-indigo-600 text-white font-bold text-xs px-4 py-2.5 rounded-lg transition-colors cursor-pointer shadow-md shadow-indigo-650/10 disabled:opacity-55 disabled:cursor-not-allowed"
               >
                 {saving ? (
