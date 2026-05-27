@@ -118,13 +118,21 @@ def ensure_dependencies():
         import soundfile
     except ImportError:
         missing.append("soundfile")
+    try:
+        import hf_transfer
+    except ImportError:
+        missing.append("hf-transfer")
         
     if missing:
         import subprocess
         print(f"Installing missing dependencies: {{', '.join(missing)}}")
         try:
-            # Install packages silently
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "-q"] + missing)
+            # Install packages silently with fast flags
+            subprocess.check_call([
+                sys.executable, "-m", "pip", "install", "-q", 
+                "--no-cache-dir", "--prefer-binary", 
+                "--no-warn-script-location"
+            ] + missing)
             print("Dependencies installed successfully.")
         except Exception as e:
             print(f"Failed to install dependencies: {{e}}")
@@ -132,6 +140,9 @@ def ensure_dependencies():
 
 # Ensure dependencies are available before anything else runs
 ensure_dependencies()
+
+import os
+os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
 
 import torch
 import soundfile as sf
