@@ -1,5 +1,5 @@
 import os
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -41,8 +41,9 @@ def create_voice_design_preview(
         )
 
 @router.get("/{preview_id}", response_model=VoiceDesignPreviewDetail)
-def get_preview_info(preview_id: str, db: Session = Depends(get_db)):
+def get_preview_info(preview_id: str, response: Response, db: Session = Depends(get_db)):
     """Fetches details and current processing state of a voice design preview."""
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     preview = db.query(VoiceDesignPreview).filter(VoiceDesignPreview.id == preview_id).first()
     if not preview:
         raise HTTPException(
@@ -52,8 +53,9 @@ def get_preview_info(preview_id: str, db: Session = Depends(get_db)):
     return preview
 
 @router.get("/{preview_id}/audio")
-def get_preview_audio(preview_id: str, db: Session = Depends(get_db)):
+def get_preview_audio(preview_id: str, response: Response, db: Session = Depends(get_db)):
     """Serves the generated WAV preview audio file using FileResponse."""
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     preview = db.query(VoiceDesignPreview).filter(VoiceDesignPreview.id == preview_id).first()
     if not preview:
         raise HTTPException(

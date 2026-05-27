@@ -114,7 +114,7 @@ export const api = {
   },
   
   getPreviewInfo: async (previewId: string): Promise<VoiceDesignPreviewDetail> => {
-    return request<VoiceDesignPreviewDetail>(`/v1/voice-design/previews/${previewId}`);
+    return request<VoiceDesignPreviewDetail>(`/v1/voice-design/previews/${previewId}?t=${Date.now()}`);
   },
   
   acceptPreview: async (previewId: string): Promise<AcceptPreviewResponse> => {
@@ -139,11 +139,11 @@ export const api = {
   },
   
   getJobStatus: async (jobId: string): Promise<JobStatusResponse> => {
-    return request<JobStatusResponse>(`/v1/jobs/${jobId}`);
+    return request<JobStatusResponse>(`/v1/jobs/${jobId}?t=${Date.now()}`);
   },
 
   getSettings: async (): Promise<SystemSettings> => {
-    return request<SystemSettings>("/v1/settings");
+    return request<SystemSettings>(`/v1/settings?t=${Date.now()}`);
   },
 
   updateSettings: async (payload: SettingsUpdateRequest): Promise<{ status: string; message: string }> => {
