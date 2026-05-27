@@ -36,3 +36,4 @@ kaggle_worker/worker.py
 .DS_Store
 Thumbs.db
 *.log
+*.wav

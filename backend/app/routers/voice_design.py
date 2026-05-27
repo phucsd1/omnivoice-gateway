@@ -77,7 +77,8 @@ def get_preview_audio(preview_id: str, response: Response, db: Session = Depends
         
     return FileResponse(
         preview.preview_audio_path,
-        media_type="audio/wav"
+        media_type="audio/wav",
+        filename=f"preview_{preview_id}.wav"
     )
 
 @router.post("/{preview_id}/accept", response_model=AcceptPreviewResponse)

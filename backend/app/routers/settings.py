@@ -18,9 +18,6 @@ class SettingsResponse(BaseModel):
   kaggle_timeout_seconds: int
   kaggle_worker_dir: str
   worker_mode: str
-  kaggle_cache_status: Optional[str] = "idle"
-  kaggle_cache_message: Optional[str] = "Chưa khởi tạo cache."
-  kaggle_cache_progress: Optional[int] = 0
 
 class SettingsUpdateRequest(BaseModel):
   kaggle_username: Optional[str] = None
@@ -75,9 +72,6 @@ def get_system_settings(db: Session = Depends(get_db)):
     if db_worker_dir and db_worker_dir.value.strip():
         worker_dir = db_worker_dir.value.strip()
 
-    from app.services.kaggle_cache_manager import KaggleCacheManager
-    cache_info = KaggleCacheManager.get_status()
-
     return SettingsResponse(
         kaggle_username=username,
         kaggle_key_configured=key_configured,
@@ -87,10 +81,7 @@ def get_system_settings(db: Session = Depends(get_db)):
         kaggle_accelerator=accelerator,
         kaggle_timeout_seconds=timeout_seconds,
         kaggle_worker_dir=worker_dir,
-        worker_mode=settings.WORKER_MODE,
-        kaggle_cache_status=cache_info.get("status", "idle"),
-        kaggle_cache_message=cache_info.get("message", "Chưa khởi tạo cache."),
-        kaggle_cache_progress=cache_info.get("progress", 0)
+        worker_mode=settings.WORKER_MODE
     )
 
 @router.post("", response_model=dict)
@@ -193,7 +184,7 @@ def push_notebook_to_kaggle(db: Session = Depends(get_db)):
         
     try:
         # Prepare files (worker.ipynb, kernel-metadata.json, requirements.txt)
-        worker_dir = KaggleNotebookBuilder.prepare_all(db)
+        worker_dir = KaggleNotebookBuilder.prepare_all(db=db)
         username, key, kernel_ref, worker_dir_resolved = KaggleOrchestrator.get_credentials(db)
         
         # Resolve accelerator and timeout settings
@@ -259,24 +250,6 @@ def push_notebook_to_kaggle(db: Session = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Lỗi hệ thống khi đẩy notebook: {e}"
         )
-
-@router.post("/setup-cache", response_model=dict)
-def setup_kaggle_cache(db: Session = Depends(get_db)):
-    """Triggers the Kaggle offline cache setup process in a background thread."""
-    from app.services.kaggle_cache_manager import KaggleCacheManager
-    from app.services.kaggle_orchestrator import KaggleOrchestrator
-    
-    if not KaggleOrchestrator.is_configured(db):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Kaggle chưa được cấu hình. Vui lòng cập nhật cài đặt trước."
-        )
-        
-    started = KaggleCacheManager.start_setup_cache()
-    if started:
-        return {"success": True, "message": "Đã kích hoạt đồng bộ Kaggle Cache thành công trong nền."}
-    else:
-        return {"success": False, "message": "Tiến trình đồng bộ đang được chạy trước đó."}
 
 
 

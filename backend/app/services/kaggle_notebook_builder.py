@@ -11,7 +11,7 @@ class KaggleNotebookBuilder:
         return worker_dir_abs
 
     @staticmethod
-    def generate_metadata(worker_dir: str, username: str, slug: str, title: str, accelerator: str = None, db = None) -> str:
+    def generate_metadata(worker_dir: str, username: str, slug: str, title: str, accelerator: str = None) -> str:
         """Generates or updates kernel-metadata.json from configurations."""
         metadata_path = os.path.join(worker_dir, "kernel-metadata.json")
         
@@ -44,17 +44,6 @@ class KaggleNotebookBuilder:
         metadata["machine_shape"] = mapped_acc
         metadata["accelerator"] = mapped_acc
         
-        # Mount offline cache datasets if they have been successfully initialized
-        if db:
-            from app.models import SystemSetting
-            cache_status_entry = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_cache_status").first()
-            if cache_status_entry and cache_status_entry.value == "success":
-                metadata["dataset_sources"] = [
-                    f"{username}/omnivoice-pip-packages",
-                    f"{username}/omnivoice-model-weights"
-                ]
-                print(f"[KaggleNotebookBuilder] Mounting offline cache datasets: {metadata['dataset_sources']}")
-        
         with open(metadata_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2)
             
@@ -74,7 +63,7 @@ class KaggleNotebookBuilder:
         return req_path
 
     @staticmethod
-    def generate_worker_code(worker_dir: str, job=None, public_api_url: str = "", worker_token: str = "", db = None) -> str:
+    def generate_worker_code(worker_dir: str, job=None, public_api_url: str = "", worker_token: str = "") -> str:
         """Generates the omnivoice_worker.py Python script containing the OmniVoice batch generation logic."""
         worker_path = os.path.join(worker_dir, "omnivoice_worker.py")
         
@@ -145,29 +134,13 @@ def ensure_dependencies():
         import subprocess
         print(f"Installing missing dependencies: {{', '.join(missing)}}")
         try:
-            # Try offline installation first if cache exists, otherwise fallback to online PyPI
-            import os
-            cache_dir = "/kaggle/input/omnivoice-pip-packages"
-            if os.path.exists(cache_dir):
-                print(f"Found offline cache folder: {{cache_dir}}. Installing offline...")
-                try:
-                    subprocess.check_call([
-                        sys.executable, "-m", "pip", "install", "-q", 
-                        "--no-index", f"--find-links={{cache_dir}}",
-                        "--no-cache-dir", "--no-warn-script-location"
-                    ] + missing)
-                    print("Offline dependencies installed successfully.")
-                    return
-                except Exception as offline_err:
-                    print(f"Offline install failed: {{offline_err}}. Falling back to online...")
-            
-            # Online installation fallback
+            # Install packages silently with fast flags
             subprocess.check_call([
                 sys.executable, "-m", "pip", "install", "-q", 
                 "--no-cache-dir", "--prefer-binary", 
                 "--no-warn-script-location"
             ] + missing)
-            print("Dependencies installed successfully from online PyPI.")
+            print("Dependencies installed successfully.")
         except Exception as e:
             print(f"Failed to install dependencies: {{e}}")
             sys.exit(1)
@@ -217,17 +190,8 @@ def main():
     print("Loading OmniVoice model...")
     sys.stdout.flush()
     try:
-        import os
-        model_path = "k2-fsa/OmniVoice"
-        cache_model_dir = "/kaggle/input/omnivoice-model-weights"
-        if os.path.exists(cache_model_dir):
-            print(f"Found offline model cache at: {{cache_model_dir}}. Loading model offline...")
-            model_path = cache_model_dir
-        else:
-            print("Model cache not found. Downloading model from Hugging Face online...")
-            
         model = OmniVoice.from_pretrained(
-            model_path,
+            "k2-fsa/OmniVoice",
             device_map="cuda:0",
             dtype=torch.float16,
             load_asr=True,
@@ -321,10 +285,10 @@ if __name__ == '__main__':
 
         worker_dir_abs = KaggleNotebookBuilder.ensure_worker_dir(worker_dir)
         KaggleNotebookBuilder.generate_requirements(worker_dir_abs)
-        KaggleNotebookBuilder.generate_metadata(worker_dir_abs, username, slug, title, accelerator, db)
+        KaggleNotebookBuilder.generate_metadata(worker_dir_abs, username, slug, title, accelerator)
         
         # Generate worker script with embedded credentials and API URLs
-        KaggleNotebookBuilder.generate_worker_code(worker_dir_abs, job, public_api_url, settings.WORKER_TOKEN, db)
+        KaggleNotebookBuilder.generate_worker_code(worker_dir_abs, job, public_api_url, settings.WORKER_TOKEN)
         
         return worker_dir_abs
 

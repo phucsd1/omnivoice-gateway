@@ -167,12 +167,6 @@ export const api = {
       method: "POST",
     });
   },
-
-  setupKaggleCache: async (): Promise<{ success: boolean; message: string }> => {
-    return request<{ success: boolean; message: string }>("/v1/settings/setup-cache", {
-      method: "POST",
-    });
-  },
 };
 
 
@@ -186,9 +180,6 @@ export interface SystemSettings {
   kaggle_timeout_seconds: number;
   kaggle_worker_dir: string;
   worker_mode: string;
-  kaggle_cache_status?: string;
-  kaggle_cache_message?: string;
-  kaggle_cache_progress?: number;
 }
 
 export interface SettingsUpdateRequest {
