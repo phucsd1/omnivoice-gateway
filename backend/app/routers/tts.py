@@ -87,5 +87,6 @@ def get_tts_audio(job_id: str, db: Session = Depends(get_db)):
     return FileResponse(
         job.output_audio_path,
         media_type="audio/wav",
-        filename=f"tts_{job_id}.wav"
+        filename=f"tts_{job_id}.wav",
+        content_disposition_type="inline"
     )

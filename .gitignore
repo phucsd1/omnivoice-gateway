@@ -37,3 +37,4 @@ kaggle_worker/worker.py
 Thumbs.db
 *.log
 *.wav
+scratch/
