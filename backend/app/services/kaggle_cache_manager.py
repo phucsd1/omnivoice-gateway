@@ -4,7 +4,6 @@ import subprocess
 import shutil
 import json
 import threading
-from huggingface_hub import snapshot_download
 from app.database import SessionLocal
 from app.models import SystemSetting
 from app.services.kaggle_orchestrator import KaggleOrchestrator
@@ -153,6 +152,7 @@ class KaggleCacheManager:
         
         # Download model snapshot
         print("[KaggleCacheManager] Starting model snapshot download...")
+        from huggingface_hub import snapshot_download
         snapshot_download(
             repo_id="k2-fsa/OmniVoice",
             local_dir=model_dir,

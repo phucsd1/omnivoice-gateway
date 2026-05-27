@@ -8,4 +8,5 @@ soundfile>=0.12.1
 requests>=2.31.0
 pytest>=7.3.0
 kaggle>=2.1.2
+huggingface_hub>=0.20.0
 
