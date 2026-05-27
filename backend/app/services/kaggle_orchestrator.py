@@ -112,28 +112,60 @@ class KaggleOrchestrator:
     def _queue_loop(cls):
         import time
         from app.database import SessionLocal
-        from app.models import TTSJob
+        from app.models import TTSJob, WorkerSession
+        from datetime import datetime, timedelta
 
         print("[KaggleOrchestrator] Entering queue runner loop.")
         while cls._runner_stop_event and not cls._runner_stop_event.is_set():
             db = SessionLocal()
             try:
-                # 1. Check if there is an active job currently processing on Kaggle
-                active_job = db.query(TTSJob).filter(
-                    TTSJob.status.in_(["starting_worker", "booting_kaggle", "queued_kaggle", "running", "exporting_wav"])
+                # 1. Recover stuck jobs from dead workers (no heartbeat for 120s)
+                cutoff = datetime.utcnow() - timedelta(seconds=120)
+                dead_sessions = db.query(WorkerSession).filter(
+                    WorkerSession.status.in_(["starting", "loading_model", "ready", "busy", "idle"]),
+                    WorkerSession.last_heartbeat_at < cutoff
+                ).all()
+                
+                for session in dead_sessions:
+                    print(f"[KaggleOrchestrator] Worker {session.worker_id} has died (no heartbeat for 120s). Stopping session.")
+                    session.status = "stopped"
+                    session.stopped_at = datetime.utcnow()
+                    session.message = "Stuck worker detected and stopped by Gateway."
+                    
+                    # Reset its current job to queued if it was in progress
+                    if session.current_job_id:
+                        stuck_job = db.query(TTSJob).filter(TTSJob.id == session.current_job_id).first()
+                        if stuck_job and stuck_job.status not in ["completed", "failed"]:
+                            print(f"[KaggleOrchestrator] Resetting stuck job {stuck_job.id} to 'queued'")
+                            stuck_job.status = "queued"
+                            stuck_job.message = "Hàng đợi tự động reset do máy chủ xử lý mất kết nối."
+                            stuck_job.progress = 0
+                            stuck_job.worker_id = None
+                    db.commit()
+
+                # 2. Check if there are any jobs currently starting or booting
+                booting_job = db.query(TTSJob).filter(
+                    TTSJob.status.in_(["starting_worker", "queued_kaggle"])
                 ).first()
 
-                if active_job:
-                    # Poll Kaggle for this job's status
-                    cls._poll_active_job(db, active_job)
+                if booting_job:
+                    # Poll Kaggle to check if the kernel is starting/running
+                    cls._poll_booting_worker(db, booting_job)
                 else:
-                    # No active job. Find the next queued job to push.
+                    # No booting job. Find the next queued job.
                     next_job = db.query(TTSJob).filter(
                         TTSJob.status == "queued"
                     ).order_by(TTSJob.created_at.asc()).first()
 
                     if next_job:
-                        cls._trigger_batch_job(db, next_job)
+                        # Check if we have a live worker session already
+                        if cls.has_live_worker(db):
+                            # Yes! The live worker will poll and pick up the job via API.
+                            # We don't need to do anything at the gateway.
+                            print(f"[KaggleOrchestrator] Live worker detected. Job {next_job.id} is queued and waiting for worker to pull.")
+                        else:
+                            # No live worker! We need to trigger a new Kaggle worker session.
+                            cls._trigger_daemon_worker(db, next_job)
             except Exception as e:
                 print(f"[KaggleOrchestrator] Exception in queue loop: {e}")
             finally:
@@ -143,9 +175,9 @@ class KaggleOrchestrator:
             time.sleep(10)
 
     @classmethod
-    def _trigger_batch_job(cls, db, job):
-        """Prepares metadata/code and pushes the batch job to Kaggle."""
-        print(f"[KaggleOrchestrator] Triggering batch job {job.id} ({job.job_type})")
+    def _trigger_daemon_worker(cls, db, job):
+        """Prepares daemon worker code and pushes it to Kaggle."""
+        print(f"[KaggleOrchestrator] Triggering daemon worker for job context {job.id}")
         
         # Update status to starting_worker
         job.status = "starting_worker"
@@ -166,7 +198,7 @@ class KaggleOrchestrator:
         # Call builder to prepare files
         try:
             from app.services.kaggle_notebook_builder import KaggleNotebookBuilder
-            KaggleNotebookBuilder.prepare_all(job=job, db=db)
+            KaggleNotebookBuilder.prepare_all(job=None, db=db, is_daemon=True)
         except Exception as e:
             job.status = "failed"
             job.message = "Lỗi chuẩn bị mã nguồn."
@@ -208,7 +240,6 @@ class KaggleOrchestrator:
                 mapped_acc = accelerator
 
         import sys
-        # Push command: kaggle kernels push -p ./kaggle_omnivoice_worker --accelerator NvidiaTeslaT4 --timeout 32400
         cmd = [
             sys.executable, "-c", "from kaggle.cli import main; main()", 
             "kernels", "push", 
@@ -217,7 +248,7 @@ class KaggleOrchestrator:
             "--accelerator", mapped_acc
         ]
 
-        print(f"[KaggleOrchestrator] Pushing batch kernel: {' '.join(cmd)}")
+        print(f"[KaggleOrchestrator] Pushing daemon worker kernel: {' '.join(cmd)}")
         try:
             process = subprocess.Popen(
                 cmd,
@@ -230,33 +261,33 @@ class KaggleOrchestrator:
             stdout, stderr = process.communicate()
             
             if process.returncode == 0:
-                print(f"[KaggleOrchestrator] Kernel successfully pushed. Output: {stdout.strip()}")
+                print(f"[KaggleOrchestrator] Daemon worker kernel pushed successfully. Output: {stdout.strip()}")
                 job.status = "queued_kaggle"
-                job.message = "Đẩy job lên Kaggle thành công. Đang chờ hàng đợi..."
+                job.message = "Khởi động máy chủ Kaggle. Đang chờ hàng đợi..."
                 job.progress = 10
                 db.commit()
             else:
                 err_msg = stderr.strip() or stdout.strip() or "Unknown error."
-                print(f"[KaggleOrchestrator] Pushing failed: {err_msg}")
+                print(f"[KaggleOrchestrator] Daemon pushing failed: {err_msg}")
                 job.status = "failed"
-                job.message = "Không thể gửi yêu cầu lên Kaggle."
+                job.message = "Không thể khởi động máy chủ Kaggle."
                 job.error_message = err_msg
                 db.commit()
         except Exception as e:
-            print(f"[KaggleOrchestrator] Exception pushing kernel: {e}")
+            print(f"[KaggleOrchestrator] Exception pushing daemon worker: {e}")
             job.status = "failed"
-            job.message = "Lỗi hệ thống khi gửi yêu cầu."
+            job.message = "Lỗi hệ thống khi khởi động máy chủ."
             job.error_message = str(e)
             db.commit()
 
     @classmethod
-    def _poll_active_job(cls, db, job):
-        """Polls Kaggle for the active job's kernel status and handles the result."""
+    def _poll_booting_worker(cls, db, job):
+        """Polls Kaggle for the booting worker's status."""
         username, key, kernel_ref, worker_dir = cls.get_credentials(db)
         if not username or not key:
             job.status = "failed"
             job.message = "Chưa cấu hình tài khoản Kaggle."
-            job.error_message = "Kaggle username or key missing during status poll."
+            job.error_message = "Kaggle username or key missing during boot poll."
             db.commit()
             return
 
@@ -283,11 +314,9 @@ class KaggleOrchestrator:
                     cls._consecutive_poll_failures.pop(job.id, None)
                 return
 
-            # Reset consecutive poll failure counter on success
             cls._consecutive_poll_failures[job.id] = 0
-
             status_output = res.stdout.strip()
-            print(f"[KaggleOrchestrator] Kaggle status for {kernel_ref}: {status_output}")
+            print(f"[KaggleOrchestrator] Kaggle status for booting worker: {status_output}")
 
             status_lower = status_output.lower()
             
@@ -299,93 +328,21 @@ class KaggleOrchestrator:
                 db.commit()
             elif "running" in status_lower:
                 cls._unknown_status_count.pop(job.id, None)
-                job.status = "running"
-                job.message = "Kaggle Worker đang xử lý tạo âm thanh..."
-                job.progress = 50
+                job.status = "starting_worker"
+                job.message = "Kaggle Worker đang tải môi trường chạy và mô hình..."
+                job.progress = 25
                 db.commit()
-            elif "complete" in status_lower:
-                cls._unknown_status_count.pop(job.id, None)
-                print(f"[KaggleOrchestrator] Kernel run completed. Downloading output...")
-                cls._download_and_complete_job(db, job, kernel_ref, env)
             elif "error" in status_lower or "failed" in status_lower:
                 cls._unknown_status_count.pop(job.id, None)
                 job.status = "failed"
-                job.message = "Kaggle Worker gặp lỗi khi tạo âm thanh."
-                job.error_message = f"Kaggle run error: {status_output}"
+                job.message = "Kaggle Worker gặp lỗi khi khởi động."
+                job.error_message = f"Kaggle boot error: {status_output}"
                 db.commit()
             else:
                 print(f"[KaggleOrchestrator] Warning: unknown Kaggle status: {status_output}")
-                cls._unknown_status_count[job.id] = cls._unknown_status_count.get(job.id, 0) + 1
-                if cls._unknown_status_count[job.id] >= 10:  # 100 seconds
-                    job.status = "failed"
-                    job.message = "Kaggle Worker trả về trạng thái không xác định."
-                    job.error_message = f"Unknown Kaggle status output: {status_output}"
-                    db.commit()
-                    cls._unknown_status_count.pop(job.id, None)
                 
         except Exception as e:
-            print(f"[KaggleOrchestrator] Exception polling job status: {e}")
-
-
-    @classmethod
-    def _download_and_complete_job(cls, db, job, kernel_ref, env):
-        import shutil
-        temp_dir = os.path.abspath("./outputs_temp")
-        os.makedirs(temp_dir, exist_ok=True)
-
-        job.status = "exporting_wav"
-        job.message = "Đang tải file âm thanh kết quả..."
-        job.progress = 85
-        db.commit()
-
-        import sys
-        cmd = [sys.executable, "-c", "from kaggle.cli import main; main()", "kernels", "output", kernel_ref, "-p", temp_dir, "-o"]
-        print(f"[KaggleOrchestrator] Downloading output using: {' '.join(cmd)}")
-
-        try:
-            res = subprocess.run(cmd, capture_output=True, env=env, text=True, shell=False)
-            if res.returncode != 0:
-                err_msg = res.stderr.strip()
-                print(f"[KaggleOrchestrator] Downloader CLI failed: {err_msg}")
-                job.status = "failed"
-                job.message = "Không thể tải file âm thanh kết quả."
-                job.error_message = f"Kaggle output download error: {err_msg}"
-                db.commit()
-                return
-
-            downloaded_file = os.path.join(temp_dir, "output.wav")
-            if os.path.exists(downloaded_file):
-                # Resolve final destination
-                if job.job_type == "voice_design_preview" and job.preview_id:
-                    os.makedirs(settings.previews_dir, exist_ok=True)
-                    dest_path = os.path.join(settings.previews_dir, f"{job.preview_id}.wav")
-                else:
-                    os.makedirs(settings.outputs_dir, exist_ok=True)
-                    dest_path = os.path.join(settings.outputs_dir, f"{job.id}.wav")
-
-                dest_path_abs = os.path.abspath(dest_path)
-                shutil.move(downloaded_file, dest_path_abs)
-                print(f"[KaggleOrchestrator] Moved downloaded audio to {dest_path_abs}")
-
-                # Complete the job using JobService
-                from app.services.job_service import JobService
-                JobService.complete_job_output(db, job.id, dest_path_abs)
-                print(f"[KaggleOrchestrator] Job {job.id} completed successfully.")
-            else:
-                print(f"[KaggleOrchestrator] Error: output.wav not found in downloaded folder.")
-                job.status = "failed"
-                job.message = "Lỗi: Không tìm thấy file audio kết quả."
-                job.error_message = f"Downloaded output files: {os.listdir(temp_dir)}"
-                db.commit()
-        except Exception as e:
-            print(f"[KaggleOrchestrator] Exception downloading and completing job: {e}")
-            job.status = "failed"
-            job.message = "Lỗi xử lý file kết quả."
-            job.error_message = str(e)
-            db.commit()
-        finally:
-            if os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir, ignore_errors=True)
+            print(f"[KaggleOrchestrator] Exception polling booting worker: {e}")
 
     @staticmethod
     def get_status(db=None) -> str:
@@ -408,5 +365,3 @@ class KaggleOrchestrator:
             return f"Error: {res.stderr.strip()}"
         except Exception as e:
             return f"Exception: {str(e)}"
-
-
