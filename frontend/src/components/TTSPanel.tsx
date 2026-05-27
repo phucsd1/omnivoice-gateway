@@ -91,7 +91,16 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId }) => {
       }, 900000);
     }
 
-    return () => stopPolling();
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
   }, [isPolling, jobId]);
 
   const stopPolling = () => {
