@@ -106,6 +106,13 @@ import sys
 import time
 import requests
 import traceback
+import warnings
+
+os.environ["CUDA_MODULE_LOADING"] = "LAZY"
+os.environ["PYTHONWARNINGS"] = "ignore"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
+warnings.filterwarnings("ignore")
 
 def ensure_dependencies():
     \"\"\"Dynamically checks and installs required packages inside the Kaggle environment if missing.\"\"\"
@@ -140,9 +147,6 @@ def ensure_dependencies():
 
 # Ensure dependencies are available before anything else runs
 ensure_dependencies()
-
-import os
-os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
 
 import torch
 import soundfile as sf
