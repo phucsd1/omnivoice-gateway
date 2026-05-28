@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Sparkles, Radio, CheckCircle, XCircle, RefreshCw, Layers, LogOut, Server, KeyRound } from "lucide-react";
+import { Sparkles, Radio, CheckCircle, XCircle, RefreshCw, Layers, LogOut, Server, KeyRound, BookOpen } from "lucide-react";
 import { api } from "./api/client";
 
 import { VoiceSampleUpload } from "./components/VoiceSampleUpload";
@@ -7,11 +7,43 @@ import { VoiceDesignPanel } from "./components/VoiceDesignPanel";
 import { TTSPanel } from "./components/TTSPanel";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { ApiKeyPanel } from "./components/ApiKeyPanel";
+import { ApiDocsPage } from "./components/ApiDocsPage";
 import { LoginRegister } from "./components/LoginRegister";
 import { AdminDashboard } from "./components/AdminDashboard";
 
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem("VITE_JWT_TOKEN"));
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+
+  useEffect(() => {
+    const handleLocationChange = () => {
+      setCurrentPath(window.location.pathname);
+    };
+    window.addEventListener("popstate", handleLocationChange);
+
+    const handleHashChange = () => {
+      if (window.location.hash === "#/docs") {
+        setCurrentPath("/docs");
+      } else if (window.location.hash === "#/" || window.location.hash === "") {
+        setCurrentPath("/");
+      }
+    };
+    window.addEventListener("hashchange", handleHashChange);
+
+    if (window.location.hash === "#/docs") {
+      setCurrentPath("/docs");
+    }
+
+    return () => {
+      window.removeEventListener("popstate", handleLocationChange);
+      window.removeEventListener("hashchange", handleHashChange);
+    };
+  }, []);
+
+  const navigateTo = (path: string) => {
+    window.history.pushState({}, "", path);
+    setCurrentPath(path);
+  };
   const [currentUser, setCurrentUser] = useState<{ username: string; is_admin: boolean } | null>(null);
   const [showAdminPortal, setShowAdminPortal] = useState(false);
   const [activeVoiceSampleId, setActiveVoiceSampleId] = useState<string | null>(null);
@@ -80,6 +112,10 @@ function App() {
     setActiveVoiceSampleId(sampleId);
   };
 
+  if (currentPath === "/docs") {
+    return <ApiDocsPage onBack={() => navigateTo("/")} isLoggedIn={!!token} />;
+  }
+
   if (!token) {
     return <LoginRegister onLoginSuccess={(t) => setToken(t)} />;
   }
@@ -135,10 +171,20 @@ function App() {
               <button
                 onClick={() => setShowApiKeyModal(true)}
                 className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-bold text-slate-300 hover:text-white transition-all cursor-pointer flex items-center gap-1.5"
-                title="Quản lý các API Keys & Xem hướng dẫn lập trình tích hợp"
+                title="Quản lý các API Keys của bạn"
               >
                 <KeyRound className="w-3.5 h-3.5" />
                 <span>API Keys</span>
+              </button>
+
+              {/* API Docs Button */}
+              <button
+                onClick={() => navigateTo("/docs")}
+                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-bold text-slate-300 hover:text-white transition-all cursor-pointer flex items-center gap-1.5"
+                title="Tài liệu hướng dẫn nhúng & tích hợp hệ thống"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Tài liệu API</span>
               </button>
 
               <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-inner">
@@ -231,6 +277,10 @@ function App() {
             <ApiKeyPanel
               isOpen={showApiKeyModal}
               onClose={() => setShowApiKeyModal(false)}
+              onNavigateToDocs={() => {
+                setShowApiKeyModal(false);
+                navigateTo("/docs");
+              }}
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
