@@ -26,8 +26,42 @@ def send_verification_email(email: str, username: str, code: str):
     Đội ngũ OmniVoice.
     """
     
+    # Load dynamic SMTP settings from database
+    from app.database import SessionLocal
+    from app.models import SystemSetting
+    
+    smtp_host = settings.SMTP_HOST
+    smtp_port = settings.SMTP_PORT
+    smtp_username = settings.SMTP_USERNAME
+    smtp_password = settings.SMTP_PASSWORD
+    smtp_from = settings.SMTP_FROM
+    
+    db = SessionLocal()
+    try:
+        def get_setting(key: str, default_val):
+            entry = db.query(SystemSetting).filter(SystemSetting.key == key).first()
+            if entry and entry.value.strip():
+                return entry.value.strip()
+            return default_val
+            
+        smtp_host = get_setting("smtp_host", smtp_host)
+        
+        smtp_port_str = get_setting("smtp_port", str(smtp_port))
+        try:
+            smtp_port = int(smtp_port_str)
+        except ValueError:
+            pass
+            
+        smtp_username = get_setting("smtp_username", smtp_username)
+        smtp_password = get_setting("smtp_password", smtp_password)
+        smtp_from = get_setting("smtp_from", smtp_from)
+    except Exception as e:
+        print(f"[SMTP config check] Error loading from DB: {e}")
+    finally:
+        db.close()
+    
     # Check if credentials exist
-    if not settings.SMTP_USERNAME or not settings.SMTP_PASSWORD:
+    if not smtp_username or not smtp_password:
         print(f"\n=======================================================")
         print(f"[MAIL MOCK] Gửi mail xác thực tới: {email}")
         print(f"[MAIL MOCK] Tên tài khoản: {username}")
@@ -38,16 +72,16 @@ def send_verification_email(email: str, username: str, code: str):
     try:
         # Create message
         msg = MIMEMultipart()
-        msg['From'] = settings.SMTP_FROM
+        msg['From'] = smtp_from
         msg['To'] = email
         msg['Subject'] = subject
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
         
         # Connect to SMTP server
-        server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT)
+        server = smtplib.SMTP(smtp_host, smtp_port)
         server.starttls()  # Upgrade connection to secure encrypted SSL/TLS
-        server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-        server.sendmail(settings.SMTP_FROM, email, msg.as_string())
+        server.login(smtp_username, smtp_password)
+        server.sendmail(smtp_from, email, msg.as_string())
         server.quit()
         
         print(f"[SMTP] Đã gửi mail xác thực tới {email} thành công.")

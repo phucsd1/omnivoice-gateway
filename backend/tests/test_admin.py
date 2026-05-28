@@ -135,3 +135,116 @@ def test_admin_seeding_and_access():
     # Verify user is deleted
     users_res = client.get("/v1/admin/users", headers=admin_headers)
     assert not any(u["username"] == "normal_guy" for u in users_res.json())
+
+def test_admin_advanced_features():
+    # Login as admin
+    login_res = client.post("/v1/auth/login", json={
+        "username": "admin",
+        "password": "admin_password_2026"
+    })
+    admin_token = login_res.json()["access_token"]
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+    # 1. Admin creates a user directly
+    create_res = client.post("/v1/admin/users", json={
+        "username": "direct_user",
+        "email": "direct@example.com",
+        "password": "password_direct",
+        "is_verified": True,
+        "is_approved": True,
+        "is_admin": False
+    }, headers=admin_headers)
+    assert create_res.status_code == 201
+    direct_user = create_res.json()
+    assert direct_user["username"] == "direct_user"
+    assert direct_user["email"] == "direct@example.com"
+    assert direct_user["is_verified"] is True
+    assert direct_user["is_approved"] is True
+
+    # Login as created user
+    login_direct = client.post("/v1/auth/login", json={
+        "username": "direct_user",
+        "password": "password_direct"
+    })
+    assert login_direct.status_code == 200
+    direct_token = login_direct.json()["access_token"]
+    direct_headers = {"Authorization": f"Bearer {direct_token}"}
+
+    # 2. Admin updates created user (blocks approval and changes password)
+    update_res = client.put(f"/v1/admin/users/{direct_user['id']}", json={
+        "is_approved": False,
+        "password": "new_password_direct"
+    }, headers=admin_headers)
+    assert update_res.status_code == 200
+    assert update_res.json()["is_approved"] is False
+
+    # Try logging in as blocked user -> 403 Forbidden
+    login_direct_fail = client.post("/v1/auth/login", json={
+        "username": "direct_user",
+        "password": "new_password_direct"
+    })
+    assert login_direct_fail.status_code == 403
+    assert "chưa được duyệt" in login_direct_fail.json()["detail"]
+
+    # Try API key call or token verification for blocked user -> 403
+    me_res_fail = client.get("/v1/auth/me", headers=direct_headers)
+    assert me_res_fail.status_code == 403
+
+    # Re-approve user
+    client.put(f"/v1/admin/users/{direct_user['id']}", json={"is_approved": True}, headers=admin_headers)
+
+    # 3. API Key Management for direct_user
+    # Admin gets user keys (empty at first)
+    keys_res = client.get(f"/v1/admin/users/{direct_user['id']}/apikeys", headers=admin_headers)
+    assert keys_res.status_code == 200
+    assert len(keys_res.json()) == 0
+
+    # Admin creates an API Key for user
+    create_key_res = client.post(f"/v1/admin/users/{direct_user['id']}/apikeys", json={
+        "name": "Prod Server Key"
+    }, headers=admin_headers)
+    assert create_key_res.status_code == 201
+    key_obj = create_key_res.json()
+    assert key_obj["name"] == "Prod Server Key"
+    assert "ovg_live_" in key_obj["key"]
+
+    # Retrieve again
+    keys_res = client.get(f"/v1/admin/users/{direct_user['id']}/apikeys", headers=admin_headers)
+    assert len(keys_res.json()) == 1
+
+    # Call an endpoint using the generated API Key
+    api_key_headers = {"Authorization": f"Bearer {key_obj['key']}"}
+    jobs_res = client.get("/v1/jobs", headers=api_key_headers)
+    assert jobs_res.status_code == 200
+
+    # Admin revokes the key
+    del_key_res = client.delete(f"/v1/admin/apikeys/{key_obj['id']}", headers=admin_headers)
+    assert del_key_res.status_code == 200
+
+    # Verification fails now
+    jobs_res_fail = client.get("/v1/jobs", headers=api_key_headers)
+    assert jobs_res_fail.status_code == 401
+
+    # 4. Global System Settings CRUD
+    settings_res = client.get("/v1/admin/settings", headers=admin_headers)
+    assert settings_res.status_code == 200
+    orig_settings = settings_res.json()
+    assert orig_settings["worker_mode"] == "mock"
+    assert orig_settings["require_admin_approval"] is False
+
+    # Update system settings
+    update_settings_res = client.post("/v1/admin/settings", json={
+        "worker_mode": "kaggle",
+        "require_admin_approval": True,
+        "smtp_host": "smtp.test-server.com",
+        "smtp_port": 1025
+    }, headers=admin_headers)
+    assert update_settings_res.status_code == 200
+
+    # Verify updated settings
+    settings_res = client.get("/v1/admin/settings", headers=admin_headers)
+    new_settings = settings_res.json()
+    assert new_settings["worker_mode"] == "kaggle"
+    assert new_settings["require_admin_approval"] is True
+    assert new_settings["smtp_host"] == "smtp.test-server.com"
+    assert new_settings["smtp_port"] == 1025

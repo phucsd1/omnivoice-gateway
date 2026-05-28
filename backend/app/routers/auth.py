@@ -31,6 +31,19 @@ class UserRegisterRequest(BaseModel):
     password: str = Field(..., min_length=6, max_length=100)
     email: str = Field(..., max_length=150)
 
+class ApiKeyCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+
+class ApiKeyResponse(BaseModel):
+    id: str
+    name: str
+    key: str
+    created_at: datetime
+    last_used_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
 class UserLoginRequest(BaseModel):
     username: str
     password: str
@@ -97,6 +110,10 @@ def register(payload: UserRegisterRequest, background_tasks: BackgroundTasks, db
     otp_code = "".join(random.choices(string.digits, k=6))
     expires_at = datetime.utcnow() + timedelta(minutes=10)
     
+    from app.models import SystemSetting
+    req_approval = db.query(SystemSetting).filter(SystemSetting.key == "require_admin_approval").first()
+    is_approved = False if (req_approval and req_approval.value.strip().lower() == "true") else True
+
     new_user = User(
         id=user_id,
         username=payload.username,
@@ -106,6 +123,7 @@ def register(payload: UserRegisterRequest, background_tasks: BackgroundTasks, db
         verification_code=otp_code,
         verification_expires_at=expires_at,
         is_admin=False,
+        is_approved=is_approved,
         api_key=api_key
     )
     
@@ -204,6 +222,12 @@ def login(payload: UserLoginRequest, db: Session = Depends(get_db)):
             detail="Tài khoản chưa được xác thực email. Vui lòng nhập mã OTP để kích hoạt."
         )
         
+    if not user.is_approved:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tài khoản của bạn chưa được duyệt hoặc đã bị khóa bởi Admin."
+        )
+        
     access_token = create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -239,6 +263,45 @@ def revoke_api_key(current_user: User = Depends(get_current_user), db: Session =
         "status": "success",
         "message": "Đã thu hồi khóa API thành công."
     }
+
+@router.get("/apikeys", response_model=list[ApiKeyResponse])
+def list_user_api_keys(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Retrieves all API Keys for the authenticated user."""
+    from app.models import ApiKey
+    keys = db.query(ApiKey).filter(ApiKey.user_id == current_user.id).order_by(ApiKey.created_at.desc()).all()
+    return keys
+
+@router.post("/apikeys", response_model=ApiKeyResponse)
+def create_user_api_key(payload: ApiKeyCreateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Generates a new named API Key for the authenticated user."""
+    from app.models import ApiKey
+    from app.utils.ids import generate_id
+    
+    new_key = f"ovg_live_{secrets.token_hex(24)}"
+    key_entry = ApiKey(
+        id=generate_id("ak"),
+        user_id=current_user.id,
+        name=payload.name,
+        key=new_key
+    )
+    db.add(key_entry)
+    db.commit()
+    db.refresh(key_entry)
+    return key_entry
+
+@router.delete("/apikeys/{key_id}", response_model=dict)
+def delete_user_api_key(key_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Revokes a specific API Key for the authenticated user."""
+    from app.models import ApiKey
+    key_entry = db.query(ApiKey).filter(ApiKey.id == key_id, ApiKey.user_id == current_user.id).first()
+    if not key_entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Không tìm thấy Khóa API hoặc bạn không có quyền sở hữu."
+        )
+    db.delete(key_entry)
+    db.commit()
+    return {"status": "success", "message": "Thu hồi khóa API thành công."}
 
 # --- OAuth Login (Real + Mock) ---
 

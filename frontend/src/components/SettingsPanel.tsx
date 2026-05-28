@@ -1,23 +1,24 @@
 import React, { useState, useEffect } from "react";
 import { Settings, Save, CheckCircle, AlertCircle, Key, ChevronDown, ChevronUp, HelpCircle, ExternalLink, Eye, EyeOff, Copy, Trash2, KeyRound } from "lucide-react";
 import { api } from "../api/client";
-import type { SystemSettings, UserMeResponse } from "../api/client";
+import type { SystemSettings, UserMeResponse, ApiKeyResponse } from "../api/client";
 
 export const SettingsPanel: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [config, setConfig] = useState<SystemSettings | null>(null);
   const [currentUser, setCurrentUser] = useState<UserMeResponse | null>(null);
+  const [apiKeys, setApiKeys] = useState<ApiKeyResponse[]>([]);
   
   const [username, setUsername] = useState("");
   const [key, setKey] = useState("");
+  const [newKeyName, setNewKeyName] = useState("");
   
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [pushingNotebook, setPushingNotebook] = useState(false);
-  const [generatingKey, setGeneratingKey] = useState(false);
-  const [revokingKey, setRevokingKey] = useState(false);
-  const [showApiKey, setShowApiKey] = useState(false);
+  const [creatingKey, setCreatingKey] = useState(false);
+  const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({});
 
   const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [connectionResult, setConnectionResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -45,9 +46,19 @@ export const SettingsPanel: React.FC = () => {
     }
   };
 
+  const fetchApiKeys = async () => {
+    try {
+      const res = await api.getUserApiKeys();
+      setApiKeys(res);
+    } catch (err) {
+      console.error("Lỗi lấy danh sách API Keys:", err);
+    }
+  };
+
   useEffect(() => {
     fetchSettings();
     fetchUser();
+    fetchApiKeys();
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -110,36 +121,40 @@ export const SettingsPanel: React.FC = () => {
     }
   };
 
-  const handleGenerateApiKey = async () => {
-    setGeneratingKey(true);
+  const handleCreateApiKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newKeyName.trim()) return;
+    setCreatingKey(true);
     try {
-      await api.generateApiKey();
-      await fetchUser();
-    } catch (err) {
-      console.error("Lỗi tạo API Key:", err);
+      const newKey = await api.createUserApiKey(newKeyName.trim());
+      setNewKeyName("");
+      // Make it visible initially for convenience
+      setVisibleKeys(prev => ({ ...prev, [newKey.id]: true }));
+      await fetchApiKeys();
+    } catch (err: any) {
+      alert("Lỗi tạo API Key: " + err.message);
     } finally {
-      setGeneratingKey(false);
+      setCreatingKey(false);
     }
   };
 
-  const handleRevokeApiKey = async () => {
-    if (!window.confirm("Bạn có chắc chắn muốn thu hồi API Key hiện tại không? Tất cả tích hợp từ bên ngoài dùng key này sẽ ngừng hoạt động.")) return;
-    setRevokingKey(true);
+  const handleDeleteApiKey = async (keyId: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa API Key này không? Các tích hợp bên ngoài sử dụng key này sẽ ngừng hoạt động.")) return;
     try {
-      await api.revokeApiKey();
-      await fetchUser();
-    } catch (err) {
-      console.error("Lỗi thu hồi API Key:", err);
-    } finally {
-      setRevokingKey(false);
+      await api.deleteUserApiKey(keyId);
+      await fetchApiKeys();
+    } catch (err: any) {
+      alert("Lỗi xóa API Key: " + err.message);
     }
   };
 
-  const handleCopyApiKey = () => {
-    if (currentUser?.api_key) {
-      navigator.clipboard.writeText(currentUser.api_key);
-      alert("Đã sao chép API Key thành công vào Clipboard!");
-    }
+  const toggleKeyVisibility = (keyId: string) => {
+    setVisibleKeys(prev => ({ ...prev, [keyId]: !prev[keyId] }));
+  };
+
+  const handleCopyKey = (keyValue: string) => {
+    navigator.clipboard.writeText(keyValue);
+    alert("Đã sao chép API Key thành công vào Clipboard!");
   };
 
   return (
@@ -156,7 +171,7 @@ export const SettingsPanel: React.FC = () => {
           <div>
             <h3 className="font-bold text-slate-100 text-sm">Cấu hình Hệ thống &amp; API Key</h3>
             <p className="text-[11px] text-slate-450 mt-0.5">
-              Cài đặt Kaggle Credentials và lấy mã API để tự động sinh giọng nói nhân bản AI.
+              Cài đặt Kaggle Credentials và quản lý các API Key để kết nối bên ngoài.
             </p>
           </div>
         </div>
@@ -184,73 +199,95 @@ export const SettingsPanel: React.FC = () => {
           <div className="bg-slate-950 border border-slate-850 rounded-xl p-4 flex flex-col gap-3 shadow-inner">
             <div className="flex items-center gap-2 text-indigo-400">
               <KeyRound className="w-4 h-4" />
-              <h4 className="font-bold text-xs text-slate-200">Quản lý API Key người dùng ({currentUser?.username})</h4>
+              <h4 className="font-bold text-xs text-slate-200">Quản lý mã API ({currentUser?.username})</h4>
             </div>
             <p className="text-[11px] text-slate-450 leading-relaxed">
-              Khóa API cho phép bạn gửi yêu cầu sinh giọng nói bằng code từ các ứng dụng hoặc script bên ngoài thông qua API Gateway.
+              Khóa API cho phép bạn gửi yêu cầu sinh giọng nói bằng code từ các ứng dụng hoặc script bên ngoài thông qua API Gateway. Bạn có thể tạo nhiều khóa để quản lý.
             </p>
             
-            <div className="flex flex-col gap-2 mt-1">
-              {currentUser?.api_key ? (
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                  <div className="flex-grow relative">
-                    <input
-                      type={showApiKey ? "text" : "password"}
-                      value={currentUser.api_key}
-                      readOnly
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg py-2 pl-3.5 pr-10 text-xs text-indigo-300 font-mono focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-200 cursor-pointer"
-                      title={showApiKey ? "Ẩn API Key" : "Hiển thị API Key"}
-                    >
-                      {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  
-                  <div className="flex gap-2 flex-shrink-0">
-                    <button
-                      type="button"
-                      onClick={handleCopyApiKey}
-                      className="bg-slate-850 hover:bg-slate-800 border border-slate-750 text-xs font-bold px-3 py-2 rounded-lg text-slate-200 hover:text-white cursor-pointer flex items-center gap-1.5 transition-colors"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Sao chép</span>
-                    </button>
-                    
-                    <button
-                      type="button"
-                      onClick={handleGenerateApiKey}
-                      disabled={generatingKey}
-                      className="bg-slate-850 hover:bg-slate-800 border border-slate-750 text-xs font-bold px-3 py-2 rounded-lg text-slate-200 hover:text-white cursor-pointer flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                    >
-                      <span>Tạo mới</span>
-                    </button>
-                    
-                    <button
-                      type="button"
-                      onClick={handleRevokeApiKey}
-                      disabled={revokingKey}
-                      className="bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-xs font-bold px-3 py-2 rounded-lg text-rose-400 hover:text-rose-350 cursor-pointer flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Thu hồi</span>
-                    </button>
-                  </div>
-                </div>
+            {/* Create API Key Form */}
+            <form onSubmit={handleCreateApiKey} className="flex gap-2 mt-1">
+              <input
+                type="text"
+                placeholder="Tên gợi nhớ (ví dụ: App test, Python Script...)"
+                value={newKeyName}
+                onChange={(e) => setNewKeyName(e.target.value)}
+                className="flex-grow bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50"
+                required
+              />
+              <button
+                type="submit"
+                disabled={creatingKey}
+                className="bg-indigo-650 hover:bg-indigo-600 text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer transition-colors shadow-sm disabled:opacity-50 flex-shrink-0"
+              >
+                {creatingKey ? "Đang tạo..." : "Tạo khóa"}
+              </button>
+            </form>
+
+            <div className="mt-2 overflow-x-auto">
+              {apiKeys.length > 0 ? (
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-450 text-[10px] uppercase font-semibold">
+                      <th className="py-2 px-1">Tên khóa</th>
+                      <th className="py-2 px-1">Giá trị API Key</th>
+                      <th className="py-2 px-1">Ngày tạo</th>
+                      <th className="py-2 px-1">Hoạt động gần nhất</th>
+                      <th className="py-2 px-1 text-right">Hành động</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {apiKeys.map((k) => (
+                      <tr key={k.id} className="border-b border-slate-900/60 hover:bg-slate-900/20">
+                        <td className="py-2.5 px-1 font-medium text-slate-200 max-w-[120px] truncate">{k.name}</td>
+                        <td className="py-2.5 px-1 font-mono text-[11px] text-indigo-300">
+                          <div className="flex items-center gap-1.5">
+                            <span>
+                              {visibleKeys[k.id] ? k.key : `${k.key.substring(0, 12)}••••••••••••••••••••••••`}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => toggleKeyVisibility(k.id)}
+                              className="text-slate-455 hover:text-slate-200 cursor-pointer"
+                              title={visibleKeys[k.id] ? "Ẩn" : "Hiện"}
+                            >
+                              {visibleKeys[k.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-1 text-slate-450 text-[11px]">
+                          {new Date(k.created_at).toLocaleDateString("vi-VN")}
+                        </td>
+                        <td className="py-2.5 px-1 text-slate-450 text-[11px]">
+                          {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString("vi-VN") : "Chưa sử dụng"}
+                        </td>
+                        <td className="py-2.5 px-1 text-right">
+                          <div className="flex justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyKey(k.key)}
+                              className="p-1 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded cursor-pointer transition-colors"
+                              title="Sao chép"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteApiKey(k.id)}
+                              className="p-1 hover:bg-rose-950/30 text-slate-400 hover:text-rose-450 rounded cursor-pointer transition-colors"
+                              title="Xóa khóa"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               ) : (
-                <div className="flex items-center justify-between bg-slate-900 border border-slate-800 p-3 rounded-lg text-xs text-slate-450">
-                  <span>Bạn chưa tạo API Key nào.</span>
-                  <button
-                    type="button"
-                    onClick={handleGenerateApiKey}
-                    disabled={generatingKey}
-                    className="bg-indigo-650 hover:bg-indigo-600 text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer transition-colors shadow-sm disabled:opacity-50"
-                  >
-                    {generatingKey ? "Đang tạo..." : "Tạo khóa API"}
-                  </button>
+                <div className="text-center py-4 text-slate-500 text-[11px]">
+                  Bạn chưa tạo khóa API nào. Vui lòng nhập tên và tạo ở trên.
                 </div>
               )}
             </div>
@@ -405,7 +442,7 @@ export const SettingsPanel: React.FC = () => {
                   {testingConnection ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Đang kiểm tra kết nối...</span>
+                      <span>Đang kiểm tra...</span>
                     </>
                   ) : (
                     <span>Kiểm tra kết nối Kaggle</span>
@@ -445,7 +482,7 @@ export const SettingsPanel: React.FC = () => {
                 ) : (
                   <>
                     <Save className="w-3.5 h-3.5" />
-                    <span>Lưu Cấu Hình</span>
+                    <span>Lưu Cấu Hướng</span>
                   </>
                 )}
               </button>

@@ -12,7 +12,6 @@ export function setApiBaseUrl(url: string) {
   localStorage.setItem("VITE_API_BASE_URL", url.trim());
 }
 
-
 export interface HealthResponse {
   status: string;
   app: string;
@@ -63,6 +62,72 @@ export interface JobStatusResponse {
   error_message: string | null;
 }
 
+export interface ApiKeyResponse {
+  id: string;
+  name: string;
+  key: string;
+  created_at: string;
+  last_used_at: string | null;
+}
+
+export interface AdminApiKeyResponse extends ApiKeyResponse {
+  user_id: string;
+}
+
+export interface UserCreateRequest {
+  username: string;
+  email: string;
+  password: string;
+  is_verified?: boolean;
+  is_approved?: boolean;
+  is_admin?: boolean;
+}
+
+export interface UserUpdateRequest {
+  username?: string;
+  email?: string;
+  password?: string;
+  is_verified?: boolean;
+  is_approved?: boolean;
+  is_admin?: boolean;
+}
+
+export interface SystemSettingsResponse {
+  worker_mode: string;
+  require_admin_approval: boolean;
+  smtp_host: string;
+  smtp_port: number;
+  smtp_username: string;
+  smtp_password: string;
+  smtp_from: string;
+  kaggle_username: string;
+  kaggle_key: string;
+  kaggle_kernel_ref: string;
+  kaggle_kernel_slug: string;
+  kaggle_kernel_title: string;
+  kaggle_accelerator: string;
+  kaggle_timeout_seconds: number;
+  kaggle_worker_dir: string;
+}
+
+export interface SystemSettingsUpdateRequest {
+  worker_mode?: string;
+  require_admin_approval?: boolean;
+  smtp_host?: string;
+  smtp_port?: number;
+  smtp_username?: string;
+  smtp_password?: string;
+  smtp_from?: string;
+  kaggle_username?: string;
+  kaggle_key?: string;
+  kaggle_kernel_ref?: string;
+  kaggle_kernel_slug?: string;
+  kaggle_kernel_title?: string;
+  kaggle_accelerator?: string;
+  kaggle_timeout_seconds?: number;
+  kaggle_worker_dir?: string;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${getApiBaseUrl()}${path}`;
   
@@ -97,7 +162,6 @@ export const api = {
   getApiBaseUrl,
   setApiBaseUrl,
 
-  
   getHealth: async (): Promise<HealthResponse> => {
     return request<HealthResponse>("/health");
   },
@@ -241,6 +305,28 @@ export const api = {
     return request<UserMeResponse>(`/v1/auth/me?t=${Date.now()}`);
   },
 
+  // Multi-API Keys (User side)
+  getUserApiKeys: async (): Promise<ApiKeyResponse[]> => {
+    return request<ApiKeyResponse[]>("/v1/auth/apikeys");
+  },
+
+  createUserApiKey: async (name: string): Promise<ApiKeyResponse> => {
+    return request<ApiKeyResponse>("/v1/auth/apikeys", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name }),
+    });
+  },
+
+  deleteUserApiKey: async (keyId: string): Promise<{ status: string; message: string }> => {
+    return request<{ status: string; message: string }>(`/v1/auth/apikeys/${keyId}`, {
+      method: "DELETE",
+    });
+  },
+
+  // Deprecated single API key calls
   generateApiKey: async (): Promise<{ status: string; message: string; api_key: string }> => {
     return request<{ status: string; message: string; api_key: string }>("/v1/auth/apikey", {
       method: "POST",
@@ -258,6 +344,27 @@ export const api = {
     return request<UserAdminResponse[]>("/v1/admin/users");
   },
 
+  adminCreateUser: async (payload: UserCreateRequest): Promise<UserAdminResponse> => {
+    return request<UserAdminResponse>("/v1/admin/users", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+  },
+
+  adminUpdateUser: async (userId: string, payload: UserUpdateRequest): Promise<UserAdminResponse> => {
+    return request<UserAdminResponse>(`/v1/admin/users/${userId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // Deprecated simple update
   updateUser: async (userId: string, isVerified?: boolean, isAdmin?: boolean): Promise<UserAdminResponse> => {
     return request<UserAdminResponse>(`/v1/admin/users/${userId}`, {
       method: "PUT",
@@ -271,6 +378,40 @@ export const api = {
   deleteUser: async (userId: string): Promise<{ status: string; message: string }> => {
     return request<{ status: string; message: string }>(`/v1/admin/users/${userId}`, {
       method: "DELETE",
+    });
+  },
+
+  adminGetUserApiKeys: async (userId: string): Promise<AdminApiKeyResponse[]> => {
+    return request<AdminApiKeyResponse[]>(`/v1/admin/users/${userId}/apikeys`);
+  },
+
+  adminCreateUserApiKey: async (userId: string, name: string): Promise<AdminApiKeyResponse> => {
+    return request<AdminApiKeyResponse>(`/v1/admin/users/${userId}/apikeys`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name }),
+    });
+  },
+
+  adminDeleteApiKey: async (keyId: string): Promise<{ status: string; message: string }> => {
+    return request<{ status: string; message: string }>(`/v1/admin/apikeys/${keyId}`, {
+      method: "DELETE",
+    });
+  },
+
+  adminGetSystemSettings: async (): Promise<SystemSettingsResponse> => {
+    return request<SystemSettingsResponse>("/v1/admin/settings");
+  },
+
+  adminUpdateSystemSettings: async (payload: SystemSettingsUpdateRequest): Promise<{ status: string; message: string }> => {
+    return request<{ status: string; message: string }>("/v1/admin/settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     });
   },
 
@@ -300,6 +441,7 @@ export interface UserAdminResponse {
   username: string;
   email: string | null;
   is_verified: boolean;
+  is_approved: boolean;
   is_admin: boolean;
   oauth_provider: string | null;
   created_at: string;
@@ -326,7 +468,6 @@ export interface ApiLogResponse {
   created_at: string;
 }
 
-
 export interface SystemSettings {
   kaggle_username: string;
   kaggle_key_configured: boolean;
@@ -349,5 +490,3 @@ export interface SettingsUpdateRequest {
   kaggle_timeout_seconds?: number;
   kaggle_worker_dir?: string;
 }
-
-

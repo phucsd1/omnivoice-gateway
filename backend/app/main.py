@@ -173,25 +173,30 @@ async def log_api_usage(request: Request, call_next):
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
         from app.database import SessionLocal
-        from app.models import User
+        from app.models import User, ApiKey
         from jose import jwt
         db = SessionLocal()
         try:
-            # 1. Try static API Key
-            user = db.query(User).filter(User.api_key == token).first()
-            if user:
-                user_id = user.id
+            # 1. Try new ApiKey table
+            api_key_obj = db.query(ApiKey).filter(ApiKey.key == token).first()
+            if api_key_obj:
+                user_id = api_key_obj.user_id
             else:
-                # 2. Try JWT
-                try:
-                    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-                    username = payload.get("sub")
-                    if username:
-                        user = db.query(User).filter(User.username == username).first()
-                        if user:
-                            user_id = user.id
-                except Exception:
-                    pass
+                # Fallback to old User.api_key
+                user = db.query(User).filter(User.api_key == token).first()
+                if user:
+                    user_id = user.id
+                else:
+                    # 2. Try JWT
+                    try:
+                        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+                        username = payload.get("sub")
+                        if username:
+                            user = db.query(User).filter(User.username == username).first()
+                            if user:
+                                user_id = user.id
+                    except Exception:
+                        pass
         except Exception as e:
             print(f"[Middleware API Logger] Database error: {e}")
         finally:

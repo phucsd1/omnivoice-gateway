@@ -13,10 +13,21 @@ class User(Base):
     verification_code = Column(String(10), nullable=True)
     verification_expires_at = Column(DateTime, nullable=True)
     is_admin = Column(Boolean, default=False, nullable=False)
+    is_approved = Column(Boolean, default=True, nullable=False)
     oauth_provider = Column(String(50), nullable=True)
     oauth_id = Column(String(100), nullable=True)
     api_key = Column(String(100), unique=True, index=True, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+
+    id = Column(String(50), primary_key=True, index=True)
+    user_id = Column(String(50), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(100), nullable=False)
+    key = Column(String(100), unique=True, index=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_used_at = Column(DateTime, nullable=True)
 
 class ApiUsageLog(Base):
     __tablename__ = "api_usage_logs"

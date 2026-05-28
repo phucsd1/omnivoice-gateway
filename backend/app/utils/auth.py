@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.models import User
+from app.models import User, ApiKey
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/v1/auth/login", auto_error=False)
 
@@ -51,12 +51,19 @@ def get_current_user(token: Optional[str] = Depends(oauth2_scheme), db: Session 
     user = db.query(User).filter(User.username == username).first()
     if user is None:
         raise credentials_exception
+        
+    if not user.is_approved:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tài khoản của bạn chưa được duyệt hoặc đã bị khóa bởi Admin."
+        )
+        
     return user
 
 def get_user_or_api_key(token: Optional[str] = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
     """
     Authenticates either via JWT Token (Authorization: Bearer <JWT>)
-    OR via User Static API Key (Authorization: Bearer <API_KEY>).
+    OR via User Static API Key (Authorization: Bearer <API_KEY>) from ApiKey table.
     """
     if not token:
         raise HTTPException(
@@ -72,13 +79,37 @@ def get_user_or_api_key(token: Optional[str] = Depends(oauth2_scheme), db: Sessi
         if username is not None:
             user = db.query(User).filter(User.username == username).first()
             if user:
+                if not user.is_approved:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Tài khoản của bạn chưa được duyệt hoặc đã bị khóa bởi Admin."
+                    )
                 return user
     except JWTError:
         pass
 
-    # 2. Try treating token as a static API Key
+    # 2. Try treating token as a key from ApiKey table
+    api_key_obj = db.query(ApiKey).filter(ApiKey.key == token).first()
+    if api_key_obj:
+        api_key_obj.last_used_at = datetime.utcnow()
+        db.commit()
+        user = db.query(User).filter(User.id == api_key_obj.user_id).first()
+        if user:
+            if not user.is_approved:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Tài khoản của bạn chưa được duyệt hoặc đã bị khóa bởi Admin."
+                )
+            return user
+
+    # 3. Fallback to old User.api_key for backward compatibility
     user = db.query(User).filter(User.api_key == token).first()
     if user:
+        if not user.is_approved:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Tài khoản của bạn chưa được duyệt hoặc đã bị khóa bởi Admin."
+            )
         return user
         
     raise HTTPException(

@@ -1,9 +1,10 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
+from datetime import datetime
 from app.config import settings
 from app.database import get_db
-from app.models import User
+from app.models import User, ApiKey
 
 security_scheme = HTTPBearer()
 
@@ -23,9 +24,20 @@ def verify_worker_token(
     if settings.WORKER_TOKEN and token == settings.WORKER_TOKEN:
         return token
         
-    # Check if it matches a user's API Key
+    # Check if it matches a user's API Key in new ApiKey table
+    api_key_obj = db.query(ApiKey).filter(ApiKey.key == token).first()
+    if api_key_obj:
+        # Resolve associated user
+        user = db.query(User).filter(User.id == api_key_obj.user_id).first()
+        if user and user.is_approved:
+            # Update last used time
+            api_key_obj.last_used_at = datetime.utcnow()
+            db.commit()
+            return token
+        
+    # Fallback to check if it matches static User.api_key
     user = db.query(User).filter(User.api_key == token).first()
-    if user:
+    if user and user.is_approved:
         return token
         
     raise HTTPException(
