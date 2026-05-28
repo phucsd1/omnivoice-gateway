@@ -14,44 +14,44 @@ class JobService:
     @staticmethod
     def map_vietnamese_request_to_instruct(voice_request: str) -> str:
         """
-        Maps a Vietnamese voice design description into a simple comma-separated instruct string.
-        Examples:
-        - có "nữ" -> female
-        - có "nam" -> male
-        - có "trẻ" -> young adult
-        - có "trầm" hoặc "thấp" -> low pitch
-        - có "cao" -> high pitch
-        - có "thì thầm" -> whisper
-        - nếu không chắc -> "female, young adult, natural"
+        Maps a Vietnamese voice design description into valid OmniVoice English instruct tags.
         """
         req_lower = voice_request.lower()
         instructs = []
 
+        # Gender
         if "nữ" in req_lower:
             instructs.append("female")
         elif "nam" in req_lower:
             instructs.append("male")
 
-        if "trẻ" in req_lower:
+        # Age group
+        if "trẻ em" in req_lower or "con nít" in req_lower or "bé" in req_lower:
+            instructs.append("child")
+        elif "thiếu niên" in req_lower:
+            instructs.append("teenager")
+        elif "trẻ" in req_lower or "thanh niên" in req_lower:
             instructs.append("young adult")
-        elif "già" in req_lower or "lớn tuổi" in req_lower:
-            instructs.append("older adult")
+        elif "trung niên" in req_lower:
+            instructs.append("middle-aged")
+        elif "già" in req_lower or "lớn tuổi" in req_lower or "lão" in req_lower:
+            instructs.append("elderly")
 
+        # Pitch/Tone
         if "trầm" in req_lower or "thấp" in req_lower:
             instructs.append("low pitch")
         elif "cao" in req_lower:
             instructs.append("high pitch")
+        elif "vừa" in req_lower or "bình thường" in req_lower:
+            instructs.append("moderate pitch")
 
+        # Style
         if "thì thầm" in req_lower or "nhẹ nhàng" in req_lower:
             instructs.append("whisper")
-        
-        if "tự nhiên" in req_lower or not instructs:
-            # Fallback/default additions
-            if "female" not in instructs and "male" not in instructs:
-                instructs.append("female")
-            if "young adult" not in instructs and "older adult" not in instructs:
-                instructs.append("young adult")
-            instructs.append("natural")
+
+        # Fallback defaults if empty
+        if not instructs:
+            instructs = ["female", "young adult"]
 
         return ", ".join(instructs)
 
@@ -114,7 +114,7 @@ class JobService:
         elif mode == "voice_design":
             job_type = "voice_design_tts"
             if not instruct:
-                instruct = "female, young adult, natural"
+                instruct = "female, young adult"
         else:
             raise ValueError(f"Chế độ TTS không hợp lệ: {mode}")
 
