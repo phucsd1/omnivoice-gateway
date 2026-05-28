@@ -233,14 +233,14 @@ generateSpeech();`
           </div>
           <div>
             <h3 className="font-bold text-slate-100 text-sm">Quản lý API Keys &amp; Tài liệu Tích hợp</h3>
-            <p className="text-[11px] text-slate-455 mt-0.5">
+            <p className="text-[11px] text-slate-400 mt-0.5">
               Tạo tự động các khóa API và xem hướng dẫn chi tiết cách nhúng giọng nói nhân bản AI.
             </p>
           </div>
         </div>
 
         {/* API Keys Table & Generation Card */}
-        <div className="bg-slate-950 border border-slate-850 rounded-xl p-4 flex flex-col gap-3.5 shadow-inner">
+        <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col gap-3.5 shadow-inner">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-indigo-400">
               <ShieldCheck className="w-4.5 h-4.5" />
@@ -250,14 +250,14 @@ generateSpeech();`
               type="button"
               onClick={handleCreateApiKey}
               disabled={creatingKey}
-              className="bg-indigo-650 hover:bg-indigo-600 text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5"
+              className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5"
             >
               <PlusIcon className="w-3.5 h-3.5" />
               <span>{creatingKey ? "Đang sinh khóa..." : "Tạo API Key mới"}</span>
             </button>
           </div>
           
-          <p className="text-[11px] text-slate-455 leading-relaxed -mt-1.5">
+          <p className="text-[11px] text-slate-400 leading-relaxed -mt-1.5">
             API Key được cấp quyền truy cập đầy đủ các endpoint tạo âm thanh nhân bản. Vui lòng bảo mật các khóa này, không chia sẻ lên mã nguồn công khai.
           </p>
 
@@ -270,7 +270,7 @@ generateSpeech();`
             ) : apiKeys.length > 0 ? (
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-800 text-slate-450 text-[10px] uppercase font-semibold">
+                  <tr className="border-b border-slate-800 text-slate-400 text-[10px] uppercase font-semibold">
                     <th className="py-2 px-1">Tên khóa</th>
                     <th className="py-2 px-1">Mã khóa API</th>
                     <th className="py-2 px-1">Ngày tạo</th>
@@ -284,23 +284,23 @@ generateSpeech();`
                       <td className="py-2.5 px-1 font-bold text-slate-200 truncate max-w-[140px]">{k.name}</td>
                       <td className="py-2.5 px-1 font-mono text-[11px] text-indigo-300">
                         <div className="flex items-center gap-1.5">
-                          <span>
-                            {visibleKeys[k.id] ? k.key : `${k.key.substring(0, 12)}••••••••••••••••••••••••`}
+                          <span className="max-w-[180px] truncate block select-all" title={k.key}>
+                            {visibleKeys[k.id] ? k.key : (k.key.length > 12 ? `${k.key.substring(0, 8)}••••${k.key.substring(k.key.length - 4)}` : k.key)}
                           </span>
                           <button
                             type="button"
                             onClick={() => setVisibleKeys({ ...visibleKeys, [k.id]: !visibleKeys[k.id] })}
-                            className="text-slate-500 hover:text-slate-200 cursor-pointer"
+                            className="text-slate-500 hover:text-slate-200 cursor-pointer shrink-0"
                             title={visibleKeys[k.id] ? "Ẩn" : "Hiện"}
                           >
                             {visibleKeys[k.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                           </button>
                         </div>
                       </td>
-                      <td className="py-2.5 px-1 text-slate-455 text-[11px]">
+                      <td className="py-2.5 px-1 text-slate-400 text-[11px]">
                         {new Date(k.created_at).toLocaleDateString("vi-VN")}
                       </td>
-                      <td className="py-2.5 px-1 text-slate-455 text-[11px]">
+                      <td className="py-2.5 px-1 text-slate-400 text-[11px]">
                         {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString("vi-VN") : "Chưa hoạt động"}
                       </td>
                       <td className="py-2.5 px-1 text-right">
@@ -320,7 +320,7 @@ generateSpeech();`
                           <button
                             type="button"
                             onClick={() => handleDeleteApiKey(k.id)}
-                            className="p-1.5 hover:bg-rose-950/20 text-slate-400 hover:text-rose-455 rounded-lg cursor-pointer transition-colors"
+                            className="p-1.5 hover:bg-rose-950/20 text-slate-400 hover:text-rose-500 rounded-lg cursor-pointer transition-colors"
                             title="Thu hồi khóa"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -343,7 +343,7 @@ generateSpeech();`
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col">
           
           {/* Header documentation tab triggers */}
-          <div className="bg-slate-950 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-855 gap-3">
+          <div className="bg-slate-950 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 gap-3">
             <div className="flex items-center gap-2">
               <Terminal className="w-4 h-4 text-indigo-400" />
               <span className="text-xs font-bold text-slate-200">Hướng dẫn nhúng code mẫu tích hợp hệ thống</span>
@@ -412,7 +412,7 @@ generateSpeech();`
             </div>
 
             {/* Explanations */}
-            <div className="text-[11px] text-slate-450 space-y-2 mt-1 border-t border-slate-855 pt-3">
+            <div className="text-[11px] text-slate-400 space-y-2 mt-1 border-t border-slate-800 pt-3">
               <p className="font-semibold text-slate-300">💡 Lưu ý quan trọng khi tích hợp:</p>
               <ul className="list-disc pl-4 space-y-1.5">
                 <li>

@@ -141,7 +141,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
           </div>
           <div>
             <h3 className="font-bold text-slate-100 text-sm">Cấu hình Kết nối Máy chủ Kaggle</h3>
-            <p className="text-[11px] text-slate-455 mt-0.5">
+            <p className="text-[11px] text-slate-400 mt-0.5">
               Tài khoản Kaggle Credentials được tự động lưu sau khi nhập để kích hoạt máy chủ dịch vụ GPU.
             </p>
           </div>
@@ -180,7 +180,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {/* Username */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-450">Kaggle Username</label>
+              <label className="text-xs font-semibold text-slate-400">Kaggle Username</label>
               <input
                 type="text"
                 value={username}
@@ -195,7 +195,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
             {/* API Key */}
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-450">Kaggle API Key</label>
+                <label className="text-xs font-semibold text-slate-400">Kaggle API Key</label>
                 {config?.kaggle_key_configured && (
                   <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-0.5">
                     ✓ Đã thiết lập
@@ -219,7 +219,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
               className={`p-3 rounded-lg text-xs border flex items-start gap-1.5 ${
                 connectionResult.success
                   ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                  : "bg-rose-500/10 border-rose-500/20 text-rose-455"
+                  : "bg-rose-500/10 border-rose-500/20 text-rose-500"
               }`}
             >
               {connectionResult.success ? (
@@ -236,7 +236,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
               className={`p-4 rounded-xl text-xs border flex flex-col gap-2.5 ${
                 pushResult.success
                   ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-300"
-                  : "bg-rose-500/10 border-rose-500/20 text-rose-455"
+                  : "bg-rose-500/10 border-rose-500/20 text-rose-500"
               }`}
             >
               <div className="flex items-start gap-1.5">
@@ -261,7 +261,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
               type="button"
               onClick={handleTestConnection}
               disabled={testingConnection || loading || pushingNotebook}
-              className="flex-grow flex items-center justify-center gap-1.5 bg-slate-850 hover:bg-slate-800 text-slate-200 hover:text-white font-bold text-xs px-4 py-2.5 rounded-lg transition-colors cursor-pointer border border-slate-750/80 disabled:opacity-55 disabled:cursor-not-allowed"
+              className="flex-grow flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs px-4 py-2.5 rounded-lg transition-colors cursor-pointer border border-slate-700/80 disabled:opacity-55 disabled:cursor-not-allowed"
             >
               {testingConnection ? (
                 <>

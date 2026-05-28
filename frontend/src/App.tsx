@@ -118,10 +118,10 @@ function App() {
                 onClick={() => setShowSettingsModal(true)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
                   kaggleStatus === "connected"
-                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-450 hover:bg-emerald-500/20"
+                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20"
                     : kaggleStatus === "error"
                     ? "bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20 animate-pulse"
-                    : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-850 hover:text-white"
+                    : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white"
                 }`}
                 title="Cấu hình kết nối máy chủ Kaggle GPU"
               >
@@ -134,7 +134,7 @@ function App() {
               {/* API Keys Manager Button */}
               <button
                 onClick={() => setShowApiKeyModal(true)}
-                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 rounded-xl text-xs font-bold text-slate-350 hover:text-white transition-all cursor-pointer flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-bold text-slate-300 hover:text-white transition-all cursor-pointer flex items-center gap-1.5"
                 title="Quản lý các API Keys & Xem hướng dẫn lập trình tích hợp"
               >
                 <KeyRound className="w-3.5 h-3.5" />
@@ -143,7 +143,7 @@ function App() {
 
               <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-inner">
                 <span className="text-indigo-400">@{currentUser.username}</span>
-                <span className="text-slate-850">|</span>
+                <span className="text-slate-800">|</span>
                 {currentUser.is_admin && (
                   <>
                     <button
@@ -152,7 +152,7 @@ function App() {
                     >
                       <span>{showAdminPortal ? "Main View" : "Admin Portal"}</span>
                     </button>
-                    <span className="text-slate-850">|</span>
+                    <span className="text-slate-800">|</span>
                   </>
                 )}
                 <button
@@ -185,7 +185,7 @@ function App() {
 
           <div className="flex items-center gap-2">
             {connectionStatus === "checking" && (
-              <span className="bg-slate-900 border border-slate-850 text-slate-450 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5">
+              <span className="bg-slate-900 border border-slate-800 text-slate-400 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5">
                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                 <span>Checking gateway...</span>
               </span>
@@ -197,7 +197,7 @@ function App() {
               </span>
             )}
             {connectionStatus === "disconnected" && (
-              <span className="bg-rose-500/10 border border-rose-500/20 text-rose-450 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5">
+              <span className="bg-rose-500/10 border border-rose-500/20 text-rose-400 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5">
                 <XCircle className="w-3.5 h-3.5" />
                 <span>Gateway Offline</span>
               </span>
@@ -205,7 +205,7 @@ function App() {
 
             <button
               onClick={checkHealth}
-              className="p-2 bg-slate-900 hover:bg-slate-850 border border-slate-800 rounded-lg text-slate-350 hover:text-white transition-colors cursor-pointer"
+              className="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer"
               title="Refresh Health"
             >
               <RefreshCw className="w-3.5 h-3.5" />
@@ -260,14 +260,14 @@ function App() {
                     </div>
                     <button
                       onClick={() => setActiveVoiceSampleId(null)}
-                      className="text-xs hover:text-white text-slate-450 border border-slate-800/80 hover:border-slate-700 bg-slate-950 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer font-bold"
+                      className="text-xs hover:text-white text-slate-400 border border-slate-800/80 hover:border-slate-700 bg-slate-950 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer font-bold"
                     >
                       Hủy chọn
                     </button>
                   </div>
                 ) : (
-                  <div className="bg-slate-900 border border-slate-800/50 rounded-2xl p-4 flex items-center gap-3 text-xs text-slate-450">
-                    <Layers className="w-5 h-5 text-slate-650" />
+                  <div className="bg-slate-900 border border-slate-800/50 rounded-2xl p-4 flex items-center gap-3 text-xs text-slate-400">
+                    <Layers className="w-5 h-5 text-slate-600" />
                     <span>Chưa chọn mẫu giọng. Vui lòng Tải lên một mẫu hoặc Tạo thiết kế giọng ở cột bên trái để bắt đầu Clone.</span>
                   </div>
                 )}

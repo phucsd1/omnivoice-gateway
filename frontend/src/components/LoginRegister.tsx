@@ -195,7 +195,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
         {!verificationMode ? (
           <>
             {/* Tab Selector */}
-            <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-850">
+            <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
               <button
                 type="button"
                 onClick={() => {
@@ -206,7 +206,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 className={`py-2.5 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2 ${
                   isLogin
                     ? "bg-indigo-600 text-white shadow-sm"
-                    : "text-slate-450 hover:text-slate-200"
+                    : "text-slate-400 hover:text-slate-200"
                 }`}
               >
                 <KeyRound className="w-4 h-4" />
@@ -222,7 +222,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 className={`py-2.5 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2 ${
                   !isLogin
                     ? "bg-indigo-600 text-white shadow-sm"
-                    : "text-slate-450 hover:text-slate-200"
+                    : "text-slate-400 hover:text-slate-200"
                 }`}
               >
                 <UserPlus className="w-4 h-4" />
@@ -232,7 +232,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
 
             {/* Status messages */}
             {errorMsg && (
-              <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-450 rounded-xl text-xs leading-relaxed flex items-start gap-2">
+              <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs leading-relaxed flex items-start gap-2">
                 <ShieldAlert className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
                 <span>{errorMsg}</span>
               </div>
@@ -257,7 +257,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Nhập tên đăng nhập..."
-                    className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-650 font-semibold"
+                    className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-600 font-semibold"
                     required
                   />
                 </div>
@@ -275,7 +275,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="email@example.com"
-                      className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-650 font-semibold font-mono"
+                      className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-600 font-semibold font-mono"
                       required
                     />
                   </div>
@@ -293,7 +293,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Nhập mật khẩu..."
-                    className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-650 font-semibold"
+                    className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-600 font-semibold"
                     required
                   />
                 </div>
@@ -311,7 +311,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Nhập lại mật khẩu..."
-                      className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-650 font-semibold"
+                      className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-600 font-semibold"
                       required
                     />
                   </div>
@@ -323,7 +323,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 disabled={loading}
                 className={`w-full py-3.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer mt-2 ${
                   !loading
-                    ? "bg-indigo-650 hover:bg-indigo-600 text-white shadow-md shadow-indigo-650/15"
+                    ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/15"
                     : "bg-slate-800 text-slate-500 cursor-not-allowed"
                 }`}
               >
@@ -341,7 +341,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
             {/* Divider */}
             <div className="flex items-center gap-3 my-1">
               <div className="flex-grow h-px bg-slate-800" />
-              <span className="text-[10px] font-bold text-slate-550 uppercase tracking-wider">Hoặc đăng nhập bằng</span>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Hoặc đăng nhập bằng</span>
               <div className="flex-grow h-px bg-slate-800" />
             </div>
 
@@ -350,7 +350,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
               <button
                 type="button"
                 onClick={() => openMockOAuth("google")}
-                className="py-3 bg-slate-950 hover:bg-slate-850 border border-slate-800 hover:border-slate-750 rounded-xl text-xs font-semibold text-slate-200 hover:text-white flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                className="py-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-xl text-xs font-semibold text-slate-200 hover:text-white flex items-center justify-center gap-2 transition-colors cursor-pointer"
               >
                 <GoogleIcon className="w-4 h-4 text-rose-500" />
                 <span>Google</span>
@@ -358,7 +358,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
               <button
                 type="button"
                 onClick={() => openMockOAuth("github")}
-                className="py-3 bg-slate-950 hover:bg-slate-850 border border-slate-800 hover:border-slate-750 rounded-xl text-xs font-semibold text-slate-200 hover:text-white flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                className="py-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-xl text-xs font-semibold text-slate-200 hover:text-white flex items-center justify-center gap-2 transition-colors cursor-pointer"
               >
                 <GithubIcon className="w-4 h-4" />
                 <span>GitHub</span>
@@ -390,7 +390,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
 
             {/* Status messages */}
             {errorMsg && (
-              <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-450 rounded-xl text-xs leading-relaxed flex items-start gap-2">
+              <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs leading-relaxed flex items-start gap-2">
                 <ShieldAlert className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
                 <span>{errorMsg}</span>
               </div>
@@ -416,7 +416,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 value={otpCode}
                 onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
                 placeholder="000000"
-                className="w-full bg-slate-950 border-2 border-slate-850 focus:border-indigo-500 rounded-2xl py-4 text-center text-2xl font-bold tracking-[0.75em] text-white focus:outline-none font-mono transition-colors"
+                className="w-full bg-slate-950 border-2 border-slate-800 focus:border-indigo-500 rounded-2xl py-4 text-center text-2xl font-bold tracking-[0.75em] text-white focus:outline-none font-mono transition-colors"
                 required
               />
             </div>
@@ -425,7 +425,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 bg-indigo-650 hover:bg-indigo-600 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-lg shadow-indigo-650/15"
+                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-lg shadow-indigo-600/15"
               >
                 {loading ? "Đang xác thực..." : "Xác nhận và kích hoạt"}
               </button>
@@ -454,31 +454,31 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
               </div>
               <div>
                 <h3 className="font-bold text-sm text-slate-100">Simulated {oauthProvider === "google" ? "Google" : "GitHub"} OAuth</h3>
-                <p className="text-[10px] text-slate-450">Bảng điều hướng giả lập xác thực OAuth2</p>
+                <p className="text-[10px] text-slate-400">Bảng điều hướng giả lập xác thực OAuth2</p>
               </div>
             </div>
 
             <div className="flex flex-col gap-3 my-1">
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-450 uppercase">Tên tài khoản hiển thị</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase">Tên tài khoản hiển thị</label>
                 <input
                   type="text"
                   value={oauthMockName}
                   onChange={(e) => setOauthMockName(e.target.value)}
                   placeholder="Nhập tên..."
-                  className="bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-250 font-semibold focus:outline-none"
+                  className="bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-200 font-semibold focus:outline-none"
                   required
                 />
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-450 uppercase">Địa chỉ Email</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase">Địa chỉ Email</label>
                 <input
                   type="email"
                   value={oauthMockEmail}
                   onChange={(e) => setOauthMockEmail(e.target.value)}
                   placeholder="email@domain.com"
-                  className="bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-250 font-semibold focus:outline-none font-mono"
+                  className="bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-200 font-semibold focus:outline-none font-mono"
                   required
                 />
               </div>
@@ -488,13 +488,13 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
               <button
                 type="button"
                 onClick={() => setShowOAuthModal(false)}
-                className="px-4 py-2 bg-slate-850 border border-slate-750 hover:bg-slate-800 text-xs font-semibold text-slate-300 rounded-lg cursor-pointer transition-colors"
+                className="px-4 py-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-xs font-semibold text-slate-300 rounded-lg cursor-pointer transition-colors"
               >
                 Hủy
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-indigo-650 hover:bg-indigo-600 text-xs font-bold text-white rounded-lg cursor-pointer transition-colors"
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white rounded-lg cursor-pointer transition-colors"
               >
                 Xác nhận phê duyệt
               </button>

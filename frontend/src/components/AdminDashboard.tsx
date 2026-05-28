@@ -291,11 +291,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-6 flex flex-col gap-6 animate-fadeIn">
       {/* Header section */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-850 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-5">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="p-2 bg-slate-950 hover:bg-slate-850 border border-slate-800 rounded-xl text-slate-400 hover:text-white cursor-pointer transition-colors"
+            className="p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl text-slate-400 hover:text-white cursor-pointer transition-colors"
             title="Quay lại Dashboard"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -307,7 +307,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
                 Quản trị viên
               </span>
             </h2>
-            <p className="text-[11px] text-slate-450 mt-0.5">
+            <p className="text-[11px] text-slate-400 mt-0.5">
               Cài đặt hệ thống, duyệt đăng ký, quản lý người dùng nâng cao, tạo API key và giám sát hoạt động.
             </p>
           </div>
@@ -318,7 +318,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
           {activeTab === "users" && (
             <button
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-1.5 bg-indigo-650 hover:bg-indigo-600 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
               <span>Tạo tài khoản</span>
@@ -328,7 +328,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
           <button
             onClick={loadData}
             disabled={loading}
-            className="flex items-center gap-1.5 bg-slate-950 hover:bg-slate-850 disabled:opacity-50 text-xs font-bold px-3.5 py-2 border border-slate-800 hover:border-slate-750 rounded-xl text-slate-300 hover:text-white transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 bg-slate-950 hover:bg-slate-800 disabled:opacity-50 text-xs font-bold px-3.5 py-2 border border-slate-800 hover:border-slate-700 rounded-xl text-slate-300 hover:text-white transition-colors cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             <span>Làm mới</span>
@@ -337,14 +337,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
       </div>
 
       {/* Tabs list */}
-      <div className="flex flex-wrap gap-2 p-1 bg-slate-950 rounded-xl border border-slate-850 self-start">
+      <div className="flex flex-wrap gap-2 p-1 bg-slate-950 rounded-xl border border-slate-800 self-start">
         <button
           onClick={() => {
             setActiveTab("users");
             setStatusMsg(null);
           }}
           className={`px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
-            activeTab === "users" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-455 hover:text-slate-200"
+            activeTab === "users" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
           }`}
         >
           <Users className="w-4 h-4" />
@@ -356,7 +356,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
             setStatusMsg(null);
           }}
           className={`px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
-            activeTab === "settings" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-455 hover:text-slate-200"
+            activeTab === "settings" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
           }`}
         >
           <Settings className="w-4 h-4" />
@@ -368,7 +368,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
             setStatusMsg(null);
           }}
           className={`px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
-            activeTab === "stats" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-455 hover:text-slate-200"
+            activeTab === "stats" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
           }`}
         >
           <BarChart3 className="w-4 h-4" />
@@ -380,7 +380,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
             setStatusMsg(null);
           }}
           className={`px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
-            activeTab === "logs" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-455 hover:text-slate-200"
+            activeTab === "logs" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
           }`}
         >
           <Activity className="w-4 h-4" />
@@ -394,7 +394,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
           className={`p-3.5 rounded-xl text-xs border flex items-center gap-2 ${
             statusMsg.type === "success"
               ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-              : "bg-rose-500/10 border-rose-500/20 text-rose-450"
+              : "bg-rose-500/10 border-rose-500/20 text-rose-400"
           }`}
         >
           {statusMsg.type === "success" ? <CheckCircle className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
@@ -414,7 +414,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
           <div className="overflow-x-auto border border-slate-800 rounded-2xl bg-slate-950/20">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-850 text-[10px] font-bold text-slate-400 uppercase bg-slate-950/40">
+                <tr className="border-b border-slate-800 text-[10px] font-bold text-slate-400 uppercase bg-slate-950/40">
                   <th className="px-5 py-4">Tài khoản</th>
                   <th className="px-5 py-4">Email</th>
                   <th className="px-5 py-4">Duyệt</th>
@@ -424,7 +424,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
                   <th className="px-5 py-4 text-right">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-850 text-xs">
+              <tbody className="divide-y divide-slate-800 text-xs">
                 {users.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="text-center py-10 text-slate-500">
@@ -433,7 +433,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
                   </tr>
                 ) : (
                   users.map((user) => (
-                    <tr key={user.id} className="hover:bg-slate-850/10 transition-colors">
+                    <tr key={user.id} className="hover:bg-slate-800/10 transition-colors">
                       <td className="px-5 py-4 font-bold text-slate-200">
                         @{user.username}
                       </td>
@@ -442,7 +442,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
                       </td>
                       <td className="px-5 py-4">
                         {user.is_approved ? (
-                          <span className="bg-emerald-500/10 text-emerald-450 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-bold">
+                          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-bold">
                             Đã duyệt
                           </span>
                         ) : (
@@ -466,7 +466,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
                             {user.oauth_provider}
                           </span>
                         ) : (
-                          <span className="text-slate-650">—</span>
+                          <span className="text-slate-600">—</span>
                         )}
                       </td>
                       <td className="px-5 py-4">
@@ -475,7 +475,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
                           disabled={actionLoading !== null}
                           className={`px-2.5 py-1 rounded-lg font-bold text-[10px] cursor-pointer transition-colors border ${
                             user.is_verified
-                              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-450 hover:bg-emerald-500/20"
+                              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20"
                               : "bg-amber-500/10 border-amber-500/20 text-amber-450 hover:bg-amber-500/20"
                           }`}
                         >
@@ -488,8 +488,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
                           disabled={actionLoading !== null}
                           className={`px-2.5 py-1 rounded-lg font-bold text-[10px] cursor-pointer transition-colors border ${
                             user.is_admin
-                              ? "bg-rose-500/10 border-rose-500/20 text-rose-450 hover:bg-rose-500/20"
-                              : "bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-750"
+                              ? "bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20"
+                              : "bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700"
                           }`}
                         >
                           {user.is_admin ? "Admin" : "User"}
@@ -514,7 +514,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
                           <button
                             onClick={() => handleDeleteUser(user.id, user.username)}
                             disabled={actionLoading !== null}
-                            className="p-1.5 bg-slate-900 border border-slate-800 text-rose-450 hover:bg-rose-500/10 hover:border-rose-500/20 rounded-lg cursor-pointer transition-colors"
+                            className="p-1.5 bg-slate-900 border border-slate-800 text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/20 rounded-lg cursor-pointer transition-colors"
                             title="Xóa tài khoản"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -529,13 +529,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
           </div>
         ) : activeTab === "settings" ? (
           /* SYSTEM SETTINGS TAB */
-          <form onSubmit={handleSaveSystemSettings} className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-950/30 p-6 border border-slate-850 rounded-2xl">
-            <h3 className="md:col-span-2 text-sm font-bold text-slate-200 border-b border-slate-850 pb-2">
+          <form onSubmit={handleSaveSystemSettings} className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-950/30 p-6 border border-slate-800 rounded-2xl">
+            <h3 className="md:col-span-2 text-sm font-bold text-slate-200 border-b border-slate-800 pb-2">
               Chính sách &amp; Chế độ chạy
             </h3>
             
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-450">Chế độ Worker GPU (Worker Mode)</label>
+              <label className="text-xs font-semibold text-slate-400">Chế độ Worker GPU (Worker Mode)</label>
               <select
                 value={settingsData.worker_mode}
                 onChange={(e) => setSettingsData({ ...settingsData, worker_mode: e.target.value })}
@@ -552,7 +552,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
                 id="require_admin_approval"
                 checked={settingsData.require_admin_approval}
                 onChange={(e) => setSettingsData({ ...settingsData, require_admin_approval: e.target.checked })}
-                className="w-4 h-4 rounded text-indigo-650 bg-slate-900 border-slate-800 focus:ring-indigo-500 focus:ring-2 cursor-pointer"
+                className="w-4 h-4 rounded text-indigo-600 bg-slate-900 border-slate-800 focus:ring-indigo-500 focus:ring-2 cursor-pointer"
               />
               <div className="flex flex-col">
                 <label htmlFor="require_admin_approval" className="text-xs font-semibold text-slate-200 cursor-pointer">
@@ -564,12 +564,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               </div>
             </div>
 
-            <h3 className="md:col-span-2 text-sm font-bold text-slate-200 border-b border-slate-850 pb-2 mt-4">
+            <h3 className="md:col-span-2 text-sm font-bold text-slate-200 border-b border-slate-800 pb-2 mt-4">
               Cấu hình SMTP Server (Xác thực Email)
             </h3>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-450">SMTP Host</label>
+              <label className="text-xs font-semibold text-slate-400">SMTP Host</label>
               <input
                 type="text"
                 value={settingsData.smtp_host}
@@ -580,7 +580,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-450">SMTP Port</label>
+              <label className="text-xs font-semibold text-slate-400">SMTP Port</label>
               <input
                 type="number"
                 value={settingsData.smtp_port}
@@ -590,7 +590,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-450">SMTP Username (Email đăng nhập)</label>
+              <label className="text-xs font-semibold text-slate-400">SMTP Username (Email đăng nhập)</label>
               <input
                 type="text"
                 value={settingsData.smtp_username}
@@ -601,7 +601,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-450">SMTP Password (Mật khẩu ứng dụng)</label>
+              <label className="text-xs font-semibold text-slate-400">SMTP Password (Mật khẩu ứng dụng)</label>
               <input
                 type="password"
                 value={settingsData.smtp_password}
@@ -612,7 +612,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
             </div>
 
             <div className="flex flex-col gap-1.5 md:col-span-2">
-              <label className="text-xs font-semibold text-slate-450">Email Gửi từ (Sender Email Address)</label>
+              <label className="text-xs font-semibold text-slate-400">Email Gửi từ (Sender Email Address)</label>
               <input
                 type="text"
                 value={settingsData.smtp_from}
@@ -622,12 +622,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               />
             </div>
 
-            <h3 className="md:col-span-2 text-sm font-bold text-slate-200 border-b border-slate-850 pb-2 mt-4">
+            <h3 className="md:col-span-2 text-sm font-bold text-slate-200 border-b border-slate-800 pb-2 mt-4">
               Cấu hình Kaggle mặc định của Hệ thống
             </h3>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-450">Kaggle Username mặc định</label>
+              <label className="text-xs font-semibold text-slate-400">Kaggle Username mặc định</label>
               <input
                 type="text"
                 value={settingsData.kaggle_username}
@@ -637,7 +637,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-450">Kaggle API Key mặc định</label>
+              <label className="text-xs font-semibold text-slate-400">Kaggle API Key mặc định</label>
               <input
                 type="password"
                 value={settingsData.kaggle_key}
@@ -648,7 +648,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-450">Kaggle Kernel Reference (Ví dụ: user/worker)</label>
+              <label className="text-xs font-semibold text-slate-400">Kaggle Kernel Reference (Ví dụ: user/worker)</label>
               <input
                 type="text"
                 value={settingsData.kaggle_kernel_ref}
@@ -658,7 +658,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-450">Kaggle Accelerator (Ví dụ: NvidiaTeslaT4)</label>
+              <label className="text-xs font-semibold text-slate-400">Kaggle Accelerator (Ví dụ: NvidiaTeslaT4)</label>
               <input
                 type="text"
                 value={settingsData.kaggle_accelerator}
@@ -670,7 +670,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
             <div className="md:col-span-2 flex justify-end gap-3 mt-4">
               <button
                 type="submit"
-                className="flex items-center gap-1.5 bg-indigo-650 hover:bg-indigo-600 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md transition-colors cursor-pointer"
               >
                 <Save className="w-4 h-4" />
                 <span>Lưu cấu hình hệ thống</span>
@@ -682,27 +682,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {stats && (
               <>
-                <div className="bg-slate-950 border border-slate-850 p-5 rounded-2xl flex flex-col gap-1">
-                  <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider">Tổng số User</span>
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-2xl flex flex-col gap-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tổng số User</span>
                   <span className="text-3xl font-black text-white">{stats.total_users}</span>
                   <p className="text-[10px] text-emerald-400 font-semibold mt-2 flex items-center gap-1">
                     <ShieldCheck className="w-3.5 h-3.5" />
                     <span>{stats.verified_users} người dùng đã xác thực OTP</span>
                   </p>
                 </div>
-                <div className="bg-slate-950 border border-slate-850 p-5 rounded-2xl flex flex-col gap-1">
-                  <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider">Tổng cuộc gọi API</span>
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-2xl flex flex-col gap-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tổng cuộc gọi API</span>
                   <span className="text-3xl font-black text-white">{stats.total_api_calls}</span>
                   <p className="text-[10px] text-slate-500 font-semibold mt-2 flex items-center gap-1">
                     <Globe className="w-3.5 h-3.5" />
                     <span>Ghi nhận từ HTTP requests Gateway</span>
                   </p>
                 </div>
-                <div className="bg-slate-950 border border-slate-850 p-5 rounded-2xl flex flex-col gap-1">
-                  <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider">TTS Jobs hoạt động</span>
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-2xl flex flex-col gap-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">TTS Jobs hoạt động</span>
                   <span className="text-3xl font-black text-indigo-400">{stats.active_jobs}</span>
                   <p className="text-[10px] text-slate-500 font-semibold mt-2">
-                    Tổng Job chạy: <strong className="text-emerald-400">{stats.completed_jobs} OK</strong> / <strong className="text-rose-455">{stats.failed_jobs} Lỗi</strong>
+                    Tổng Job chạy: <strong className="text-emerald-400">{stats.completed_jobs} OK</strong> / <strong className="text-rose-500">{stats.failed_jobs} Lỗi</strong>
                   </p>
                 </div>
               </>
@@ -714,7 +714,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
             <div className="overflow-x-auto border border-slate-800 rounded-2xl bg-slate-950/20">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-850 text-[10px] font-bold text-slate-400 uppercase bg-slate-950/40">
+                  <tr className="border-b border-slate-800 text-[10px] font-bold text-slate-400 uppercase bg-slate-950/40">
                     <th className="px-5 py-4">Thời gian</th>
                     <th className="px-5 py-4">Tài khoản</th>
                     <th className="px-5 py-4">Phương thức</th>
@@ -724,7 +724,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
                     <th className="px-5 py-4">IP Client</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-850 text-xs font-mono">
+                <tbody className="divide-y divide-slate-800 text-xs font-mono">
                   {logs.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="text-center py-10 text-slate-500 font-sans">
@@ -733,7 +733,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
                     </tr>
                   ) : (
                     logs.map((log) => (
-                      <tr key={log.id} className="hover:bg-slate-850/10 transition-colors">
+                      <tr key={log.id} className="hover:bg-slate-800/10 transition-colors">
                         <td className="px-5 py-3.5 text-slate-500 font-sans text-[11px] whitespace-nowrap">
                           {new Date(log.created_at).toLocaleTimeString("vi-VN")} {new Date(log.created_at).toLocaleDateString("vi-VN")}
                         </td>
@@ -750,7 +750,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
                               log.method === "POST"
                                 ? "bg-emerald-500/10 text-emerald-400"
                                 : log.method === "DELETE"
-                                ? "bg-rose-500/10 text-rose-455"
+                                ? "bg-rose-500/10 text-rose-500"
                                 : "bg-slate-800 text-slate-400"
                             }`}
                           >
@@ -775,7 +775,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
                         </td>
                         <td className="px-5 py-3.5 text-slate-400 whitespace-nowrap">
                           <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-slate-650" />
+                            <Clock className="w-3 h-3 text-slate-600" />
                             <span>{log.duration_ms.toFixed(1)} ms</span>
                           </span>
                         </td>
@@ -795,7 +795,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
       {/* --- CREATE USER MODAL --- */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-850 rounded-2xl max-w-md w-full p-6 flex flex-col gap-4 shadow-2xl relative">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 flex flex-col gap-4 shadow-2xl relative">
             <button
               onClick={() => setShowCreateModal(false)}
               className="absolute right-4 top-4 text-slate-400 hover:text-white cursor-pointer"
@@ -810,7 +810,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
 
             <form onSubmit={handleCreateUser} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-semibold text-slate-450">Tên đăng nhập (Username)</label>
+                <label className="text-[10px] font-semibold text-slate-400">Tên đăng nhập (Username)</label>
                 <input
                   type="text"
                   value={createUsername}
@@ -821,7 +821,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-semibold text-slate-455">Địa chỉ Email</label>
+                <label className="text-[10px] font-semibold text-slate-400">Địa chỉ Email</label>
                 <input
                   type="email"
                   value={createEmail}
@@ -832,7 +832,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-semibold text-slate-455">Mật khẩu (Password)</label>
+                <label className="text-[10px] font-semibold text-slate-400">Mật khẩu (Password)</label>
                 <input
                   type="password"
                   value={createPassword}
@@ -870,7 +870,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-1 border-t border-slate-850 mt-1">
+              <div className="flex items-center gap-2 pt-1 border-t border-slate-800 mt-1">
                 <input
                   type="checkbox"
                   id="create_is_admin"
@@ -878,14 +878,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
                   onChange={(e) => setCreateIsAdmin(e.target.checked)}
                   className="w-3.5 h-3.5 rounded text-rose-600 bg-slate-950 border-slate-800 cursor-pointer"
                 />
-                <label htmlFor="create_is_admin" className="text-[11px] font-semibold text-rose-455 cursor-pointer">
+                <label htmlFor="create_is_admin" className="text-[11px] font-semibold text-rose-500 cursor-pointer">
                   Cấp quyền Quản trị (Admin)
                 </label>
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-indigo-650 hover:bg-indigo-600 text-white font-bold text-xs py-2.5 rounded-lg cursor-pointer mt-3 shadow-md shadow-indigo-600/10"
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2.5 rounded-lg cursor-pointer mt-3 shadow-md shadow-indigo-600/10"
               >
                 Tạo người dùng
               </button>
@@ -897,7 +897,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
       {/* --- EDIT USER MODAL --- */}
       {editingUser && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-850 rounded-2xl max-w-md w-full p-6 flex flex-col gap-4 shadow-2xl relative">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 flex flex-col gap-4 shadow-2xl relative">
             <button
               onClick={() => setEditingUser(null)}
               className="absolute right-4 top-4 text-slate-400 hover:text-white cursor-pointer"
@@ -912,7 +912,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
 
             <form onSubmit={handleEditUser} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-semibold text-slate-455">Tên đăng nhập</label>
+                <label className="text-[10px] font-semibold text-slate-400">Tên đăng nhập</label>
                 <input
                   type="text"
                   value={editUsername}
@@ -923,7 +923,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-semibold text-slate-455">Địa chỉ Email</label>
+                <label className="text-[10px] font-semibold text-slate-400">Địa chỉ Email</label>
                 <input
                   type="email"
                   value={editEmail}
@@ -934,7 +934,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-semibold text-slate-455">Mật khẩu mới (Để trống nếu không đổi)</label>
+                <label className="text-[10px] font-semibold text-slate-400">Mật khẩu mới (Để trống nếu không đổi)</label>
                 <input
                   type="password"
                   value={editPassword}
@@ -972,7 +972,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-1 border-t border-slate-850 mt-1">
+              <div className="flex items-center gap-2 pt-1 border-t border-slate-800 mt-1">
                 <input
                   type="checkbox"
                   id="edit_is_admin"
@@ -980,14 +980,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
                   onChange={(e) => setEditIsAdmin(e.target.checked)}
                   className="w-3.5 h-3.5 rounded text-rose-600 bg-slate-950 border-slate-800 cursor-pointer"
                 />
-                <label htmlFor="edit_is_admin" className="text-[11px] font-semibold text-rose-455 cursor-pointer">
+                <label htmlFor="edit_is_admin" className="text-[11px] font-semibold text-rose-500 cursor-pointer">
                   Quyền Quản trị (Admin)
                 </label>
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-indigo-650 hover:bg-indigo-600 text-white font-bold text-xs py-2.5 rounded-lg cursor-pointer mt-3 shadow-md"
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2.5 rounded-lg cursor-pointer mt-3 shadow-md"
               >
                 Cập nhật thông tin
               </button>
@@ -999,7 +999,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
       {/* --- USER API KEYS MODAL --- */}
       {keysUser && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-850 rounded-2xl max-w-xl w-full p-6 flex flex-col gap-4 shadow-2xl relative max-h-[85vh] overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 flex flex-col gap-4 shadow-2xl relative max-h-[85vh] overflow-y-auto">
             <button
               onClick={() => setKeysUser(null)}
               className="absolute right-4 top-4 text-slate-400 hover:text-white cursor-pointer"
@@ -1007,7 +1007,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               <X className="w-4 h-4" />
             </button>
 
-            <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2 border-b border-slate-850 pb-2.5">
+            <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2 border-b border-slate-800 pb-2.5">
               <KeyRound className="w-4 h-4 text-indigo-400" />
               <span>Quản lý API Keys của @{keysUser.username}</span>
             </h3>
@@ -1032,33 +1032,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
             </form>
 
             <div className="mt-2">
-              <h4 className="text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-2">Danh sách khóa API</h4>
+              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Danh sách khóa API</h4>
               {userKeys.length > 0 ? (
                 <div className="flex flex-col gap-2.5">
                   {userKeys.map((k) => (
-                    <div key={k.id} className="bg-slate-950 border border-slate-850 p-3 rounded-xl flex items-center justify-between gap-4">
+                    <div key={k.id} className="bg-slate-950 border border-slate-800 p-3 rounded-xl flex items-center justify-between gap-4">
                       <div className="flex flex-col gap-1 min-w-0">
                         <span className="text-xs font-bold text-slate-200 truncate">{k.name}</span>
                         <div className="flex items-center gap-1.5 text-xs text-indigo-300 font-mono">
-                          <span>
-                            {visibleKeys[k.id] ? k.key : `${k.key.substring(0, 12)}••••••••••••••••••••••••`}
+                          <span className="max-w-[200px] truncate block select-all" title={k.key}>
+                            {visibleKeys[k.id] ? k.key : (k.key.length > 12 ? `${k.key.substring(0, 8)}••••${k.key.substring(k.key.length - 4)}` : k.key)}
                           </span>
                           <button
                             type="button"
                             onClick={() => setVisibleKeys({ ...visibleKeys, [k.id]: !visibleKeys[k.id] })}
-                            className="text-slate-500 hover:text-slate-350 cursor-pointer"
+                            className="text-slate-500 hover:text-slate-300 cursor-pointer shrink-0"
                           >
                             {visibleKeys[k.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                           </button>
                         </div>
-                        <span className="text-[9px] text-slate-550">
+                        <span className="text-[9px] text-slate-500">
                           Tạo ngày: {new Date(k.created_at).toLocaleDateString("vi-VN")} • Sử dụng cuối: {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString("vi-VN") : "Chưa sử dụng"}
                         </span>
                       </div>
 
                       <button
                         onClick={() => handleDeleteUserKey(k.id)}
-                        className="p-1.5 bg-slate-900 border border-slate-800 text-rose-455 hover:bg-rose-950/20 hover:border-rose-500/20 rounded-lg cursor-pointer transition-colors"
+                        className="p-1.5 bg-slate-900 border border-slate-800 text-rose-500 hover:bg-rose-950/20 hover:border-rose-500/20 rounded-lg cursor-pointer transition-colors"
                         title="Thu hồi khóa"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
