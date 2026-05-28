@@ -11,7 +11,7 @@ from app.services.audio_service import AudioService
 from app.services.mock_worker import MockWorker
 
 # Import all routers
-from app.routers import health, voice_samples, voice_design, tts, jobs, internal_worker, auth
+from app.routers import health, voice_samples, voice_design, tts, jobs, internal_worker, auth, admin
 from app.routers import settings as settings_router
 
 # Auto-shutdown state
@@ -60,6 +60,38 @@ async def lifespan(app: FastAPI):
     print("[Main] Initializing SQLite database tables...")
     Base.metadata.create_all(bind=engine)
     
+    # Seed default admin account
+    print("[Main] Seeding default admin account if not present...")
+    from app.database import SessionLocal
+    from app.models import User
+    from app.utils.auth import get_password_hash
+    import secrets
+    db = SessionLocal()
+    try:
+        admin_user = db.query(User).filter(User.username == "admin").first()
+        if not admin_user:
+            from app.utils.ids import generate_id
+            hashed_pwd = get_password_hash("admin_password_2026")
+            api_key = f"ovg_live_{secrets.token_hex(24)}"
+            admin_user = User(
+                id=generate_id("usr"),
+                username="admin",
+                email="admin@omnivoice.local",
+                hashed_password=hashed_pwd,
+                is_verified=True,
+                is_admin=True,
+                api_key=api_key
+            )
+            db.add(admin_user)
+            db.commit()
+            print("[Main] Default admin account successfully created (admin / admin_password_2026).")
+        else:
+            print("[Main] Default admin account already exists.")
+    except Exception as e:
+        print(f"[Main ERROR] Failed to seed default admin: {e}")
+    finally:
+        db.close()
+        
     # Start mock background worker if configured
     if settings.WORKER_MODE == "mock":
         print("[Main] Running in MOCK worker mode. Initializing MockWorker background thread...")
@@ -117,6 +149,79 @@ app.add_middleware(
 )
 
 @app.middleware("http")
+async def log_api_usage(request: Request, call_next):
+    path = request.url.path
+    is_loggable = (
+        request.method != "OPTIONS"
+        and not path.startswith("/health")
+        and not path.startswith("/docs")
+        and not path.startswith("/redoc")
+        and not path.endswith("openapi.json")
+        and not path.endswith("favicon.ico")
+    )
+    
+    if not is_loggable:
+        return await call_next(request)
+        
+    start_time = time.time()
+    response = await call_next(request)
+    duration_ms = (time.time() - start_time) * 1000
+    
+    # Try resolving user from Authorization header token
+    user_id = None
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        from app.database import SessionLocal
+        from app.models import User
+        from jose import jwt
+        db = SessionLocal()
+        try:
+            # 1. Try static API Key
+            user = db.query(User).filter(User.api_key == token).first()
+            if user:
+                user_id = user.id
+            else:
+                # 2. Try JWT
+                try:
+                    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+                    username = payload.get("sub")
+                    if username:
+                        user = db.query(User).filter(User.username == username).first()
+                        if user:
+                            user_id = user.id
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"[Middleware API Logger] Database error: {e}")
+        finally:
+            db.close()
+            
+    # Save log entry
+    from app.database import SessionLocal
+    from app.models import ApiUsageLog
+    from app.utils.ids import generate_id
+    db = SessionLocal()
+    try:
+        log_entry = ApiUsageLog(
+            id=generate_id("log"),
+            user_id=user_id,
+            endpoint=path,
+            method=request.method,
+            status_code=response.status_code,
+            ip_address=request.client.host if request.client else None,
+            duration_ms=duration_ms
+        )
+        db.add(log_entry)
+        db.commit()
+    except Exception as e:
+        print(f"[Middleware API Logger] Failed to save log: {e}")
+    finally:
+        db.close()
+        
+    return response
+
+@app.middleware("http")
 async def update_last_request_time(request: Request, call_next):
     global last_request_time
     path = request.url.path
@@ -136,6 +241,7 @@ async def update_last_request_time(request: Request, call_next):
 # Register routers
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(admin.router)
 app.include_router(voice_samples.router)
 app.include_router(voice_design.router)
 app.include_router(tts.router)

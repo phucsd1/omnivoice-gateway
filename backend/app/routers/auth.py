@@ -1,29 +1,52 @@
 import secrets
-from fastapi import APIRouter, Depends, HTTPException, status
+import random
+import string
+import re
+import requests
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.database import get_db
 from app.models import User
 from app.utils.ids import generate_id
+from app.config import settings
 from app.utils.auth import (
     get_password_hash,
     verify_password,
     create_access_token,
     get_current_user,
 )
+from app.utils.mail import send_verification_email
 
 router = APIRouter(prefix="/v1/auth", tags=["Authentication"])
+
+# Helper email validator regex
+EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
 
 class UserRegisterRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     password: str = Field(..., min_length=6, max_length=100)
+    email: str = Field(..., max_length=150)
 
 class UserLoginRequest(BaseModel):
     username: str
     password: str
+
+class VerifyEmailRequest(BaseModel):
+    username: str
+    code: str
+
+class ResendCodeRequest(BaseModel):
+    username: str
+
+class MockOAuthRequest(BaseModel):
+    email: str
+    username: str
+    oauth_provider: str
+    oauth_id: str
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -32,12 +55,22 @@ class TokenResponse(BaseModel):
 class UserMeResponse(BaseModel):
     id: str
     username: str
+    email: Optional[str] = None
+    is_verified: bool
+    is_admin: bool
     has_api_key: bool
     api_key: Optional[str] = None
     created_at: datetime
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-def register(payload: UserRegisterRequest, db: Session = Depends(get_db)):
+def register(payload: UserRegisterRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    # Validate email format
+    if not EMAIL_REGEX.match(payload.email):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Định dạng email không hợp lệ."
+        )
+
     # Check if username exists
     existing_user = db.query(User).filter(User.username == payload.username).first()
     if existing_user:
@@ -46,21 +79,115 @@ def register(payload: UserRegisterRequest, db: Session = Depends(get_db)):
             detail="Tên tài khoản đã tồn tại trên hệ thống."
         )
         
+    # Check if email exists
+    existing_email = db.query(User).filter(User.email == payload.email).first()
+    if existing_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Địa chỉ email đã được đăng ký."
+        )
+        
     hashed_pwd = get_password_hash(payload.password)
     user_id = generate_id("usr")
     
     # Auto-generate API Key on registration
     api_key = f"ovg_live_{secrets.token_hex(24)}"
     
+    # Generate 6-digit verification code
+    otp_code = "".join(random.choices(string.digits, k=6))
+    expires_at = datetime.utcnow() + timedelta(minutes=10)
+    
     new_user = User(
         id=user_id,
         username=payload.username,
+        email=payload.email,
         hashed_password=hashed_pwd,
+        is_verified=False,
+        verification_code=otp_code,
+        verification_expires_at=expires_at,
+        is_admin=False,
         api_key=api_key
     )
+    
     db.add(new_user)
     db.commit()
-    return {"status": "success", "message": "Đăng ký tài khoản thành công."}
+    
+    # Send email in background
+    background_tasks.add_task(send_verification_email, payload.email, payload.username, otp_code)
+    
+    response_data = {
+        "status": "success", 
+        "message": "Đăng ký thành công. Vui lòng kiểm tra email để lấy mã xác thực kích hoạt tài khoản."
+    }
+    
+    # Expose debug_code if SMTP settings are missing
+    if not settings.SMTP_USERNAME or not settings.SMTP_PASSWORD or settings.APP_ENV == "testing":
+        response_data["debug_code"] = otp_code
+        
+    return response_data
+
+@router.post("/verify-email", response_model=dict)
+def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == payload.username).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Không tìm thấy người dùng."
+        )
+        
+    if user.is_verified:
+        return {"status": "success", "message": "Tài khoản đã được xác thực trước đó."}
+        
+    if not user.verification_code or user.verification_code != payload.code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mã xác thực không hợp lệ."
+        )
+        
+    if user.verification_expires_at and user.verification_expires_at < datetime.utcnow():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mã xác thực đã hết hạn. Vui lòng yêu cầu mã mới."
+        )
+        
+    user.is_verified = True
+    user.verification_code = None
+    user.verification_expires_at = None
+    db.commit()
+    
+    return {"status": "success", "message": "Xác thực email thành công! Tài khoản đã được kích hoạt."}
+
+@router.post("/resend-code", response_model=dict)
+def resend_code(payload: ResendCodeRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == payload.username).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Không tìm thấy người dùng."
+        )
+        
+    if user.is_verified:
+        return {"status": "success", "message": "Tài khoản đã được xác thực trước đó."}
+        
+    # Generate new code
+    otp_code = "".join(random.choices(string.digits, k=6))
+    expires_at = datetime.utcnow() + timedelta(minutes=10)
+    
+    user.verification_code = otp_code
+    user.verification_expires_at = expires_at
+    db.commit()
+    
+    background_tasks.add_task(send_verification_email, user.email, user.username, otp_code)
+    
+    response_data = {
+        "status": "success",
+        "message": "Đã gửi lại mã xác thực mới vào email của bạn."
+    }
+    
+    if not settings.SMTP_USERNAME or not settings.SMTP_PASSWORD or settings.APP_ENV == "testing":
+        response_data["debug_code"] = otp_code
+        
+    return response_data
 
 @router.post("/login", response_model=TokenResponse)
 def login(payload: UserLoginRequest, db: Session = Depends(get_db)):
@@ -71,6 +198,12 @@ def login(payload: UserLoginRequest, db: Session = Depends(get_db)):
             detail="Tài khoản hoặc mật khẩu không chính xác."
         )
         
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tài khoản chưa được xác thực email. Vui lòng nhập mã OTP để kích hoạt."
+        )
+        
     access_token = create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -79,6 +212,9 @@ def get_me(current_user: User = Depends(get_current_user)):
     return UserMeResponse(
         id=current_user.id,
         username=current_user.username,
+        email=current_user.email,
+        is_verified=current_user.is_verified,
+        is_admin=current_user.is_admin,
         has_api_key=current_user.api_key is not None,
         api_key=current_user.api_key,
         created_at=current_user.created_at
@@ -103,3 +239,238 @@ def revoke_api_key(current_user: User = Depends(get_current_user), db: Session =
         "status": "success",
         "message": "Đã thu hồi khóa API thành công."
     }
+
+# --- OAuth Login (Real + Mock) ---
+
+@router.post("/oauth/mock", response_model=TokenResponse)
+def oauth_mock(payload: MockOAuthRequest, db: Session = Depends(get_db)):
+    """Mock OAuth login endpoint for testing frontend UI in simulated environment."""
+    # Look for existing user by oauth provider + id
+    user = db.query(User).filter(
+        User.oauth_provider == payload.oauth_provider,
+        User.oauth_id == payload.oauth_id
+    ).first()
+    
+    if not user:
+        # Also check by email to merge/associate
+        user = db.query(User).filter(User.email == payload.email).first()
+        if user:
+            # Link OAuth details
+            user.oauth_provider = payload.oauth_provider
+            user.oauth_id = payload.oauth_id
+            db.commit()
+        else:
+            # Auto-register new OAuth user
+            user_id = generate_id("usr")
+            # Generate random secure credentials
+            rand_pwd = secrets.token_hex(16)
+            hashed_pwd = get_password_hash(rand_pwd)
+            api_key = f"ovg_live_{secrets.token_hex(24)}"
+            
+            # Ensure unique username
+            base_username = payload.username
+            username = base_username
+            counter = 1
+            while db.query(User).filter(User.username == username).first():
+                username = f"{base_username}_{counter}"
+                counter += 1
+                
+            user = User(
+                id=user_id,
+                username=username,
+                email=payload.email,
+                hashed_password=hashed_pwd,
+                is_verified=True,  # OAuth emails are pre-verified
+                is_admin=False,
+                oauth_provider=payload.oauth_provider,
+                oauth_id=payload.oauth_id,
+                api_key=api_key
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            
+    access_token = create_access_token(data={"sub": user.username})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@router.get("/oauth/login/{provider}")
+def oauth_login(provider: str, redirect_uri: str):
+    """Initiates actual OAuth redirect (OAuth Authorize endpoint)."""
+    if provider == "google":
+        if not settings.GOOGLE_CLIENT_ID:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Google OAuth chưa được cấu hình Client ID."
+            )
+        auth_url = (
+            f"https://accounts.google.com/o/oauth2/v2/auth?"
+            f"response_type=code&"
+            f"client_id={settings.GOOGLE_CLIENT_ID}&"
+            f"redirect_uri={redirect_uri}&"
+            f"scope=openid%20email%20profile"
+        )
+        return {"auth_url": auth_url}
+        
+    elif provider == "github":
+        if not settings.GITHUB_CLIENT_ID:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="GitHub OAuth chưa được cấu hình Client ID."
+            )
+        auth_url = (
+            f"https://github.com/login/oauth/authorize?"
+            f"client_id={settings.GITHUB_CLIENT_ID}&"
+            f"redirect_uri={redirect_uri}&"
+            f"scope=user:email"
+        )
+        return {"auth_url": auth_url}
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"OAuth provider {provider} không hỗ trợ."
+        )
+
+@router.get("/oauth/callback/{provider}", response_model=TokenResponse)
+def oauth_callback(provider: str, code: str, redirect_uri: str, db: Session = Depends(get_db)):
+    """Processes callback and exchanges OAuth code for local JWT session token."""
+    email = None
+    username = None
+    oauth_id = None
+    
+    if provider == "google":
+        # 1. Exchange code for access token
+        token_res = requests.post("https://oauth2.googleapis.com/token", data={
+            "code": code,
+            "client_id": settings.GOOGLE_CLIENT_ID,
+            "client_secret": settings.GOOGLE_CLIENT_SECRET,
+            "redirect_uri": redirect_uri,
+            "grant_type": "authorization_code"
+        })
+        if token_res.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Lỗi exchange token với Google: {token_res.text}"
+            )
+        g_tokens = token_res.json()
+        g_access_token = g_tokens.get("access_token")
+        
+        # 2. Get user info
+        user_res = requests.get(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            headers={"Authorization": f"Bearer {g_access_token}"}
+        )
+        if user_res.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Lỗi lấy profile từ Google."
+            )
+        user_info = user_res.json()
+        email = user_info.get("email")
+        oauth_id = user_info.get("sub")
+        username = user_info.get("name", email.split("@")[0]).replace(" ", "_")
+        
+    elif provider == "github":
+        # 1. Exchange code for access token
+        token_res = requests.post(
+            "https://github.com/login/oauth/access_token",
+            headers={"Accept": "application/json"},
+            data={
+                "code": code,
+                "client_id": settings.GITHUB_CLIENT_ID,
+                "client_secret": settings.GITHUB_CLIENT_SECRET,
+                "redirect_uri": redirect_uri
+            }
+        )
+        if token_res.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Lỗi exchange token với GitHub: {token_res.text}"
+            )
+        gh_tokens = token_res.json()
+        gh_access_token = gh_tokens.get("access_token")
+        
+        # 2. Get profile
+        user_res = requests.get(
+            "https://api.github.com/user",
+            headers={"Authorization": f"Bearer {gh_access_token}"}
+        )
+        if user_res.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Lỗi lấy profile từ GitHub."
+            )
+        user_info = user_res.json()
+        oauth_id = str(user_info.get("id"))
+        username = user_info.get("login")
+        
+        # 3. Get email (since github user emails can be private/hidden)
+        email_res = requests.get(
+            "https://api.github.com/user/emails",
+            headers={"Authorization": f"Bearer {gh_access_token}"}
+        )
+        if email_res.status_code == 200:
+            emails = email_res.json()
+            # Find primary verified email
+            for em in emails:
+                if em.get("primary") and em.get("verified"):
+                    email = em.get("email")
+                    break
+            if not email and emails:
+                email = emails[0].get("email")
+        if not email:
+            email = user_info.get("email") or f"{username}@github.local"
+
+    else:
+        raise HTTPException(status_code=400, detail="Provider không hợp lệ.")
+
+    if not email or not oauth_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Không thể xác định email hoặc OAuth ID từ tài khoản liên kết."
+        )
+
+    # 4. Resolve user in DB
+    user = db.query(User).filter(
+        User.oauth_provider == provider,
+        User.oauth_id == oauth_id
+    ).first()
+    
+    if not user:
+        # Check if email is already registered under normal user
+        user = db.query(User).filter(User.email == email).first()
+        if user:
+            # Associate
+            user.oauth_provider = provider
+            user.oauth_id = oauth_id
+            db.commit()
+        else:
+            # Create user
+            user_id = generate_id("usr")
+            rand_pwd = secrets.token_hex(16)
+            hashed_pwd = get_password_hash(rand_pwd)
+            api_key = f"ovg_live_{secrets.token_hex(24)}"
+            
+            # Ensure unique username
+            base_username = username
+            counter = 1
+            while db.query(User).filter(User.username == username).first():
+                username = f"{base_username}_{counter}"
+                counter += 1
+                
+            user = User(
+                id=user_id,
+                username=username,
+                email=email,
+                hashed_password=hashed_pwd,
+                is_verified=True,
+                is_admin=False,
+                oauth_provider=provider,
+                oauth_id=oauth_id,
+                api_key=api_key
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            
+    access_token = create_access_token(data={"sub": user.username})
+    return {"access_token": access_token, "token_type": "bearer"}

@@ -111,12 +111,19 @@ def test_kaggle_notebook_builder(tmp_path):
     assert "ensure_dependencies()" in code
 
 def test_tts_job_with_custom_speed_and_steps():
-    # Register test user
     reg_res = client.post("/v1/auth/register", json={
         "username": "test_user_123",
-        "password": "password_123"
+        "password": "password_123",
+        "email": "test_user_123@example.com"
     })
     assert reg_res.status_code == 201
+    otp_code = reg_res.json()["debug_code"]
+    
+    verify_res = client.post("/v1/auth/verify-email", json={
+        "username": "test_user_123",
+        "code": otp_code
+    })
+    assert verify_res.status_code == 200
 
     # Login to get JWT token
     login_res = client.post("/v1/auth/login", json={

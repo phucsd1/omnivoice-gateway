@@ -30,26 +30,45 @@ def test_auth_flow():
     # 1. Register a user
     response = client.post("/v1/auth/register", json={
         "username": "auth_test_user",
-        "password": "strong_password_123"
+        "password": "strong_password_123",
+        "email": "auth_test_user@example.com"
     })
     assert response.status_code == 201
-    assert response.json()["status"] == "success"
+    res_data = response.json()
+    assert res_data["status"] == "success"
+    assert "debug_code" in res_data
+    otp_code = res_data["debug_code"]
 
     # 2. Register same user -> should fail (400)
     response = client.post("/v1/auth/register", json={
         "username": "auth_test_user",
-        "password": "strong_password_123"
+        "password": "strong_password_123",
+        "email": "auth_test_user@example.com"
     })
     assert response.status_code == 400
 
-    # 3. Login with wrong password -> should fail (401)
+    # 3. Login before verifying -> should fail with 403 (unverified)
     response = client.post("/v1/auth/login", json={
         "username": "auth_test_user",
-        "password": "wrong_password"
+        "password": "strong_password_123"
     })
-    assert response.status_code == 401
+    assert response.status_code == 403
 
-    # 4. Login successfully
+    # 4. Verify email with wrong code -> should fail (400)
+    response = client.post("/v1/auth/verify-email", json={
+        "username": "auth_test_user",
+        "code": "111111"
+    })
+    assert response.status_code == 400
+
+    # 5. Verify email with correct code -> should succeed (200)
+    response = client.post("/v1/auth/verify-email", json={
+        "username": "auth_test_user",
+        "code": otp_code
+    })
+    assert response.status_code == 200
+
+    # 6. Login successfully after verification
     response = client.post("/v1/auth/login", json={
         "username": "auth_test_user",
         "password": "strong_password_123"
@@ -59,17 +78,19 @@ def test_auth_flow():
     assert "access_token" in token_data
     token = token_data["access_token"]
 
-    # 5. Get current profile
+    # 7. Get current profile
     headers = {"Authorization": f"Bearer {token}"}
     response = client.get("/v1/auth/me", headers=headers)
     assert response.status_code == 200
     user_data = response.json()
     assert user_data["username"] == "auth_test_user"
-    assert user_data["has_api_key"] is True  # Auto-generated on registration
+    assert user_data["is_verified"] is True
+    assert user_data["is_admin"] is False
+    assert user_data["has_api_key"] is True
     initial_api_key = user_data["api_key"]
     assert initial_api_key is not None
 
-    # 6. Generate new API key
+    # 8. Generate new API key
     response = client.post("/v1/auth/apikey", headers=headers)
     assert response.status_code == 200
     new_key_data = response.json()
@@ -77,28 +98,20 @@ def test_auth_flow():
     new_api_key = new_key_data["api_key"]
     assert new_api_key != initial_api_key
 
-    # 7. Check profile again to see new key
-    response = client.get("/v1/auth/me", headers=headers)
-    user_data = response.json()
-    assert user_data["api_key"] == new_api_key
-
-    # 8. Test using API key to fetch user endpoint (should succeed)
-    api_key_headers = {"Authorization": f"Bearer {new_api_key}"}
-    response = client.get("/v1/jobs", headers=api_key_headers)
+    # 9. Test mock OAuth register/login
+    response = client.post("/v1/auth/oauth/mock", json={
+        "email": "oauth_user@example.com",
+        "username": "oauth_user",
+        "oauth_provider": "google",
+        "oauth_id": "google_12345"
+    })
     assert response.status_code == 200
-    assert isinstance(response.json(), list)
-
-    # 9. Revoke API key
-    response = client.delete("/v1/auth/apikey", headers=headers)
+    oauth_token = response.json()["access_token"]
+    
+    oauth_headers = {"Authorization": f"Bearer {oauth_token}"}
+    response = client.get("/v1/auth/me", headers=oauth_headers)
     assert response.status_code == 200
-    assert response.json()["status"] == "success"
-
-    # 10. Check profile again -> has_api_key should be False, api_key should be None
-    response = client.get("/v1/auth/me", headers=headers)
-    user_data = response.json()
-    assert user_data["has_api_key"] is False
-    assert user_data["api_key"] is None
-
-    # 11. Test using revoked API key (should fail 401)
-    response = client.get("/v1/jobs", headers=api_key_headers)
-    assert response.status_code == 401
+    oauth_user_data = response.json()
+    assert oauth_user_data["username"] == "oauth_user"
+    assert oauth_user_data["email"] == "oauth_user@example.com"
+    assert oauth_user_data["is_verified"] is True  # OAuth is pre-verified

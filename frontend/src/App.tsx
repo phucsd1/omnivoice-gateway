@@ -7,10 +7,12 @@ import { VoiceDesignPanel } from "./components/VoiceDesignPanel";
 import { TTSPanel } from "./components/TTSPanel";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { LoginRegister } from "./components/LoginRegister";
+import { AdminDashboard } from "./components/AdminDashboard";
 
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem("VITE_JWT_TOKEN"));
-  const [currentUser, setCurrentUser] = useState<{ username: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ username: string; is_admin: boolean } | null>(null);
+  const [showAdminPortal, setShowAdminPortal] = useState(false);
   const [activeVoiceSampleId, setActiveVoiceSampleId] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<"checking" | "connected" | "disconnected">("checking");
   const [apiBaseUrl, setApiBaseUrl] = useState("");
@@ -40,6 +42,7 @@ function App() {
     localStorage.removeItem("VITE_JWT_TOKEN");
     setToken(null);
     setCurrentUser(null);
+    setShowAdminPortal(false);
   };
 
   useEffect(() => {
@@ -93,7 +96,18 @@ function App() {
           {currentUser && (
             <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-inner">
               <span className="text-indigo-400">@{currentUser.username}</span>
-              <span className="text-slate-800">|</span>
+              <span className="text-slate-850">|</span>
+              {currentUser.is_admin && (
+                <>
+                  <button
+                    onClick={() => setShowAdminPortal(!showAdminPortal)}
+                    className="text-amber-400 hover:text-amber-300 font-bold transition-colors cursor-pointer flex items-center gap-1"
+                  >
+                    <span>{showAdminPortal ? "Main View" : "Admin Portal"}</span>
+                  </button>
+                  <span className="text-slate-850">|</span>
+                </>
+              )}
               <button
                 onClick={handleLogout}
                 className="text-slate-400 hover:text-rose-400 transition-colors cursor-pointer flex items-center gap-1"
@@ -154,51 +168,57 @@ function App() {
 
       {/* Main content */}
       <main className="flex-grow p-6 max-w-7xl w-full mx-auto flex flex-col gap-6 relative">
-        {/* Settings Panel */}
-        <SettingsPanel key={token} />
+        {showAdminPortal ? (
+          <AdminDashboard onBack={() => setShowAdminPortal(false)} />
+        ) : (
+          <>
+            {/* Settings Panel */}
+            <SettingsPanel key={token} />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column - Voice setups */}
-          <section className="flex flex-col gap-6">
-            <VoiceSampleUpload onUploadSuccess={handleVoiceSampleActive} />
-            <VoiceDesignPanel onAcceptSuccess={handleVoiceSampleActive} />
-          </section>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Column - Voice setups */}
+              <section className="flex flex-col gap-6">
+                <VoiceSampleUpload onUploadSuccess={handleVoiceSampleActive} />
+                <VoiceDesignPanel onAcceptSuccess={handleVoiceSampleActive} />
+              </section>
 
-          {/* Right Column - Generation & Jobs */}
-          <section className="flex flex-col gap-6">
-            {/* Info select helper */}
-            {activeVoiceSampleId ? (
-              <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/25 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-md">
-                <div className="flex items-center gap-3">
-                  <div className="bg-indigo-500/10 p-2 rounded-xl text-indigo-400">
-                    <Sparkles className="w-5 h-5" />
+              {/* Right Column - Generation & Jobs */}
+              <section className="flex flex-col gap-6">
+                {/* Info select helper */}
+                {activeVoiceSampleId ? (
+                  <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/25 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-md">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-indigo-500/10 p-2 rounded-xl text-indigo-400">
+                        <Sparkles className="w-5 h-5" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wide">
+                          Giọng mẫu đã chọn
+                        </span>
+                        <span className="text-xs font-mono font-bold text-slate-200 truncate max-w-[200px] sm:max-w-[300px]">
+                          {activeVoiceSampleId}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setActiveVoiceSampleId(null)}
+                      className="text-xs hover:text-white text-slate-450 border border-slate-800/80 hover:border-slate-700 bg-slate-950 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer font-bold"
+                    >
+                      Hủy chọn
+                    </button>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wide">
-                      Giọng mẫu đã chọn
-                    </span>
-                    <span className="text-xs font-mono font-bold text-slate-200 truncate max-w-[200px] sm:max-w-[300px]">
-                      {activeVoiceSampleId}
-                    </span>
+                ) : (
+                  <div className="bg-slate-900 border border-slate-800/50 rounded-2xl p-4 flex items-center gap-3 text-xs text-slate-450">
+                    <Layers className="w-5 h-5 text-slate-650" />
+                    <span>Chưa chọn mẫu giọng. Vui lòng Tải lên một mẫu hoặc Tạo thiết kế giọng ở cột bên trái để bắt đầu Clone.</span>
                   </div>
-                </div>
-                <button
-                  onClick={() => setActiveVoiceSampleId(null)}
-                  className="text-xs hover:text-white text-slate-450 border border-slate-800/80 hover:border-slate-700 bg-slate-950 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer font-bold"
-                >
-                  Hủy chọn
-                </button>
-              </div>
-            ) : (
-              <div className="bg-slate-900 border border-slate-800/50 rounded-2xl p-4 flex items-center gap-3 text-xs text-slate-450">
-                <Layers className="w-5 h-5 text-slate-650" />
-                <span>Chưa chọn mẫu giọng. Vui lòng Tải lên một mẫu hoặc Tạo thiết kế giọng ở cột bên trái để bắt đầu Clone.</span>
-              </div>
-            )}
+                )}
 
-            <TTSPanel activeVoiceSampleId={activeVoiceSampleId} />
-          </section>
-        </div>
+                <TTSPanel activeVoiceSampleId={activeVoiceSampleId} />
+              </section>
+            </div>
+          </>
+        )}
       </main>
 
       {/* Footer */}

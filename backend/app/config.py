@@ -36,6 +36,19 @@ class Settings(BaseSettings):
     KAGGLE_WORKER_DIR: str = "../kaggle_worker"
 
     
+    # SMTP Settings
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = "OmniVoice <no-reply@omnivoice.local>"
+    
+    # OAuth Settings
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GITHUB_CLIENT_ID: str = ""
+    GITHUB_CLIENT_SECRET: str = ""
+
     LOG_LEVEL: str = "info"
 
     @property

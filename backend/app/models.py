@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, Integer, DateTime, Text, ForeignKey
+from sqlalchemy import Column, String, Float, Integer, DateTime, Text, ForeignKey, Boolean
 from datetime import datetime
 from app.database import Base
 
@@ -8,7 +8,26 @@ class User(Base):
     id = Column(String(50), primary_key=True, index=True)
     username = Column(String(100), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
+    email = Column(String(150), unique=True, index=True, nullable=True)
+    is_verified = Column(Boolean, default=False, nullable=False)
+    verification_code = Column(String(10), nullable=True)
+    verification_expires_at = Column(DateTime, nullable=True)
+    is_admin = Column(Boolean, default=False, nullable=False)
+    oauth_provider = Column(String(50), nullable=True)
+    oauth_id = Column(String(100), nullable=True)
     api_key = Column(String(100), unique=True, index=True, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class ApiUsageLog(Base):
+    __tablename__ = "api_usage_logs"
+
+    id = Column(String(50), primary_key=True, index=True)
+    user_id = Column(String(50), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    endpoint = Column(String(255), nullable=False)
+    method = Column(String(10), nullable=False)
+    status_code = Column(Integer, nullable=False)
+    ip_address = Column(String(100), nullable=True)
+    duration_ms = Column(Float, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class UserSetting(Base):

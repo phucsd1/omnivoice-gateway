@@ -197,13 +197,43 @@ export const api = {
     });
   },
 
-  register: async (username: string, password: string): Promise<{ status: string; message: string }> => {
-    return request<{ status: string; message: string }>("/v1/auth/register", {
+  register: async (username: string, password: string, email: string): Promise<{ status: string; message: string; debug_code?: string }> => {
+    return request<{ status: string; message: string; debug_code?: string }>("/v1/auth/register", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, email }),
+    });
+  },
+
+  verifyEmail: async (username: string, code: string): Promise<{ status: string; message: string }> => {
+    return request<{ status: string; message: string }>("/v1/auth/verify-email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ username, code }),
+    });
+  },
+
+  resendCode: async (username: string): Promise<{ status: string; message: string; debug_code?: string }> => {
+    return request<{ status: string; message: string; debug_code?: string }>("/v1/auth/resend-code", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ username }),
+    });
+  },
+
+  oauthMock: async (email: string, username: string, oauthProvider: string, oauthId: string): Promise<{ access_token: string; token_type: string }> => {
+    return request<{ access_token: string; token_type: string }>("/v1/auth/oauth/mock", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, username, oauth_provider: oauthProvider, oauth_id: oauthId }),
     });
   },
 
@@ -222,13 +252,77 @@ export const api = {
       method: "DELETE",
     });
   },
+
+  // Admin Portal endpoints
+  getAdminUsers: async (): Promise<UserAdminResponse[]> => {
+    return request<UserAdminResponse[]>("/v1/admin/users");
+  },
+
+  updateUser: async (userId: string, isVerified?: boolean, isAdmin?: boolean): Promise<UserAdminResponse> => {
+    return request<UserAdminResponse>(`/v1/admin/users/${userId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ is_verified: isVerified, is_admin: isAdmin }),
+    });
+  },
+
+  deleteUser: async (userId: string): Promise<{ status: string; message: string }> => {
+    return request<{ status: string; message: string }>(`/v1/admin/users/${userId}`, {
+      method: "DELETE",
+    });
+  },
+
+  getAdminStats: async (): Promise<AdminStatsResponse> => {
+    return request<AdminStatsResponse>("/v1/admin/stats");
+  },
+
+  getAdminLogs: async (statusCode?: number): Promise<ApiLogResponse[]> => {
+    const url = statusCode !== undefined ? `/v1/admin/logs?status_code=${statusCode}` : "/v1/admin/logs";
+    return request<ApiLogResponse[]>(url);
+  },
 };
 
 export interface UserMeResponse {
   id: string;
   username: string;
+  email: string | null;
+  is_verified: boolean;
+  is_admin: boolean;
   has_api_key: boolean;
   api_key: string | null;
+  created_at: string;
+}
+
+export interface UserAdminResponse {
+  id: string;
+  username: string;
+  email: string | null;
+  is_verified: boolean;
+  is_admin: boolean;
+  oauth_provider: string | null;
+  created_at: string;
+}
+
+export interface AdminStatsResponse {
+  total_users: number;
+  verified_users: number;
+  active_jobs: number;
+  completed_jobs: number;
+  failed_jobs: number;
+  total_api_calls: number;
+}
+
+export interface ApiLogResponse {
+  id: string;
+  user_id: string | null;
+  username: string | null;
+  endpoint: string;
+  method: string;
+  status_code: number;
+  ip_address: string | null;
+  duration_ms: number;
   created_at: string;
 }
 
