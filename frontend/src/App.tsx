@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Sparkles, Radio, CheckCircle, XCircle, RefreshCw, Layers, LogOut } from "lucide-react";
+import { Sparkles, Radio, CheckCircle, XCircle, RefreshCw, Layers, LogOut, Server, KeyRound } from "lucide-react";
 import { api } from "./api/client";
 
 import { VoiceSampleUpload } from "./components/VoiceSampleUpload";
@@ -17,6 +17,22 @@ function App() {
   const [activeVoiceSampleId, setActiveVoiceSampleId] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<"checking" | "connected" | "disconnected">("checking");
   const [apiBaseUrl, setApiBaseUrl] = useState("");
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [kaggleStatus, setKaggleStatus] = useState<"unconfigured" | "connected" | "error">("unconfigured");
+
+  const fetchKaggleStatus = async () => {
+    try {
+      const res = await api.getSettings();
+      if (!res.kaggle_username || !res.kaggle_key_configured) {
+        setKaggleStatus("unconfigured");
+      } else {
+        setKaggleStatus("connected");
+      }
+    } catch (err) {
+      console.error("Lỗi lấy thông tin kết nối Kaggle:", err);
+    }
+  };
 
   const checkHealth = async () => {
     setConnectionStatus("checking");
@@ -54,6 +70,7 @@ function App() {
   useEffect(() => {
     if (token) {
       fetchUser();
+      fetchKaggleStatus();
     } else {
       setCurrentUser(null);
     }
@@ -95,29 +112,59 @@ function App() {
         {/* API Info & Health & User Profile */}
         <div className="flex flex-wrap items-center gap-3">
           {currentUser && (
-            <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-inner">
-              <span className="text-indigo-400">@{currentUser.username}</span>
-              <span className="text-slate-850">|</span>
-              {currentUser.is_admin && (
-                <>
-                  <button
-                    onClick={() => setShowAdminPortal(!showAdminPortal)}
-                    className="text-amber-400 hover:text-amber-300 font-bold transition-colors cursor-pointer flex items-center gap-1"
-                  >
-                    <span>{showAdminPortal ? "Main View" : "Admin Portal"}</span>
-                  </button>
-                  <span className="text-slate-850">|</span>
-                </>
-              )}
+            <>
+              {/* Kaggle Connection Status Button */}
               <button
-                onClick={handleLogout}
-                className="text-slate-400 hover:text-rose-400 transition-colors cursor-pointer flex items-center gap-1"
-                title="Đăng xuất"
+                onClick={() => setShowSettingsModal(true)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                  kaggleStatus === "connected"
+                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-450 hover:bg-emerald-500/20"
+                    : kaggleStatus === "error"
+                    ? "bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20 animate-pulse"
+                    : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-850 hover:text-white"
+                }`}
+                title="Cấu hình kết nối máy chủ Kaggle GPU"
               >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Đăng xuất</span>
+                <Server className="w-3.5 h-3.5" />
+                <span>
+                  Kaggle: {kaggleStatus === "connected" ? "Đã kết nối" : kaggleStatus === "error" ? "Lỗi kết nối" : "Chưa thiết lập"}
+                </span>
               </button>
-            </div>
+
+              {/* API Keys Manager Button */}
+              <button
+                onClick={() => setShowApiKeyModal(true)}
+                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 rounded-xl text-xs font-bold text-slate-350 hover:text-white transition-all cursor-pointer flex items-center gap-1.5"
+                title="Quản lý các API Keys & Xem hướng dẫn lập trình tích hợp"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>API Keys</span>
+              </button>
+
+              <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-inner">
+                <span className="text-indigo-400">@{currentUser.username}</span>
+                <span className="text-slate-850">|</span>
+                {currentUser.is_admin && (
+                  <>
+                    <button
+                      onClick={() => setShowAdminPortal(!showAdminPortal)}
+                      className="text-amber-400 hover:text-amber-300 font-bold transition-colors cursor-pointer flex items-center gap-1"
+                    >
+                      <span>{showAdminPortal ? "Main View" : "Admin Portal"}</span>
+                    </button>
+                    <span className="text-slate-850">|</span>
+                  </>
+                )}
+                <button
+                  onClick={handleLogout}
+                  className="text-slate-400 hover:text-rose-400 transition-colors cursor-pointer flex items-center gap-1"
+                  title="Đăng xuất"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Đăng xuất</span>
+                </button>
+              </div>
+            </>
           )}
 
           <div className="bg-slate-900 border border-slate-800 focus-within:border-indigo-500/50 px-3 py-1.5 rounded-xl text-xs font-mono text-slate-400 flex items-center gap-2 transition-all">
@@ -173,11 +220,18 @@ function App() {
           <AdminDashboard onBack={() => setShowAdminPortal(false)} />
         ) : (
           <>
-            {/* Settings Panel */}
-            <SettingsPanel key={token} />
+            {/* Settings Modal */}
+            <SettingsPanel
+              isOpen={showSettingsModal}
+              onClose={() => setShowSettingsModal(false)}
+              onStatusChange={(status) => setKaggleStatus(status)}
+            />
 
-            {/* API Keys Panel & Documentation */}
-            <ApiKeyPanel />
+            {/* API Keys & Documentation Modal */}
+            <ApiKeyPanel
+              isOpen={showApiKeyModal}
+              onClose={() => setShowApiKeyModal(false)}
+            />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Left Column - Voice setups */}

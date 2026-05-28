@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { KeyRound, Copy, Trash2, Eye, EyeOff, Terminal, FileCode, ChevronDown, ChevronUp, Check, Play, RefreshCw, ShieldCheck } from "lucide-react";
+import { KeyRound, Copy, Trash2, Eye, EyeOff, Terminal, FileCode, Check, Play, RefreshCw, ShieldCheck, X } from "lucide-react";
 import { api, getApiBaseUrl } from "../api/client";
 import type { ApiKeyResponse } from "../api/client";
 
-export const ApiKeyPanel: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false);
+interface ApiKeyPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export const ApiKeyPanel: React.FC<ApiKeyPanelProps> = ({ isOpen, onClose }) => {
   const [apiKeys, setApiKeys] = useState<ApiKeyResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [creatingKey, setCreatingKey] = useState(false);
@@ -26,8 +30,10 @@ export const ApiKeyPanel: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchApiKeys();
-  }, []);
+    if (isOpen) {
+      fetchApiKeys();
+    }
+  }, [isOpen]);
 
   const handleCreateApiKey = async () => {
     setCreatingKey(true);
@@ -208,229 +214,221 @@ async function generateSpeech() {
 generateSpeech();`
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-lg overflow-hidden transition-all duration-300">
-      {/* Header / Toggle Button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-850/40 transition-colors text-left cursor-pointer"
-      >
-        <div className="flex items-center gap-3">
+    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-2xl w-full flex flex-col gap-4 shadow-2xl relative animate-fadeIn max-h-[90vh] overflow-y-auto">
+        <button
+          onClick={onClose}
+          className="absolute right-5 top-5 text-slate-400 hover:text-white cursor-pointer"
+          title="Đóng"
+        >
+          <X className="w-4.5 h-4.5" />
+        </button>
+
+        <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
           <div className="bg-indigo-500/10 p-2 rounded-xl text-indigo-400">
             <KeyRound className="w-5 h-5" />
           </div>
           <div>
             <h3 className="font-bold text-slate-100 text-sm">Quản lý API Keys &amp; Tài liệu Tích hợp</h3>
-            <p className="text-[11px] text-slate-450 mt-0.5">
-              Tự động tạo mã API và xem hướng dẫn chi tiết cách nhúng trình sinh giọng nói AI vào hệ thống của bạn.
+            <p className="text-[11px] text-slate-455 mt-0.5">
+              Tạo tự động các khóa API và xem hướng dẫn chi tiết cách nhúng giọng nói nhân bản AI.
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          {apiKeys.length > 0 && (
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-              {apiKeys.length} Keys
-            </span>
-          )}
-          {isOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-        </div>
-      </button>
 
-      {/* Content */}
-      {isOpen && (
-        <div className="border-t border-slate-850 bg-slate-950/40 p-6 flex flex-col gap-6">
+        {/* API Keys Table & Generation Card */}
+        <div className="bg-slate-950 border border-slate-850 rounded-xl p-4 flex flex-col gap-3.5 shadow-inner">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2 text-indigo-400">
+              <ShieldCheck className="w-4.5 h-4.5" />
+              <h4 className="font-bold text-xs text-slate-200">Danh sách mã API Key của bạn</h4>
+            </div>
+            <button
+              type="button"
+              onClick={handleCreateApiKey}
+              disabled={creatingKey}
+              className="bg-indigo-650 hover:bg-indigo-600 text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5"
+            >
+              <PlusIcon className="w-3.5 h-3.5" />
+              <span>{creatingKey ? "Đang sinh khóa..." : "Tạo API Key mới"}</span>
+            </button>
+          </div>
           
-          {/* API Keys Table & Generation Card */}
-          <div className="bg-slate-950 border border-slate-850 rounded-xl p-4 flex flex-col gap-3.5 shadow-inner">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2 text-indigo-400">
-                <ShieldCheck className="w-4.5 h-4.5" />
-                <h4 className="font-bold text-xs text-slate-200">Danh sách mã API Key của bạn</h4>
+          <p className="text-[11px] text-slate-455 leading-relaxed -mt-1.5">
+            API Key được cấp quyền truy cập đầy đủ các endpoint tạo âm thanh nhân bản. Vui lòng bảo mật các khóa này, không chia sẻ lên mã nguồn công khai.
+          </p>
+
+          <div className="overflow-x-auto">
+            {loading && apiKeys.length === 0 ? (
+              <div className="text-center py-4 text-slate-500 text-xs flex items-center justify-center gap-2">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+                <span>Đang tải các khóa...</span>
               </div>
+            ) : apiKeys.length > 0 ? (
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-450 text-[10px] uppercase font-semibold">
+                    <th className="py-2 px-1">Tên khóa</th>
+                    <th className="py-2 px-1">Mã khóa API</th>
+                    <th className="py-2 px-1">Ngày tạo</th>
+                    <th className="py-2 px-1">Sử dụng cuối</th>
+                    <th className="py-2 px-1 text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {apiKeys.map((k) => (
+                    <tr key={k.id} className="border-b border-slate-900/60 hover:bg-slate-900/20">
+                      <td className="py-2.5 px-1 font-bold text-slate-200 truncate max-w-[140px]">{k.name}</td>
+                      <td className="py-2.5 px-1 font-mono text-[11px] text-indigo-300">
+                        <div className="flex items-center gap-1.5">
+                          <span>
+                            {visibleKeys[k.id] ? k.key : `${k.key.substring(0, 12)}••••••••••••••••••••••••`}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setVisibleKeys({ ...visibleKeys, [k.id]: !visibleKeys[k.id] })}
+                            className="text-slate-500 hover:text-slate-200 cursor-pointer"
+                            title={visibleKeys[k.id] ? "Ẩn" : "Hiện"}
+                          >
+                            {visibleKeys[k.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-1 text-slate-455 text-[11px]">
+                        {new Date(k.created_at).toLocaleDateString("vi-VN")}
+                      </td>
+                      <td className="py-2.5 px-1 text-slate-455 text-[11px]">
+                        {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString("vi-VN") : "Chưa hoạt động"}
+                      </td>
+                      <td className="py-2.5 px-1 text-right">
+                        <div className="flex justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyKey(k.id, k.key)}
+                            className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded-lg cursor-pointer transition-colors"
+                            title="Sao chép API Key"
+                          >
+                            {copiedKeyId === k.id ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteApiKey(k.id)}
+                            className="p-1.5 hover:bg-rose-950/20 text-slate-400 hover:text-rose-455 rounded-lg cursor-pointer transition-colors"
+                            title="Thu hồi khóa"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="text-center py-6 text-slate-500 text-[11px]">
+                Bạn chưa có API Key nào. Bấm nút "Tạo API Key mới" ở góc phải để tạo tự động.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Integration Documentation Card */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col">
+          
+          {/* Header documentation tab triggers */}
+          <div className="bg-slate-950 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-855 gap-3">
+            <div className="flex items-center gap-2">
+              <Terminal className="w-4 h-4 text-indigo-400" />
+              <span className="text-xs font-bold text-slate-200">Hướng dẫn nhúng code mẫu tích hợp hệ thống</span>
+            </div>
+            
+            <div className="flex gap-1.5 bg-slate-900 p-0.5 border border-slate-800 rounded-lg self-start sm:self-auto">
               <button
-                type="button"
-                onClick={handleCreateApiKey}
-                disabled={creatingKey}
-                className="bg-indigo-650 hover:bg-indigo-600 text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5"
+                onClick={() => setDocTab("curl")}
+                className={`px-3 py-1 text-[10px] font-bold rounded-md flex items-center gap-1.5 transition-all cursor-pointer ${
+                  docTab === "curl" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+                }`}
               >
-                <PlusIcon className="w-3.5 h-3.5" />
-                <span>{creatingKey ? "Đang sinh khóa..." : "Tạo API Key mới"}</span>
+                <Play className="w-2.5 h-2.5" />
+                <span>cURL</span>
+              </button>
+              <button
+                onClick={() => setDocTab("python")}
+                className={`px-3 py-1 text-[10px] font-bold rounded-md flex items-center gap-1.5 transition-all cursor-pointer ${
+                  docTab === "python" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <FileCode className="w-2.5 h-2.5" />
+                <span>Python</span>
+              </button>
+              <button
+                onClick={() => setDocTab("nodejs")}
+                className={`px-3 py-1 text-[10px] font-bold rounded-md flex items-center gap-1.5 transition-all cursor-pointer ${
+                  docTab === "nodejs" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <FileCode className="w-2.5 h-2.5" />
+                <span>NodeJS</span>
               </button>
             </div>
-            
-            <p className="text-[11px] text-slate-455 leading-relaxed -mt-1.5">
-              API Key được cấp quyền truy cập đầy đủ các endpoint tạo âm thanh nhân bản. Vui lòng bảo mật các khóa này, không chia sẻ lên mã nguồn công khai.
-            </p>
-
-            <div className="overflow-x-auto">
-              {loading && apiKeys.length === 0 ? (
-                <div className="text-center py-4 text-slate-505 text-xs flex items-center justify-center gap-2">
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-500" />
-                  <span>Đang tải các khóa...</span>
-                </div>
-              ) : apiKeys.length > 0 ? (
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-450 text-[10px] uppercase font-semibold">
-                      <th className="py-2 px-1">Tên khóa</th>
-                      <th className="py-2 px-1">Mã khóa API</th>
-                      <th className="py-2 px-1">Ngày tạo</th>
-                      <th className="py-2 px-1">Sử dụng cuối</th>
-                      <th className="py-2 px-1 text-right">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {apiKeys.map((k) => (
-                      <tr key={k.id} className="border-b border-slate-900/60 hover:bg-slate-900/20">
-                        <td className="py-2.5 px-1 font-bold text-slate-200 truncate max-w-[140px]">{k.name}</td>
-                        <td className="py-2.5 px-1 font-mono text-[11px] text-indigo-300">
-                          <div className="flex items-center gap-1.5">
-                            <span>
-                              {visibleKeys[k.id] ? k.key : `${k.key.substring(0, 12)}••••••••••••••••••••••••`}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setVisibleKeys({ ...visibleKeys, [k.id]: !visibleKeys[k.id] })}
-                              className="text-slate-500 hover:text-slate-200 cursor-pointer"
-                              title={visibleKeys[k.id] ? "Ẩn" : "Hiện"}
-                            >
-                              {visibleKeys[k.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                            </button>
-                          </div>
-                        </td>
-                        <td className="py-2.5 px-1 text-slate-455 text-[11px]">
-                          {new Date(k.created_at).toLocaleDateString("vi-VN")}
-                        </td>
-                        <td className="py-2.5 px-1 text-slate-455 text-[11px]">
-                          {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString("vi-VN") : "Chưa hoạt động"}
-                        </td>
-                        <td className="py-2.5 px-1 text-right">
-                          <div className="flex justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleCopyKey(k.id, k.key)}
-                              className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded-lg cursor-pointer transition-colors"
-                              title="Sao chép API Key"
-                            >
-                              {copiedKeyId === k.id ? (
-                                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                              ) : (
-                                <Copy className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteApiKey(k.id)}
-                              className="p-1.5 hover:bg-rose-950/20 text-slate-400 hover:text-rose-455 rounded-lg cursor-pointer transition-colors"
-                              title="Thu hồi khóa"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="text-center py-6 text-slate-500 text-[11px]">
-                  Bạn chưa có API Key nào. Bấm nút "Tạo API Key mới" ở góc phải để tạo tự động.
-                </div>
-              )}
-            </div>
           </div>
 
-          {/* Integration Documentation Card */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col">
-            
-            {/* Header documentation tab triggers */}
-            <div className="bg-slate-950 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-855 gap-3">
-              <div className="flex items-center gap-2">
-                <Terminal className="w-4 h-4 text-indigo-400" />
-                <span className="text-xs font-bold text-slate-200">Hướng dẫn nhúng code mẫu tích hợp hệ thống</span>
-              </div>
+          {/* Code Body */}
+          <div className="p-4 flex flex-col gap-3 bg-slate-950/20">
+            <div className="text-[11px] text-indigo-300 font-semibold flex items-center justify-between">
+              <span>
+                {docTab === "curl" ? "Shell Command Line cURL" : docTab === "python" ? "Python requests script polling" : "NodeJS Fetch API client logic"}
+              </span>
               
-              <div className="flex gap-1.5 bg-slate-900 p-0.5 border border-slate-800 rounded-lg self-start sm:self-auto">
-                <button
-                  onClick={() => setDocTab("curl")}
-                  className={`px-3 py-1 text-[10px] font-bold rounded-md flex items-center gap-1.5 transition-all cursor-pointer ${
-                    docTab === "curl" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  <Play className="w-2.5 h-2.5" />
-                  <span>cURL</span>
-                </button>
-                <button
-                  onClick={() => setDocTab("python")}
-                  className={`px-3 py-1 text-[10px] font-bold rounded-md flex items-center gap-1.5 transition-all cursor-pointer ${
-                    docTab === "python" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  <FileCode className="w-2.5 h-2.5" />
-                  <span>Python</span>
-                </button>
-                <button
-                  onClick={() => setDocTab("nodejs")}
-                  className={`px-3 py-1 text-[10px] font-bold rounded-md flex items-center gap-1.5 transition-all cursor-pointer ${
-                    docTab === "nodejs" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  <FileCode className="w-2.5 h-2.5" />
-                  <span>NodeJS</span>
-                </button>
-              </div>
+              <button
+                onClick={() => handleCopyCode(codeSnippets[docTab])}
+                className="flex items-center gap-1 bg-slate-900 border border-slate-800 hover:bg-slate-800 hover:text-white px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer text-slate-300 transition-colors"
+              >
+                {copiedCode ? (
+                  <>
+                    <Check className="w-3 h-3 text-emerald-400" />
+                    <span className="text-emerald-400">Đã chép</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3" />
+                    <span>Chép code</span>
+                  </>
+                )}
+              </button>
             </div>
 
-            {/* Code Body */}
-            <div className="p-4 flex flex-col gap-3 bg-slate-950/20">
-              <div className="text-[11px] text-indigo-300 font-semibold flex items-center justify-between">
-                <span>
-                  {docTab === "curl" ? "Shell Command Line cURL" : docTab === "python" ? "Python requests script polling" : "NodeJS Fetch API client logic"}
-                </span>
-                
-                <button
-                  onClick={() => handleCopyCode(codeSnippets[docTab])}
-                  className="flex items-center gap-1 bg-slate-900 border border-slate-800 hover:bg-slate-800 hover:text-white px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer text-slate-300 transition-colors"
-                >
-                  {copiedCode ? (
-                    <>
-                      <Check className="w-3 h-3 text-emerald-400" />
-                      <span className="text-emerald-400">Đã chép</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3 h-3" />
-                      <span>Chép code</span>
-                    </>
-                  )}
-                </button>
-              </div>
+            <div className="relative">
+              <pre className="bg-slate-950 text-slate-300 font-mono text-[11px] leading-relaxed p-4 rounded-xl border border-slate-900 overflow-x-auto max-h-[200px] whitespace-pre select-text">
+                {codeSnippets[docTab]}
+              </pre>
+            </div>
 
-              <div className="relative">
-                <pre className="bg-slate-950 text-slate-300 font-mono text-[11px] leading-relaxed p-4 rounded-xl border border-slate-900 overflow-x-auto max-h-[290px] whitespace-pre select-text">
-                  {codeSnippets[docTab]}
-                </pre>
-              </div>
-
-              {/* Explanations */}
-              <div className="text-[11px] text-slate-400 space-y-2 mt-1 border-t border-slate-850/60 pt-3">
-                <p className="font-semibold text-slate-300">💡 Lưu ý quan trọng khi tích hợp:</p>
-                <ul className="list-disc pl-4 space-y-1.5">
-                  <li>
-                    <strong>Xác thực:</strong> Gửi token qua header <code className="bg-slate-950 text-indigo-300 px-1 py-0.5 rounded font-mono text-[10px]">Authorization: Bearer YOUR_API_KEY</code> cho tất cả các endpoint.
-                  </li>
-                  <li>
-                    <strong>Tải file kết quả:</strong> Khi tệp âm thanh hoàn tất, URL tải file nằm trong trường <code className="text-indigo-300 font-mono text-[10px]">audio_url</code> của phản hồi status. Bạn <strong>bắt buộc phải nhúng thêm</strong> Header Authorization Bearer Key vào request GET tải file âm thanh này để xác thực tải thành công.
-                  </li>
-                  <li>
-                    <strong>Tốc độ sinh &amp; Số bước (Speed &amp; Step):</strong> Bạn có thể điều khiển tốc độ qua trường <code className="text-indigo-300 font-mono text-[10px]">"speed"</code> (từ 0.5 đến 2.0) và chất lượng qua trường <code className="text-indigo-300 font-mono text-[10px]">"num_step"</code> (16 đến 64 bước).
-                  </li>
-                </ul>
-              </div>
+            {/* Explanations */}
+            <div className="text-[11px] text-slate-450 space-y-2 mt-1 border-t border-slate-855 pt-3">
+              <p className="font-semibold text-slate-300">💡 Lưu ý quan trọng khi tích hợp:</p>
+              <ul className="list-disc pl-4 space-y-1.5">
+                <li>
+                  <strong>Xác thực:</strong> Gửi token qua header <code className="bg-slate-950 text-indigo-300 px-1 py-0.5 rounded font-mono text-[10px]">Authorization: Bearer YOUR_API_KEY</code> cho tất cả các endpoint.
+                </li>
+                <li>
+                  <strong>Tải file kết quả:</strong> Khi tệp âm thanh hoàn tất, URL tải file nằm trong trường <code className="text-indigo-300 font-mono text-[10px]">audio_url</code> của phản hồi status. Bạn <strong>bắt buộc phải nhúng thêm</strong> Header Authorization Bearer Key vào request GET tải file âm thanh này để xác thực tải thành công.
+                </li>
+                <li>
+                  <strong>Tốc độ sinh &amp; Số bước (Speed &amp; Step):</strong> Bạn có thể điều khiển tốc độ qua trường <code className="text-indigo-300 font-mono text-[10px]">"speed"</code> (từ 0.5 đến 2.0) và chất lượng qua trường <code className="text-indigo-300 font-mono text-[10px]">"num_step"</code> (16 đến 64 bước).
+                </li>
+              </ul>
             </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
