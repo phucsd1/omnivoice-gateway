@@ -61,7 +61,11 @@ def get_next_job(worker_id: str, request: Request, db: Session = Depends(get_db)
     # Construct public ref audio URL if there is a sample ID associated
     ref_audio_url = None
     if job.voice_sample_id:
-        base_url = settings.PUBLIC_API_BASE_URL or str(request.base_url).rstrip("/")
+        base_url = settings.PUBLIC_API_BASE_URL
+        if not base_url:
+            proto = request.headers.get("x-forwarded-proto", str(request.base_url).split("://")[0])
+            host = request.headers.get("x-forwarded-host", str(request.base_url).split("://")[-1].rstrip("/"))
+            base_url = f"{proto}://{host}"
         ref_audio_url = f"{base_url}/v1/internal/files/voice-samples/{job.voice_sample_id}"
 
     output_kind = "preview" if job.job_type == "voice_design_preview" else "tts"

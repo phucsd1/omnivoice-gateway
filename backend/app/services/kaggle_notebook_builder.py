@@ -85,6 +85,7 @@ import tempfile
 import traceback
 import requests
 import warnings
+from urllib.parse import urlparse
 
 os.environ["CUDA_MODULE_LOADING"] = "LAZY"
 os.environ["PYTHONWARNINGS"] = "ignore"
@@ -279,8 +280,12 @@ def main():
                         json={{"status": "preparing_input", "message": "Đang tải tệp âm thanh tham chiếu...", "progress": 45}}
                     )
                     
-                    # Securely download voice sample file
-                    res = make_request("GET", ref_audio_url.replace(PUBLIC_API_BASE_URL, ""), stream=True)
+                    # Securely download voice sample file using the parsed URL path
+                    parsed_ref = urlparse(ref_audio_url)
+                    ref_path = parsed_ref.path
+                    if parsed_ref.query:
+                        ref_path = ref_path + "?" + parsed_ref.query
+                    res = make_request("GET", ref_path, stream=True)
                     if res.status_code == 200:
                         temp_fd, local_ref_path = tempfile.mkstemp(suffix=".wav")
                         os.close(temp_fd)
