@@ -25,6 +25,8 @@ class VoiceSampleResponse(BaseModel):
 class VoiceDesignPreviewCreate(BaseModel):
     voice_request: str
     preview_text: str
+    speed: Optional[float] = 1.0
+    num_step: Optional[int] = 32
 
 class VoiceDesignPreviewResponse(BaseModel):
     preview_id: str
@@ -54,6 +56,8 @@ class TTSJobCreate(BaseModel):
     text: str
     voice_sample_id: Optional[str] = None
     instruct: Optional[str] = None
+    speed: Optional[float] = 1.0
+    num_step: Optional[int] = 32
 
 class TTSJobResponse(BaseModel):
     job_id: str
@@ -98,6 +102,8 @@ class WorkerJobPayload(BaseModel):
     ref_audio_url: Optional[str] = None
     ref_text: Optional[str] = None
     output_kind: str  # "preview" or "tts"
+    speed: Optional[float] = 1.0
+    num_step: Optional[int] = 32
 
 class WorkerNextJobResponse(BaseModel):
     job: Optional[WorkerJobPayload] = None

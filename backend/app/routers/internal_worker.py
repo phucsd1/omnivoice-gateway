@@ -77,7 +77,9 @@ def get_next_job(worker_id: str, request: Request, db: Session = Depends(get_db)
         instruct=job.instruct,
         ref_audio_url=ref_audio_url,
         ref_text=job.ref_text,
-        output_kind=output_kind
+        output_kind=output_kind,
+        speed=job.speed,
+        num_step=job.num_step
     )
 
     return WorkerNextJobResponse(job=payload, message="Job assigned")

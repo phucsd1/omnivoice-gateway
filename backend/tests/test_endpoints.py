@@ -110,3 +110,33 @@ def test_kaggle_notebook_builder(tmp_path):
         code = f.read()
     assert "ensure_dependencies()" in code
 
+def test_tts_job_with_custom_speed_and_steps():
+    # 1. Create a job with custom speed and steps
+    response = client.post("/v1/tts/jobs", json={
+        "mode": "auto_voice",
+        "text": "Kiểm thử tham số tốc độ và độ chính xác",
+        "speed": 1.2,
+        "num_step": 25
+    })
+    assert response.status_code == 200
+    data = response.json()
+    job_id = data["job_id"]
+    assert job_id is not None
+
+    # 2. Register worker
+    headers = {"Authorization": "Bearer test_secret_token"}
+    reg_response = client.post("/v1/internal/workers/register", json={
+        "worker_id": "test_worker_1",
+        "status": "ready"
+    }, headers=headers)
+    assert reg_response.status_code == 200
+
+    # 3. Pull next job and verify that speed and num_step are assigned to payload
+    job_response = client.get("/v1/internal/jobs/next?worker_id=test_worker_1", headers=headers)
+    assert job_response.status_code == 200
+    job_data = job_response.json()
+    assert job_data["job"] is not None
+    assert job_data["job"]["job_id"] == job_id
+    assert job_data["job"]["speed"] == 1.2
+    assert job_data["job"]["num_step"] == 25
+

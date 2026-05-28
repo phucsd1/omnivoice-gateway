@@ -56,7 +56,7 @@ class JobService:
         return ", ".join(instructs)
 
     @staticmethod
-    def create_voice_design_preview(db: Session, voice_request: str, preview_text: str, public_api_url: str = None) -> tuple[VoiceDesignPreview, TTSJob]:
+    def create_voice_design_preview(db: Session, voice_request: str, preview_text: str, public_api_url: str = None, speed: float = 1.0, num_step: int = 32) -> tuple[VoiceDesignPreview, TTSJob]:
         """Creates a VoiceDesignPreview entry and triggers a background preview TTS job."""
         preview_id = generate_id("vd")
         job_id = generate_id("job")
@@ -80,6 +80,8 @@ class JobService:
             text=preview_text,
             preview_id=preview_id,
             instruct=instruct,
+            speed=speed,
+            num_step=num_step,
             status="queued",
             message="Đã nhận yêu cầu thiết kế giọng."
         )
@@ -91,7 +93,7 @@ class JobService:
         return db_preview, db_job
 
     @staticmethod
-    def create_tts_job(db: Session, mode: str, text: str, voice_sample_id: str = None, instruct: str = None, public_api_url: str = None) -> TTSJob:
+    def create_tts_job(db: Session, mode: str, text: str, voice_sample_id: str = None, instruct: str = None, public_api_url: str = None, speed: float = 1.0, num_step: int = 32) -> TTSJob:
         """Creates a TTS job based on the chosen mode (clone_voice, auto_voice, voice_design)."""
         job_id = generate_id("job")
         
@@ -126,6 +128,8 @@ class JobService:
             instruct=instruct,
             ref_audio_path=ref_audio_path,
             ref_text=ref_text,
+            speed=speed,
+            num_step=num_step,
             status="queued",
             message="Đã nhận yêu cầu. Đang chuẩn bị đầu vào..."
         )

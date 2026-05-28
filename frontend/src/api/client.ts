@@ -103,13 +103,18 @@ export const api = {
     });
   },
   
-  createVoiceDesignPreview: async (voiceRequest: string, previewText: string): Promise<VoiceDesignPreviewResponse> => {
+  createVoiceDesignPreview: async (voiceRequest: string, previewText: string, speed?: number, numStep?: number): Promise<VoiceDesignPreviewResponse> => {
     return request<VoiceDesignPreviewResponse>("/v1/voice-design/previews", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ voice_request: voiceRequest, preview_text: previewText }),
+      body: JSON.stringify({ 
+        voice_request: voiceRequest, 
+        preview_text: previewText,
+        speed: speed !== undefined ? speed : 1.0,
+        num_step: numStep !== undefined ? numStep : 32
+      }),
     });
   },
   
@@ -123,7 +128,7 @@ export const api = {
     });
   },
   
-  createTTSJob: async (mode: string, text: string, voiceSampleId?: string, instruct?: string): Promise<TTSJobResponse> => {
+  createTTSJob: async (mode: string, text: string, voiceSampleId?: string, instruct?: string, speed?: number, numStep?: number): Promise<TTSJobResponse> => {
     return request<TTSJobResponse>("/v1/tts/jobs", {
       method: "POST",
       headers: {
@@ -134,6 +139,8 @@ export const api = {
         text,
         voice_sample_id: voiceSampleId || null,
         instruct: instruct || null,
+        speed: speed !== undefined ? speed : 1.0,
+        num_step: numStep !== undefined ? numStep : 32
       }),
     });
   },

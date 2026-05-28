@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     FRONTEND_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173,https://omnivoice-gateway.pages.dev"
     
     WORKER_TOKEN: str = "default_secure_worker_token_12345"
-    WORKER_IDLE_TIMEOUT_SECONDS: int = 600
+    WORKER_IDLE_TIMEOUT_SECONDS: int = 100
     WORKER_POLL_INTERVAL_SECONDS: int = 3
     
     KAGGLE_USERNAME: str = ""

@@ -26,7 +26,8 @@ def create_voice_design_preview(
     """
     try:
         preview, job = JobService.create_voice_design_preview(
-            db, payload.voice_request, payload.preview_text, str(request.base_url).rstrip("/")
+            db, payload.voice_request, payload.preview_text, str(request.base_url).rstrip("/"),
+            speed=payload.speed, num_step=payload.num_step
         )
         return VoiceDesignPreviewResponse(
             preview_id=preview.id,

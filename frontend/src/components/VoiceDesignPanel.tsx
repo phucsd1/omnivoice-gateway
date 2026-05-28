@@ -21,6 +21,8 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
   const [accepting, setAccepting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [speed, setSpeed] = useState(1.0);
+  const [numStep, setNumStep] = useState(32);
 
   const pollIntervalRef = useRef<number | null>(null);
   const timeoutRef = useRef<number | null>(null);
@@ -37,7 +39,7 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
     setSuccessMsg(null);
 
     try {
-      const res = await api.createVoiceDesignPreview(voiceRequest, previewText);
+      const res = await api.createVoiceDesignPreview(voiceRequest, previewText, speed, numStep);
       setJobId(res.job_id);
       setPreviewId(res.preview_id);
       setJobStatus({
@@ -163,6 +165,47 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
             rows={2}
             className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-650 resize-none"
           />
+        </div>
+
+        {/* Advanced parameters: Speed and Steps */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-950 border border-slate-850 rounded-xl">
+          <div className="flex flex-col gap-1.5">
+            <div className="flex justify-between items-center text-xs">
+              <label className="font-semibold text-slate-350">Tốc độ nói (Speed): {speed.toFixed(1)}x</label>
+              <span className="text-[10px] text-slate-550 font-mono">0.5x - 2.0x</span>
+            </div>
+            <input
+              type="range"
+              min="0.5"
+              max="2.0"
+              step="0.1"
+              value={speed}
+              onChange={(e) => setSpeed(parseFloat(e.target.value))}
+              className="w-full h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-indigo-500 hover:accent-indigo-400 transition-colors"
+            />
+            <span className="text-[10px] text-slate-500 leading-tight">
+              Mặc định: 1.0
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <div className="flex justify-between items-center text-xs">
+              <label className="font-semibold text-slate-350">Độ chính xác (Steps): {numStep}</label>
+              <span className="text-[10px] text-slate-550 font-mono">10 - 64</span>
+            </div>
+            <input
+              type="range"
+              min="10"
+              max="64"
+              step="1"
+              value={numStep}
+              onChange={(e) => setNumStep(parseInt(e.target.value))}
+              className="w-full h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-indigo-500 hover:accent-indigo-400 transition-colors"
+            />
+            <span className="text-[10px] text-slate-500 leading-tight">
+              Mặc định: 32 (16 bước để chạy nhanh hơn)
+            </span>
+          </div>
         </div>
 
         {errorMsg && (

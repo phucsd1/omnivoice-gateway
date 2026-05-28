@@ -42,6 +42,8 @@ class TTSJob(Base):
     message = Column(Text, nullable=True)
     progress = Column(Integer, default=0)
     output_audio_path = Column(String(255), nullable=True)
+    speed = Column(Float, nullable=True, default=1.0)
+    num_step = Column(Integer, nullable=True, default=32)
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

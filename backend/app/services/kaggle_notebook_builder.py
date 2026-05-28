@@ -252,7 +252,9 @@ def main():
             idle_seconds = 0
             job_id = job["job_id"]
             job_type = job["job_type"]
-            log(f"Processing job {{job_id}} ({{job_type}})")
+            job_speed = job.get("speed", 1.0)
+            job_num_step = job.get("num_step", 32)
+            log(f"Processing job {{job_id}} ({{job_type}}), speed={{job_speed}}, steps={{job_num_step}}")
 
             # Report busy status
             make_request(
@@ -310,17 +312,23 @@ def main():
                         text=job["text"],
                         ref_audio=local_ref_path,
                         ref_text=job.get("ref_text"),
+                        speed=job_speed,
+                        num_step=job_num_step,
                     )
                 elif job_type in ["voice_design_preview", "voice_design_tts"]:
                     log(f"Calling model.generate for voice_design, instruct={{job['instruct']}}")
                     audio_result = model.generate(
                         text=job["text"],
                         instruct=job["instruct"],
+                        speed=job_speed,
+                        num_step=job_num_step,
                     )
                 elif job_type == "auto_voice":
                     log("Calling model.generate for auto_voice")
                     audio_result = model.generate(
                         text=job["text"],
+                        speed=job_speed,
+                        num_step=job_num_step,
                     )
                 else:
                     raise Exception(f"Unknown job type: {{job_type}}")
@@ -390,6 +398,8 @@ if __name__ == '__main__':
                     ref_text = job.get("ref_text", None)
                     instruct = job.get("instruct", None)
                     voice_sample_id = job.get("voice_sample_id", None)
+                    speed = job.get("speed", 1.0)
+                    num_step = job.get("num_step", 32)
                 else:
                     job_id = getattr(job, "id", "") or ""
                     job_type = getattr(job, "job_type", "") or ""
@@ -397,6 +407,8 @@ if __name__ == '__main__':
                     ref_text = getattr(job, "ref_text", None)
                     instruct = getattr(job, "instruct", None)
                     voice_sample_id = getattr(job, "voice_sample_id", None)
+                    speed = getattr(job, "speed", 1.0) or 1.0
+                    num_step = getattr(job, "num_step", 32) or 32
                 
                 # Resolve ref_audio_url if it has a voice_sample_id
                 ref_audio_url = None
@@ -410,6 +422,8 @@ if __name__ == '__main__':
                 ref_audio_url = None
                 ref_text = None
                 instruct = None
+                speed = 1.0
+                num_step = 32
 
             # Pure Python batch execution script template
             code = f"""import os
@@ -469,6 +483,8 @@ TEXT = {repr(text)}
 REF_AUDIO_URL = {repr(ref_audio_url)}
 REF_TEXT = {repr(ref_text)}
 INSTRUCT = {repr(instruct)}
+SPEED = {speed}
+NUM_STEP = {num_step}
 WORKER_TOKEN = {repr(worker_token)}
 
 def main():
@@ -525,17 +541,23 @@ def main():
                 text=TEXT,
                 ref_audio=local_ref_path,
                 ref_text=REF_TEXT,
+                speed=SPEED,
+                num_step=NUM_STEP,
             )
         elif JOB_TYPE in ["voice_design_preview", "voice_design_tts"]:
             print(f"Generating voice design for: {{TEXT}} with instruct: {{INSTRUCT}}")
             audio_result = model.generate(
                 text=TEXT,
                 instruct=INSTRUCT,
+                speed=SPEED,
+                num_step=NUM_STEP,
             )
         elif JOB_TYPE == "auto_voice":
             print(f"Generating auto voice for: {{TEXT}}")
             audio_result = model.generate(
                 text=TEXT,
+                speed=SPEED,
+                num_step=NUM_STEP,
             )
         else:
             raise Exception(f"Unknown job type: {{JOB_TYPE}}")
