@@ -84,7 +84,18 @@ def get_next_job(worker_id: str, request: Request, db: Session = Depends(get_db)
         ref_text=job.ref_text,
         output_kind=output_kind,
         speed=job.speed,
-        num_step=job.num_step
+        num_step=job.num_step,
+        denoise=job.denoise,
+        guidance_scale=job.guidance_scale,
+        t_shift=job.t_shift,
+        position_temperature=job.position_temperature,
+        class_temperature=job.class_temperature,
+        layer_penalty_factor=job.layer_penalty_factor,
+        duration=job.duration,
+        preprocess_prompt=job.preprocess_prompt,
+        postprocess_output=job.postprocess_output,
+        audio_chunk_duration=job.audio_chunk_duration,
+        audio_chunk_threshold=job.audio_chunk_threshold
     )
 
     return WorkerNextJobResponse(job=payload, message="Job assigned")

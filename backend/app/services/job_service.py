@@ -56,7 +56,26 @@ class JobService:
         return ", ".join(instructs)
 
     @staticmethod
-    def create_voice_design_preview(db: Session, voice_request: str, preview_text: str, public_api_url: str = None, speed: float = 1.0, num_step: int = 32, user_id: str = None) -> tuple[VoiceDesignPreview, TTSJob]:
+    def create_voice_design_preview(
+        db: Session,
+        voice_request: str,
+        preview_text: str,
+        public_api_url: str = None,
+        speed: float = 1.0,
+        num_step: int = 32,
+        user_id: str = None,
+        denoise: bool = True,
+        guidance_scale: float = 2.0,
+        t_shift: float = 0.1,
+        position_temperature: float = 5.0,
+        class_temperature: float = 0.0,
+        layer_penalty_factor: float = 5.0,
+        duration: float = None,
+        preprocess_prompt: bool = True,
+        postprocess_output: bool = True,
+        audio_chunk_duration: float = 15.0,
+        audio_chunk_threshold: float = 30.0
+    ) -> tuple[VoiceDesignPreview, TTSJob]:
         """Creates a VoiceDesignPreview entry and triggers a background preview TTS job."""
         preview_id = generate_id("vd")
         job_id = generate_id("job")
@@ -84,6 +103,17 @@ class JobService:
             instruct=instruct,
             speed=speed,
             num_step=num_step,
+            denoise=denoise,
+            guidance_scale=guidance_scale,
+            t_shift=t_shift,
+            position_temperature=position_temperature,
+            class_temperature=class_temperature,
+            layer_penalty_factor=layer_penalty_factor,
+            duration=duration,
+            preprocess_prompt=preprocess_prompt,
+            postprocess_output=postprocess_output,
+            audio_chunk_duration=audio_chunk_duration,
+            audio_chunk_threshold=audio_chunk_threshold,
             status="queued",
             message="Đã nhận yêu cầu thiết kế giọng."
         )
@@ -95,7 +125,28 @@ class JobService:
         return db_preview, db_job
 
     @staticmethod
-    def create_tts_job(db: Session, mode: str, text: str, voice_sample_id: str = None, instruct: str = None, public_api_url: str = None, speed: float = 1.0, num_step: int = 32, user_id: str = None) -> TTSJob:
+    def create_tts_job(
+        db: Session,
+        mode: str,
+        text: str,
+        voice_sample_id: str = None,
+        instruct: str = None,
+        public_api_url: str = None,
+        speed: float = 1.0,
+        num_step: int = 32,
+        user_id: str = None,
+        denoise: bool = True,
+        guidance_scale: float = 2.0,
+        t_shift: float = 0.1,
+        position_temperature: float = 5.0,
+        class_temperature: float = 0.0,
+        layer_penalty_factor: float = 5.0,
+        duration: float = None,
+        preprocess_prompt: bool = True,
+        postprocess_output: bool = True,
+        audio_chunk_duration: float = 15.0,
+        audio_chunk_threshold: float = 30.0
+    ) -> TTSJob:
         """Creates a TTS job based on the chosen mode (clone_voice, auto_voice, voice_design)."""
         job_id = generate_id("job")
         
@@ -133,6 +184,17 @@ class JobService:
             ref_text=ref_text,
             speed=speed,
             num_step=num_step,
+            denoise=denoise,
+            guidance_scale=guidance_scale,
+            t_shift=t_shift,
+            position_temperature=position_temperature,
+            class_temperature=class_temperature,
+            layer_penalty_factor=layer_penalty_factor,
+            duration=duration,
+            preprocess_prompt=preprocess_prompt,
+            postprocess_output=postprocess_output,
+            audio_chunk_duration=audio_chunk_duration,
+            audio_chunk_threshold=audio_chunk_threshold,
             status="queued",
             message="Đã nhận yêu cầu. Đang chuẩn bị đầu vào..."
         )

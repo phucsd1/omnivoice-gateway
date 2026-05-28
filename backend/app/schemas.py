@@ -27,6 +27,17 @@ class VoiceDesignPreviewCreate(BaseModel):
     preview_text: str
     speed: Optional[float] = 1.0
     num_step: Optional[int] = 32
+    denoise: Optional[bool] = True
+    guidance_scale: Optional[float] = 2.0
+    t_shift: Optional[float] = 0.1
+    position_temperature: Optional[float] = 5.0
+    class_temperature: Optional[float] = 0.0
+    layer_penalty_factor: Optional[float] = 5.0
+    duration: Optional[float] = None
+    preprocess_prompt: Optional[bool] = True
+    postprocess_output: Optional[bool] = True
+    audio_chunk_duration: Optional[float] = 15.0
+    audio_chunk_threshold: Optional[float] = 30.0
 
 class VoiceDesignPreviewResponse(BaseModel):
     preview_id: str
@@ -58,6 +69,17 @@ class TTSJobCreate(BaseModel):
     instruct: Optional[str] = None
     speed: Optional[float] = 1.0
     num_step: Optional[int] = 32
+    denoise: Optional[bool] = True
+    guidance_scale: Optional[float] = 2.0
+    t_shift: Optional[float] = 0.1
+    position_temperature: Optional[float] = 5.0
+    class_temperature: Optional[float] = 0.0
+    layer_penalty_factor: Optional[float] = 5.0
+    duration: Optional[float] = None
+    preprocess_prompt: Optional[bool] = True
+    postprocess_output: Optional[bool] = True
+    audio_chunk_duration: Optional[float] = 15.0
+    audio_chunk_threshold: Optional[float] = 30.0
 
 class TTSJobResponse(BaseModel):
     job_id: str
@@ -104,6 +126,17 @@ class WorkerJobPayload(BaseModel):
     output_kind: str  # "preview" or "tts"
     speed: Optional[float] = 1.0
     num_step: Optional[int] = 32
+    denoise: Optional[bool] = True
+    guidance_scale: Optional[float] = 2.0
+    t_shift: Optional[float] = 0.1
+    position_temperature: Optional[float] = 5.0
+    class_temperature: Optional[float] = 0.0
+    layer_penalty_factor: Optional[float] = 5.0
+    duration: Optional[float] = None
+    preprocess_prompt: Optional[bool] = True
+    postprocess_output: Optional[bool] = True
+    audio_chunk_duration: Optional[float] = 15.0
+    audio_chunk_threshold: Optional[float] = 30.0
 
 class WorkerNextJobResponse(BaseModel):
     job: Optional[WorkerJobPayload] = None

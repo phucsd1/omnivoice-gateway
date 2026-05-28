@@ -252,9 +252,7 @@ def main():
             idle_seconds = 0
             job_id = job["job_id"]
             job_type = job["job_type"]
-            job_speed = job.get("speed", 1.0)
-            job_num_step = job.get("num_step", 32)
-            log(f"Processing job {{job_id}} ({{job_type}}), speed={{job_speed}}, steps={{job_num_step}}")
+            log(f"Processing job {{job_id}} ({{job_type}})")
 
             # Report busy status
             make_request(
@@ -304,34 +302,33 @@ def main():
                     json={{"status": "generating_audio", "message": "Đang xử lý âm thanh...", "progress": 70}}
                 )
 
-                # Execute OmniVoice Generation
-                audio_result = None
+                # Build generate arguments
+                generate_args = {{
+                    "text": job["text"]
+                }}
+                
                 if job_type == "clone_voice":
-                    log(f"Calling model.generate for clone_voice, ref_audio={{local_ref_path}}")
-                    audio_result = model.generate(
-                        text=job["text"],
-                        ref_audio=local_ref_path,
-                        ref_text=job.get("ref_text"),
-                        speed=job_speed,
-                        num_step=job_num_step,
-                    )
+                    generate_args["ref_audio"] = local_ref_path
+                    if job.get("ref_text"):
+                        generate_args["ref_text"] = job["ref_text"]
                 elif job_type in ["voice_design_preview", "voice_design_tts"]:
-                    log(f"Calling model.generate for voice_design, instruct={{job['instruct']}}")
-                    audio_result = model.generate(
-                        text=job["text"],
-                        instruct=job["instruct"],
-                        speed=job_speed,
-                        num_step=job_num_step,
-                    )
-                elif job_type == "auto_voice":
-                    log("Calling model.generate for auto_voice")
-                    audio_result = model.generate(
-                        text=job["text"],
-                        speed=job_speed,
-                        num_step=job_num_step,
-                    )
-                else:
+                    generate_args["instruct"] = job.get("instruct")
+                elif job_type != "auto_voice":
                     raise Exception(f"Unknown job type: {{job_type}}")
+                
+                # Check for optional OmniVoice parameters in job payload
+                optional_keys = [
+                    "num_step", "denoise", "guidance_scale", "t_shift",
+                    "position_temperature", "class_temperature", "layer_penalty_factor",
+                    "duration", "speed", "preprocess_prompt", "postprocess_output",
+                    "audio_chunk_duration", "audio_chunk_threshold"
+                ]
+                for key in optional_keys:
+                    if key in job and job[key] is not None:
+                        generate_args[key] = job[key]
+
+                log(f"Calling model.generate with arguments: {{list(generate_args.keys())}}")
+                audio_result = model.generate(**generate_args)
 
                 # Clean up local ref path if exists
                 if local_ref_path and os.path.exists(local_ref_path):
@@ -390,40 +387,64 @@ if __name__ == '__main__':
 """
         else:
             # Fallback values for job parameters
+            # Fallback values for job parameters
+            job_params = {
+                "id": "test_push",
+                "job_type": "auto_voice",
+                "text": "Xin chào, đây là bản thử nghiệm đẩy kết nối Kaggle.",
+                "ref_text": None,
+                "instruct": None,
+                "voice_sample_id": None,
+                "speed": 1.0,
+                "num_step": 32,
+                "denoise": True,
+                "guidance_scale": 2.0,
+                "t_shift": 0.1,
+                "position_temperature": 5.0,
+                "class_temperature": 0.0,
+                "layer_penalty_factor": 5.0,
+                "duration": None,
+                "preprocess_prompt": True,
+                "postprocess_output": True,
+                "audio_chunk_duration": 15.0,
+                "audio_chunk_threshold": 30.0
+            }
+
             if job:
                 if isinstance(job, dict):
-                    job_id = job.get("id", "")
-                    job_type = job.get("job_type", "")
-                    text = job.get("text", "")
-                    ref_text = job.get("ref_text", None)
-                    instruct = job.get("instruct", None)
-                    voice_sample_id = job.get("voice_sample_id", None)
-                    speed = job.get("speed", 1.0)
-                    num_step = job.get("num_step", 32)
+                    for k in job_params.keys():
+                        if k in job:
+                            job_params[k] = job[k]
                 else:
-                    job_id = getattr(job, "id", "") or ""
-                    job_type = getattr(job, "job_type", "") or ""
-                    text = getattr(job, "text", "") or ""
-                    ref_text = getattr(job, "ref_text", None)
-                    instruct = getattr(job, "instruct", None)
-                    voice_sample_id = getattr(job, "voice_sample_id", None)
-                    speed = getattr(job, "speed", 1.0) or 1.0
-                    num_step = getattr(job, "num_step", 32) or 32
-                
-                # Resolve ref_audio_url if it has a voice_sample_id
-                ref_audio_url = None
-                if voice_sample_id:
-                    base_url = public_api_url or settings.PUBLIC_API_BASE_URL
-                    ref_audio_url = f"{base_url.rstrip('/')}/v1/internal/files/voice-samples/{voice_sample_id}"
-            else:
-                job_id = "test_push"
-                job_type = "auto_voice"
-                text = "Xin chào, đây là bản thử nghiệm đẩy kết nối Kaggle."
-                ref_audio_url = None
-                ref_text = None
-                instruct = None
-                speed = 1.0
-                num_step = 32
+                    for k in job_params.keys():
+                        attr_val = getattr(job, k if k != "id" else "id", None)
+                        if attr_val is not None:
+                            job_params[k] = attr_val
+
+            job_id = job_params["id"]
+            job_type = job_params["job_type"]
+            text = job_params["text"]
+            ref_text = job_params["ref_text"]
+            instruct = job_params["instruct"]
+            voice_sample_id = job_params["voice_sample_id"]
+            speed = job_params["speed"]
+            num_step = job_params["num_step"]
+            denoise = job_params["denoise"]
+            guidance_scale = job_params["guidance_scale"]
+            t_shift = job_params["t_shift"]
+            position_temperature = job_params["position_temperature"]
+            class_temperature = job_params["class_temperature"]
+            layer_penalty_factor = job_params["layer_penalty_factor"]
+            duration = job_params["duration"]
+            preprocess_prompt = job_params["preprocess_prompt"]
+            postprocess_output = job_params["postprocess_output"]
+            audio_chunk_duration = job_params["audio_chunk_duration"]
+            audio_chunk_threshold = job_params["audio_chunk_threshold"]
+
+            ref_audio_url = None
+            if voice_sample_id:
+                base_url = public_api_url or settings.PUBLIC_API_BASE_URL
+                ref_audio_url = f"{base_url.rstrip('/')}/v1/internal/files/voice-samples/{voice_sample_id}"
 
             # Pure Python batch execution script template
             code = f"""import os
@@ -485,6 +506,17 @@ REF_TEXT = {repr(ref_text)}
 INSTRUCT = {repr(instruct)}
 SPEED = {speed}
 NUM_STEP = {num_step}
+DENOISE = {denoise}
+GUIDANCE_SCALE = {guidance_scale}
+T_SHIFT = {t_shift}
+POSITION_TEMPERATURE = {position_temperature}
+CLASS_TEMPERATURE = {class_temperature}
+LAYER_PENALTY_FACTOR = {layer_penalty_factor}
+DURATION = {duration}
+PREPROCESS_PROMPT = {preprocess_prompt}
+POSTPROCESS_OUTPUT = {postprocess_output}
+AUDIO_CHUNK_DURATION = {audio_chunk_duration}
+AUDIO_CHUNK_THRESHOLD = {audio_chunk_threshold}
 WORKER_TOKEN = {repr(worker_token)}
 
 def main():
@@ -532,35 +564,47 @@ def main():
     print("Generating audio...")
     sys.stdout.flush()
     try:
-        audio_result = None
+        generate_args = {{
+            "text": TEXT
+        }}
+        
         if JOB_TYPE == "clone_voice":
             if not local_ref_path:
                 raise Exception("Missing reference audio path for clone_voice")
             print(f"Generating voice cloning for: {{TEXT}}")
-            audio_result = model.generate(
-                text=TEXT,
-                ref_audio=local_ref_path,
-                ref_text=REF_TEXT,
-                speed=SPEED,
-                num_step=NUM_STEP,
-            )
+            generate_args["ref_audio"] = local_ref_path
+            if REF_TEXT:
+                generate_args["ref_text"] = REF_TEXT
         elif JOB_TYPE in ["voice_design_preview", "voice_design_tts"]:
             print(f"Generating voice design for: {{TEXT}} with instruct: {{INSTRUCT}}")
-            audio_result = model.generate(
-                text=TEXT,
-                instruct=INSTRUCT,
-                speed=SPEED,
-                num_step=NUM_STEP,
-            )
+            generate_args["instruct"] = INSTRUCT
         elif JOB_TYPE == "auto_voice":
             print(f"Generating auto voice for: {{TEXT}}")
-            audio_result = model.generate(
-                text=TEXT,
-                speed=SPEED,
-                num_step=NUM_STEP,
-            )
         else:
             raise Exception(f"Unknown job type: {{JOB_TYPE}}")
+
+        # Add optional parameter inputs if they are not None
+        params_map = {{
+            "num_step": NUM_STEP,
+            "denoise": DENOISE,
+            "guidance_scale": GUIDANCE_SCALE,
+            "t_shift": T_SHIFT,
+            "position_temperature": POSITION_TEMPERATURE,
+            "class_temperature": CLASS_TEMPERATURE,
+            "layer_penalty_factor": LAYER_PENALTY_FACTOR,
+            "duration": DURATION,
+            "speed": SPEED,
+            "preprocess_prompt": PREPROCESS_PROMPT,
+            "postprocess_output": POSTPROCESS_OUTPUT,
+            "audio_chunk_duration": AUDIO_CHUNK_DURATION,
+            "audio_chunk_threshold": AUDIO_CHUNK_THRESHOLD
+        }}
+        for key, val in params_map.items():
+            if val is not None:
+                generate_args[key] = val
+
+        print(f"Calling model.generate with arguments: {{list(generate_args.keys())}}")
+        audio_result = model.generate(**generate_args)
 
         # Save to output.wav in the current directory (which is /kaggle/working/ output folder)
         output_filename = "output.wav"

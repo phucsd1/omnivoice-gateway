@@ -60,6 +60,10 @@ async def lifespan(app: FastAPI):
     print("[Main] Initializing SQLite database tables...")
     Base.metadata.create_all(bind=engine)
     
+    # Run SQLite migration for any added columns
+    from app.database import migrate_database
+    migrate_database(settings.DATABASE_URL)
+    
     # Seed default admin account
     print("[Main] Seeding default admin account if not present...")
     from app.database import SessionLocal

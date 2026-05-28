@@ -89,10 +89,16 @@ class MockWorker:
             output_path = os.path.abspath(os.path.join(settings.outputs_dir, f"{job_id}.wav"))
             
         try:
-            MockWorker._generate_sine_wav(output_path)
+            duration_sec = 3.0
+            if job.duration and job.duration > 0:
+                duration_sec = job.duration
+            elif job.speed and job.speed > 0:
+                duration_sec = max(0.5, 3.0 / job.speed)
+
+            MockWorker._generate_sine_wav(output_path, duration_sec=duration_sec)
             # Register success using JobService
             JobService.complete_job_output(db, job_id, output_path)
-            print(f"[MockWorker] Job {job_id} completed successfully. Audio saved to {output_path}")
+            print(f"[MockWorker] Job {job_id} completed successfully. Audio saved to {output_path} ({duration_sec:.1f}s)")
         except Exception as e:
             error_msg = f"Mock audio generation failed: {e}"
             JobService.update_job_status(db, job_id, "failed", "Lỗi xử lý âm thanh giả lập", 100, error_msg)

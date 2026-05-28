@@ -301,6 +301,94 @@ generateSpeech();`
                   Số bước suy diễn mạng nơ-ron (chất lượng âm thanh). Từ <code className="text-white font-mono">16</code> đến <code className="text-white font-mono">64</code>. Mặc định là <code className="text-white font-mono">32</code>.
                 </p>
               </div>
+
+              <div>
+                <span className="font-mono text-indigo-300 font-bold">denoise</span>
+                <span className="text-slate-500 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Lọc nhiễu âm thanh đầu ra. Kiểu boolean (<code className="text-white font-mono">true</code> / <code className="text-white font-mono">false</code>). Mặc định là <code className="text-white font-mono">true</code>.
+                </p>
+              </div>
+
+              <div>
+                <span className="font-mono text-indigo-300 font-bold">guidance_scale</span>
+                <span className="text-slate-500 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Mức độ bám sát điều kiện mô tả (Classifier-free guidance). Mặc định là <code className="text-white font-mono">2.0</code>.
+                </p>
+              </div>
+
+              <div>
+                <span className="font-mono text-indigo-300 font-bold">t_shift</span>
+                <span className="text-slate-500 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Độ dịch chuyển bước thời gian nhiễu (noise schedule). Mặc định là <code className="text-white font-mono">0.1</code>.
+                </p>
+              </div>
+
+              <div>
+                <span className="font-mono text-indigo-300 font-bold">position_temperature</span>
+                <span className="text-slate-500 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Nhiệt độ chọn vị trí sinh (ngẫu nhiên hóa). Mặc định là <code className="text-white font-mono">5.0</code>.
+                </p>
+              </div>
+
+              <div>
+                <span className="font-mono text-indigo-300 font-bold">class_temperature</span>
+                <span className="text-slate-500 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Nhiệt độ lấy mẫu mã âm thanh (tính ngẫu nhiên giọng nói). Mặc định là <code className="text-white font-mono">0.0</code> (quyết định).
+                </p>
+              </div>
+
+              <div>
+                <span className="font-mono text-indigo-300 font-bold">layer_penalty_factor</span>
+                <span className="text-slate-550 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Hệ số phạt độ sâu codebook, tăng tính ổn định bước đầu. Mặc định là <code className="text-white font-mono">5.0</code>.
+                </p>
+              </div>
+
+              <div>
+                <span className="font-mono text-indigo-300 font-bold">duration</span>
+                <span className="text-slate-550 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Cố định thời lượng âm thanh trả về tính bằng giây. Ví dụ: <code className="text-white font-mono">10.0</code>.
+                </p>
+              </div>
+
+              <div>
+                <span className="font-mono text-indigo-300 font-bold">preprocess_prompt</span>
+                <span className="text-slate-550 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Tiền xử lý âm thanh mẫu (cắt bớt khoảng lặng, căn chỉnh). Mặc định là <code className="text-white font-mono">true</code>.
+                </p>
+              </div>
+
+              <div>
+                <span className="font-mono text-indigo-300 font-bold">postprocess_output</span>
+                <span className="text-slate-550 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Hậu xử lý âm thanh đầu ra (cắt silence thừa). Mặc định là <code className="text-white font-mono">true</code>.
+                </p>
+              </div>
+
+              <div>
+                <span className="font-mono text-indigo-300 font-bold">audio_chunk_duration</span>
+                <span className="text-slate-550 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Độ dài đoạn âm thanh khi sinh văn bản dài (giây). Mặc định là <code className="text-white font-mono">15.0</code>.
+                </p>
+              </div>
+
+              <div>
+                <span className="font-mono text-indigo-300 font-bold">audio_chunk_threshold</span>
+                <span className="text-slate-550 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Ngưỡng độ dài văn bản kích hoạt cơ chế chia nhỏ (giây). Mặc định là <code className="text-white font-mono">30.0</code>.
+                </p>
+              </div>
             </div>
           </div>
         </div>

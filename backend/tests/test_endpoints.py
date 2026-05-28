@@ -134,18 +134,29 @@ def test_tts_job_with_custom_speed_and_steps():
     token = login_res.json()["access_token"]
     user_headers = {"Authorization": f"Bearer {token}"}
 
-    # 1. Create a job with custom speed and steps using the JWT token
+    # 1. Create a job with custom speed, steps, and new parameters using the JWT token
     response = client.post("/v1/tts/jobs", json={
         "mode": "auto_voice",
         "text": "Kiểm thử tham số tốc độ và độ chính xác",
         "speed": 1.2,
-        "num_step": 25
+        "num_step": 25,
+        "denoise": False,
+        "guidance_scale": 3.5,
+        "t_shift": 0.15,
+        "position_temperature": 4.0,
+        "class_temperature": 0.5,
+        "layer_penalty_factor": 3.0,
+        "duration": 5.5,
+        "preprocess_prompt": False,
+        "postprocess_output": False,
+        "audio_chunk_duration": 10.0,
+        "audio_chunk_threshold": 20.0
     }, headers=user_headers)
     assert response.status_code == 200
     data = response.json()
     job_id = data["job_id"]
     assert job_id is not None
-
+ 
     # 2. Register worker using worker token
     worker_headers = {"Authorization": "Bearer test_secret_token"}
     reg_response = client.post("/v1/internal/workers/register", json={
@@ -153,8 +164,8 @@ def test_tts_job_with_custom_speed_and_steps():
         "status": "ready"
     }, headers=worker_headers)
     assert reg_response.status_code == 200
-
-    # 3. Pull next job and verify that speed and num_step are assigned to payload
+ 
+    # 3. Pull next job and verify that all custom parameters are assigned to payload
     job_response = client.get("/v1/internal/jobs/next?worker_id=test_worker_1", headers=worker_headers)
     assert job_response.status_code == 200
     job_data = job_response.json()
@@ -162,6 +173,17 @@ def test_tts_job_with_custom_speed_and_steps():
     assert job_data["job"]["job_id"] == job_id
     assert job_data["job"]["speed"] == 1.2
     assert job_data["job"]["num_step"] == 25
+    assert job_data["job"]["denoise"] is False
+    assert job_data["job"]["guidance_scale"] == 3.5
+    assert job_data["job"]["t_shift"] == 0.15
+    assert job_data["job"]["position_temperature"] == 4.0
+    assert job_data["job"]["class_temperature"] == 0.5
+    assert job_data["job"]["layer_penalty_factor"] == 3.0
+    assert job_data["job"]["duration"] == 5.5
+    assert job_data["job"]["preprocess_prompt"] is False
+    assert job_data["job"]["postprocess_output"] is False
+    assert job_data["job"]["audio_chunk_duration"] == 10.0
+    assert job_data["job"]["audio_chunk_threshold"] == 20.0
 
 def test_openai_compatible_audio_endpoints():
     # 1. Login to get JWT token

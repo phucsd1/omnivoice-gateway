@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Play, Volume2, UserCheck, HelpCircle, AudioLines } from "lucide-react";
+import { Play, Volume2, UserCheck, HelpCircle, AudioLines, Loader2, Settings } from "lucide-react";
 import { api } from "../api/client";
 import type { JobStatusResponse } from "../api/client";
 
@@ -23,6 +23,20 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId }) => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [speed, setSpeed] = useState(1.0);
   const [numStep, setNumStep] = useState(32);
+
+  // Advanced OmniVoice parameters state
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [denoise, setDenoise] = useState(true);
+  const [guidanceScale, setGuidanceScale] = useState(2.0);
+  const [tShift, setTShift] = useState(0.1);
+  const [positionTemperature, setPositionTemperature] = useState(5.0);
+  const [classTemperature, setClassTemperature] = useState(0.0);
+  const [layerPenaltyFactor, setLayerPenaltyFactor] = useState(5.0);
+  const [duration, setDuration] = useState("");
+  const [preprocessPrompt, setPreprocessPrompt] = useState(true);
+  const [postprocessOutput, setPostprocessOutput] = useState(true);
+  const [audioChunkDuration, setAudioChunkDuration] = useState(15.0);
+  const [audioChunkThreshold, setAudioChunkThreshold] = useState(30.0);
 
   const pollIntervalRef = useRef<number | null>(null);
   const timeoutRef = useRef<number | null>(null);
@@ -52,8 +66,22 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId }) => {
       return;
     }
 
+    const params = {
+      denoise,
+      guidance_scale: guidanceScale,
+      t_shift: tShift,
+      position_temperature: positionTemperature,
+      class_temperature: classTemperature,
+      layer_penalty_factor: layerPenaltyFactor,
+      duration: duration ? parseFloat(duration) : undefined,
+      preprocess_prompt: preprocessPrompt,
+      postprocess_output: postprocessOutput,
+      audio_chunk_duration: audioChunkDuration,
+      audio_chunk_threshold: audioChunkThreshold
+    };
+
     try {
-      const res = await api.createTTSJob(mode, text, voiceSampleId, instructParam, speed, numStep);
+      const res = await api.createTTSJob(mode, text, voiceSampleId, instructParam, speed, numStep, params);
       setJobId(res.job_id);
       setJobStatus({
         job_id: res.job_id,
@@ -275,8 +303,162 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId }) => {
             <span className="text-[10px] text-slate-500 leading-tight">
               Mặc định: 32 (16 bước để chạy nhanh hơn)
             </span>
-          </div>
         </div>
+
+        {/* Toggle Advanced Settings */}
+        <div className="border-t border-slate-800 pt-3">
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 font-bold transition-colors cursor-pointer"
+          >
+            <span>{showAdvanced ? "Ẩn cấu hình nâng cao" : "Hiện cấu hình nâng cao (OmniVoice)"}</span>
+          </button>
+        </div>
+
+        {showAdvanced && (
+          <div className="flex flex-col gap-4 p-4 bg-slate-950/60 border border-slate-850 rounded-xl">
+            {/* Toggles Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-355 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={denoise}
+                  onChange={(e) => setDenoise(e.target.checked)}
+                  className="rounded border-slate-800 bg-slate-900 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                />
+                <span>Denoise (Lọc nhiễu)</span>
+              </label>
+
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-355 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={preprocessPrompt}
+                  onChange={(e) => setPreprocessPrompt(e.target.checked)}
+                  className="rounded border-slate-800 bg-slate-900 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                />
+                <span>Tiền xử lý tham chiếu</span>
+              </label>
+
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-355 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={postprocessOutput}
+                  onChange={(e) => setPostprocessOutput(e.target.checked)}
+                  className="rounded border-slate-800 bg-slate-900 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                />
+                <span>Hậu xử lý đầu ra</span>
+              </label>
+            </div>
+
+            <div className="h-px bg-slate-900 my-1" />
+
+            {/* Sliders and text fields grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-slate-350">Guidance Scale: {guidanceScale.toFixed(1)}</span>
+                  <span className="text-[10px] text-slate-500 font-mono">0.5 - 5.0</span>
+                </div>
+                <input
+                  type="range" min="0.5" max="5.0" step="0.1"
+                  value={guidanceScale}
+                  onChange={(e) => setGuidanceScale(parseFloat(e.target.value))}
+                  className="w-full h-1 bg-slate-900 rounded appearance-none cursor-pointer accent-indigo-500"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-slate-350">Time-step Shift (t_shift): {tShift.toFixed(2)}</span>
+                  <span className="text-[10px] text-slate-500 font-mono">0.01 - 0.50</span>
+                </div>
+                <input
+                  type="range" min="0.01" max="0.50" step="0.01"
+                  value={tShift}
+                  onChange={(e) => setTShift(parseFloat(e.target.value))}
+                  className="w-full h-1 bg-slate-900 rounded appearance-none cursor-pointer accent-indigo-500"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-slate-350">Position Temperature: {positionTemperature.toFixed(1)}</span>
+                  <span className="text-[10px] text-slate-500 font-mono">0.0 - 10.0</span>
+                </div>
+                <input
+                  type="range" min="0.0" max="10.0" step="0.5"
+                  value={positionTemperature}
+                  onChange={(e) => setPositionTemperature(parseFloat(e.target.value))}
+                  className="w-full h-1 bg-slate-900 rounded appearance-none cursor-pointer accent-indigo-500"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-slate-350">Class Temperature: {classTemperature.toFixed(1)}</span>
+                  <span className="text-[10px] text-slate-500 font-mono">0.0 - 5.0</span>
+                </div>
+                <input
+                  type="range" min="0.0" max="5.0" step="0.1"
+                  value={classTemperature}
+                  onChange={(e) => setClassTemperature(parseFloat(e.target.value))}
+                  className="w-full h-1 bg-slate-900 rounded appearance-none cursor-pointer accent-indigo-500"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-slate-350">Layer Penalty Factor: {layerPenaltyFactor.toFixed(1)}</span>
+                  <span className="text-[10px] text-slate-500 font-mono">0.0 - 10.0</span>
+                </div>
+                <input
+                  type="range" min="0.0" max="10.0" step="0.5"
+                  value={layerPenaltyFactor}
+                  onChange={(e) => setLayerPenaltyFactor(parseFloat(e.target.value))}
+                  className="w-full h-1 bg-slate-900 rounded appearance-none cursor-pointer accent-indigo-500"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-350">Thời lượng cố định (Duration - giây)</label>
+                <input
+                  type="number" step="0.1" min="0.1"
+                  value={duration}
+                  onChange={(e) => setDuration(e.target.value)}
+                  placeholder="Mặc định: Tự động tính theo văn bản"
+                  className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-slate-350">Đoạn cắt (Chunk Duration): {audioChunkDuration.toFixed(0)}s</span>
+                  <span className="text-[10px] text-slate-500 font-mono">5 - 60</span>
+                </div>
+                <input
+                  type="range" min="5" max="60" step="1"
+                  value={audioChunkDuration}
+                  onChange={(e) => setAudioChunkDuration(parseFloat(e.target.value))}
+                  className="w-full h-1 bg-slate-900 rounded appearance-none cursor-pointer accent-indigo-500"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-slate-350">Ngưỡng cắt (Chunk Threshold): {audioChunkThreshold.toFixed(0)}s</span>
+                  <span className="text-[10px] text-slate-500 font-mono">10 - 120</span>
+                </div>
+                <input
+                  type="range" min="10" max="120" step="5"
+                  value={audioChunkThreshold}
+                  onChange={(e) => setAudioChunkThreshold(parseFloat(e.target.value))}
+                  className="w-full h-1 bg-slate-900 rounded appearance-none cursor-pointer accent-indigo-500"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {errorMsg && (
           <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-450 rounded-lg text-sm">

@@ -21,6 +21,18 @@ class SpeechRequest(BaseModel):
     voice: str
     response_format: Optional[str] = "mp3"
     speed: Optional[float] = 1.0
+    num_step: Optional[int] = 32
+    denoise: Optional[bool] = True
+    guidance_scale: Optional[float] = 2.0
+    t_shift: Optional[float] = 0.1
+    position_temperature: Optional[float] = 5.0
+    class_temperature: Optional[float] = 0.0
+    layer_penalty_factor: Optional[float] = 5.0
+    duration: Optional[float] = None
+    preprocess_prompt: Optional[bool] = True
+    postprocess_output: Optional[bool] = True
+    audio_chunk_duration: Optional[float] = 15.0
+    audio_chunk_threshold: Optional[float] = 30.0
 
 @router.post("/speech")
 async def text_to_speech(
@@ -67,9 +79,8 @@ async def text_to_speech(
             mode = "voice_design"
             instruct = voice_val
 
-    # 2. Limit speed and steps
-    # Keep steps reasonable for direct sync response
-    num_step = 32
+    # 2. Use user specified values or defaults
+    num_step = payload.num_step if payload.num_step is not None else 32
     
     # 3. Create the TTS Job
     try:
@@ -82,7 +93,18 @@ async def text_to_speech(
             public_api_url=str(request.base_url).rstrip("/"),
             speed=payload.speed,
             num_step=num_step,
-            user_id=current_user.id
+            user_id=current_user.id,
+            denoise=payload.denoise,
+            guidance_scale=payload.guidance_scale,
+            t_shift=payload.t_shift,
+            position_temperature=payload.position_temperature,
+            class_temperature=payload.class_temperature,
+            layer_penalty_factor=payload.layer_penalty_factor,
+            duration=payload.duration,
+            preprocess_prompt=payload.preprocess_prompt,
+            postprocess_output=payload.postprocess_output,
+            audio_chunk_duration=payload.audio_chunk_duration,
+            audio_chunk_threshold=payload.audio_chunk_threshold
         )
     except ValueError as e:
         raise HTTPException(

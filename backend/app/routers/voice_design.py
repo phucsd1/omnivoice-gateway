@@ -30,7 +30,18 @@ def create_voice_design_preview(
         preview, job = JobService.create_voice_design_preview(
             db, payload.voice_request, payload.preview_text, str(request.base_url).rstrip("/"),
             speed=payload.speed, num_step=payload.num_step,
-            user_id=current_user.id
+            user_id=current_user.id,
+            denoise=payload.denoise,
+            guidance_scale=payload.guidance_scale,
+            t_shift=payload.t_shift,
+            position_temperature=payload.position_temperature,
+            class_temperature=payload.class_temperature,
+            layer_penalty_factor=payload.layer_penalty_factor,
+            duration=payload.duration,
+            preprocess_prompt=payload.preprocess_prompt,
+            postprocess_output=payload.postprocess_output,
+            audio_chunk_duration=payload.audio_chunk_duration,
+            audio_chunk_threshold=payload.audio_chunk_threshold
         )
         return VoiceDesignPreviewResponse(
             preview_id=preview.id,

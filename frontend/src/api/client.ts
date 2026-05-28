@@ -158,6 +158,20 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+export interface OmniVoiceParams {
+  denoise?: boolean;
+  guidance_scale?: number;
+  t_shift?: number;
+  position_temperature?: number;
+  class_temperature?: number;
+  layer_penalty_factor?: number;
+  duration?: number;
+  preprocess_prompt?: boolean;
+  postprocess_output?: boolean;
+  audio_chunk_duration?: number;
+  audio_chunk_threshold?: number;
+}
+
 export const api = {
   getApiBaseUrl,
   setApiBaseUrl,
@@ -179,7 +193,7 @@ export const api = {
     });
   },
   
-  createVoiceDesignPreview: async (voiceRequest: string, previewText: string, speed?: number, numStep?: number): Promise<VoiceDesignPreviewResponse> => {
+  createVoiceDesignPreview: async (voiceRequest: string, previewText: string, speed?: number, numStep?: number, params?: OmniVoiceParams): Promise<VoiceDesignPreviewResponse> => {
     return request<VoiceDesignPreviewResponse>("/v1/voice-design/previews", {
       method: "POST",
       headers: {
@@ -189,7 +203,8 @@ export const api = {
         voice_request: voiceRequest, 
         preview_text: previewText,
         speed: speed !== undefined ? speed : 1.0,
-        num_step: numStep !== undefined ? numStep : 32
+        num_step: numStep !== undefined ? numStep : 32,
+        ...params
       }),
     });
   },
@@ -204,7 +219,7 @@ export const api = {
     });
   },
   
-  createTTSJob: async (mode: string, text: string, voiceSampleId?: string, instruct?: string, speed?: number, numStep?: number): Promise<TTSJobResponse> => {
+  createTTSJob: async (mode: string, text: string, voiceSampleId?: string, instruct?: string, speed?: number, numStep?: number, params?: OmniVoiceParams): Promise<TTSJobResponse> => {
     return request<TTSJobResponse>("/v1/tts/jobs", {
       method: "POST",
       headers: {
@@ -216,7 +231,8 @@ export const api = {
         voice_sample_id: voiceSampleId || null,
         instruct: instruct || null,
         speed: speed !== undefined ? speed : 1.0,
-        num_step: numStep !== undefined ? numStep : 32
+        num_step: numStep !== undefined ? numStep : 32,
+        ...params
       }),
     });
   },
