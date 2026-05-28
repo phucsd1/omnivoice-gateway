@@ -12,6 +12,9 @@ class Settings(BaseSettings):
 
     APP_ENV: str = "development"
     WORKER_MODE: str = "mock"  # "mock" or "kaggle"
+    SECRET_KEY: str = "super_secret_omnivoice_gateway_key_9988"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRATION_HOURS: int = 24
     
     DATABASE_URL: str = "sqlite:///./omnivoice_gateway.db"
     STORAGE_DIR: str = "./storage"

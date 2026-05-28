@@ -4,12 +4,12 @@ from typing import Optional
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import VoiceSample
+from app.models import VoiceSample, User
 from app.schemas import VoiceSampleUploadResponse, VoiceSampleResponse
 from app.utils.ids import generate_id
 from app.services.audio_service import AudioService
 from app.config import settings
-
+from app.utils.auth import get_user_or_api_key
 
 router = APIRouter(prefix="/v1/voice-samples", tags=["Voice Samples"])
 
@@ -17,7 +17,8 @@ router = APIRouter(prefix="/v1/voice-samples", tags=["Voice Samples"])
 async def upload_voice_sample(
     file: UploadFile = File(...),
     ref_text: Optional[str] = Form(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_user_or_api_key)
 ):
     """
     Uploads a raw voice audio file (wav/mp3/flac), saves the upload,
@@ -60,6 +61,7 @@ async def upload_voice_sample(
     # Save details to database
     db_sample = VoiceSample(
         id=sample_id,
+        user_id=current_user.id,
         source_type="uploaded",
         file_path=saved_path,
         ref_text=ref_text,
@@ -79,9 +81,9 @@ async def upload_voice_sample(
     )
 
 @router.get("/{voice_sample_id}", response_model=VoiceSampleResponse)
-def get_voice_sample(voice_sample_id: str, db: Session = Depends(get_db)):
+def get_voice_sample(voice_sample_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_user_or_api_key)):
     """Retrieves full details of an uploaded or generated voice sample."""
-    sample = db.query(VoiceSample).filter(VoiceSample.id == voice_sample_id).first()
+    sample = db.query(VoiceSample).filter(VoiceSample.id == voice_sample_id, VoiceSample.user_id == current_user.id).first()
     if not sample:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

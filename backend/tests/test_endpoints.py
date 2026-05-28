@@ -111,28 +111,44 @@ def test_kaggle_notebook_builder(tmp_path):
     assert "ensure_dependencies()" in code
 
 def test_tts_job_with_custom_speed_and_steps():
-    # 1. Create a job with custom speed and steps
+    # Register test user
+    reg_res = client.post("/v1/auth/register", json={
+        "username": "test_user_123",
+        "password": "password_123"
+    })
+    assert reg_res.status_code == 201
+
+    # Login to get JWT token
+    login_res = client.post("/v1/auth/login", json={
+        "username": "test_user_123",
+        "password": "password_123"
+    })
+    assert login_res.status_code == 200
+    token = login_res.json()["access_token"]
+    user_headers = {"Authorization": f"Bearer {token}"}
+
+    # 1. Create a job with custom speed and steps using the JWT token
     response = client.post("/v1/tts/jobs", json={
         "mode": "auto_voice",
         "text": "Kiểm thử tham số tốc độ và độ chính xác",
         "speed": 1.2,
         "num_step": 25
-    })
+    }, headers=user_headers)
     assert response.status_code == 200
     data = response.json()
     job_id = data["job_id"]
     assert job_id is not None
 
-    # 2. Register worker
-    headers = {"Authorization": "Bearer test_secret_token"}
+    # 2. Register worker using worker token
+    worker_headers = {"Authorization": "Bearer test_secret_token"}
     reg_response = client.post("/v1/internal/workers/register", json={
         "worker_id": "test_worker_1",
         "status": "ready"
-    }, headers=headers)
+    }, headers=worker_headers)
     assert reg_response.status_code == 200
 
     # 3. Pull next job and verify that speed and num_step are assigned to payload
-    job_response = client.get("/v1/internal/jobs/next?worker_id=test_worker_1", headers=headers)
+    job_response = client.get("/v1/internal/jobs/next?worker_id=test_worker_1", headers=worker_headers)
     assert job_response.status_code == 200
     job_data = job_response.json()
     assert job_data["job"] is not None

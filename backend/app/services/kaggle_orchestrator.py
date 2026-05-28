@@ -5,10 +5,8 @@ from app.config import settings
 
 class KaggleOrchestrator:
     @staticmethod
-    def get_credentials(db=None) -> tuple[str, str, str, str]:
+    def get_credentials(db=None, user_id=None) -> tuple[str, str, str, str]:
         """Resolves credentials, checking database override settings then env configurations."""
-        from app.models import SystemSetting
-        
         username = settings.KAGGLE_USERNAME
         key = settings.KAGGLE_KEY
         kernel_ref = settings.KAGGLE_KERNEL_REF
@@ -21,10 +19,18 @@ class KaggleOrchestrator:
             own_db = True
             
         try:
-            db_username = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_username").first()
-            db_key = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_key").first()
-            db_kernel_ref = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_kernel_ref").first()
-            db_worker_dir = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_worker_dir").first()
+            if user_id:
+                from app.models import UserSetting
+                db_username = db.query(UserSetting).filter(UserSetting.user_id == user_id, UserSetting.key == "kaggle_username").first()
+                db_key = db.query(UserSetting).filter(UserSetting.user_id == user_id, UserSetting.key == "kaggle_key").first()
+                db_kernel_ref = db.query(UserSetting).filter(UserSetting.user_id == user_id, UserSetting.key == "kaggle_kernel_ref").first()
+                db_worker_dir = db.query(UserSetting).filter(UserSetting.user_id == user_id, UserSetting.key == "kaggle_worker_dir").first()
+            else:
+                from app.models import SystemSetting
+                db_username = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_username").first()
+                db_key = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_key").first()
+                db_kernel_ref = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_kernel_ref").first()
+                db_worker_dir = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_worker_dir").first()
             
             if db_username and db_username.value.strip():
                 username = db_username.value.strip()
@@ -53,9 +59,9 @@ class KaggleOrchestrator:
         return username, key, kernel_ref, worker_dir
 
     @staticmethod
-    def is_configured(db=None) -> bool:
+    def is_configured(db=None, user_id=None) -> bool:
         """Checks if all necessary Kaggle configuration variables are set."""
-        username, key, kernel_ref, worker_dir = KaggleOrchestrator.get_credentials(db)
+        username, key, kernel_ref, worker_dir = KaggleOrchestrator.get_credentials(db, user_id)
         return bool(username and key and kernel_ref and worker_dir)
 
     @staticmethod
@@ -187,7 +193,7 @@ class KaggleOrchestrator:
         db.refresh(job)
 
         # Resolve credentials
-        username, key, kernel_ref, worker_dir = cls.get_credentials(db)
+        username, key, kernel_ref, worker_dir = cls.get_credentials(db, job.user_id)
         if not username or not key:
             job.status = "failed"
             job.message = "Chưa cấu hình tài khoản Kaggle."
@@ -198,7 +204,7 @@ class KaggleOrchestrator:
         # Call builder to prepare files
         try:
             from app.services.kaggle_notebook_builder import KaggleNotebookBuilder
-            KaggleNotebookBuilder.prepare_all(job=None, db=db, is_daemon=True)
+            KaggleNotebookBuilder.prepare_all(job=None, db=db, is_daemon=True, user_id=job.user_id)
         except Exception as e:
             job.status = "failed"
             job.message = "Lỗi chuẩn bị mã nguồn."
@@ -217,9 +223,17 @@ class KaggleOrchestrator:
         accelerator = settings.KAGGLE_ACCELERATOR
         timeout = settings.KAGGLE_TIMEOUT_SECONDS
         
-        from app.models import SystemSetting
-        db_acc = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_accelerator").first()
-        db_timeout = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_timeout_seconds").first()
+        db_acc = None
+        db_timeout = None
+        if job.user_id:
+            from app.models import UserSetting
+            db_acc = db.query(UserSetting).filter(UserSetting.user_id == job.user_id, UserSetting.key == "kaggle_accelerator").first()
+            db_timeout = db.query(UserSetting).filter(UserSetting.user_id == job.user_id, UserSetting.key == "kaggle_timeout_seconds").first()
+        else:
+            from app.models import SystemSetting
+            db_acc = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_accelerator").first()
+            db_timeout = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_timeout_seconds").first()
+            
         if db_acc and db_acc.value.strip():
             accelerator = db_acc.value.strip()
         if db_timeout and db_timeout.value.strip():
@@ -283,7 +297,7 @@ class KaggleOrchestrator:
     @classmethod
     def _poll_booting_worker(cls, db, job):
         """Polls Kaggle for the booting worker's status."""
-        username, key, kernel_ref, worker_dir = cls.get_credentials(db)
+        username, key, kernel_ref, worker_dir = cls.get_credentials(db, job.user_id)
         if not username or not key:
             job.status = "failed"
             job.message = "Chưa cấu hình tài khoản Kaggle."

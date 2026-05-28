@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Settings, Save, CheckCircle, AlertCircle, Key, ChevronDown, ChevronUp, HelpCircle, ExternalLink } from "lucide-react";
+import { Settings, Save, CheckCircle, AlertCircle, Key, ChevronDown, ChevronUp, HelpCircle, ExternalLink, Eye, EyeOff, Copy, Trash2, KeyRound } from "lucide-react";
 import { api } from "../api/client";
-import type { SystemSettings } from "../api/client";
+import type { SystemSettings, UserMeResponse } from "../api/client";
 
 export const SettingsPanel: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [config, setConfig] = useState<SystemSettings | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserMeResponse | null>(null);
   
   const [username, setUsername] = useState("");
   const [key, setKey] = useState("");
@@ -14,9 +15,22 @@ export const SettingsPanel: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [pushingNotebook, setPushingNotebook] = useState(false);
+  const [generatingKey, setGeneratingKey] = useState(false);
+  const [revokingKey, setRevokingKey] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+
   const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [connectionResult, setConnectionResult] = useState<{ success: boolean; message: string } | null>(null);
   const [pushResult, setPushResult] = useState<{ success: boolean; message: string; url?: string } | null>(null);
+
+  const fetchUser = async () => {
+    try {
+      const res = await api.getMe();
+      setCurrentUser(res);
+    } catch (err) {
+      console.error("Lỗi lấy thông tin user:", err);
+    }
+  };
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -33,6 +47,7 @@ export const SettingsPanel: React.FC = () => {
 
   useEffect(() => {
     fetchSettings();
+    fetchUser();
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -95,6 +110,38 @@ export const SettingsPanel: React.FC = () => {
     }
   };
 
+  const handleGenerateApiKey = async () => {
+    setGeneratingKey(true);
+    try {
+      await api.generateApiKey();
+      await fetchUser();
+    } catch (err) {
+      console.error("Lỗi tạo API Key:", err);
+    } finally {
+      setGeneratingKey(false);
+    }
+  };
+
+  const handleRevokeApiKey = async () => {
+    if (!window.confirm("Bạn có chắc chắn muốn thu hồi API Key hiện tại không? Tất cả tích hợp từ bên ngoài dùng key này sẽ ngừng hoạt động.")) return;
+    setRevokingKey(true);
+    try {
+      await api.revokeApiKey();
+      await fetchUser();
+    } catch (err) {
+      console.error("Lỗi thu hồi API Key:", err);
+    } finally {
+      setRevokingKey(false);
+    }
+  };
+
+  const handleCopyApiKey = () => {
+    if (currentUser?.api_key) {
+      navigator.clipboard.writeText(currentUser.api_key);
+      alert("Đã sao chép API Key thành công vào Clipboard!");
+    }
+  };
+
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-lg overflow-hidden transition-all duration-300">
       {/* Header / Toggle Button */}
@@ -107,9 +154,9 @@ export const SettingsPanel: React.FC = () => {
             <Settings className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-bold text-slate-100 text-sm">Cấu hình Kaggle Credentials</h3>
+            <h3 className="font-bold text-slate-100 text-sm">Cấu hình Hệ thống &amp; API Key</h3>
             <p className="text-[11px] text-slate-450 mt-0.5">
-              Cài đặt Kaggle Username và API Key để kích hoạt máy chủ xử lý giọng nói GPU tự động.
+              Cài đặt Kaggle Credentials và lấy mã API để tự động sinh giọng nói nhân bản AI.
             </p>
           </div>
         </div>
@@ -131,13 +178,90 @@ export const SettingsPanel: React.FC = () => {
 
       {/* Collapsible Panel content */}
       {isOpen && (
-        <div className="border-t border-slate-850 p-6 bg-slate-950/40">
+        <div className="border-t border-slate-850 p-6 bg-slate-950/40 flex flex-col gap-6">
+          
+          {/* User API Key Section */}
+          <div className="bg-slate-950 border border-slate-850 rounded-xl p-4 flex flex-col gap-3 shadow-inner">
+            <div className="flex items-center gap-2 text-indigo-400">
+              <KeyRound className="w-4 h-4" />
+              <h4 className="font-bold text-xs text-slate-200">Quản lý API Key người dùng ({currentUser?.username})</h4>
+            </div>
+            <p className="text-[11px] text-slate-450 leading-relaxed">
+              Khóa API cho phép bạn gửi yêu cầu sinh giọng nói bằng code từ các ứng dụng hoặc script bên ngoài thông qua API Gateway.
+            </p>
+            
+            <div className="flex flex-col gap-2 mt-1">
+              {currentUser?.api_key ? (
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex-grow relative">
+                    <input
+                      type={showApiKey ? "text" : "password"}
+                      value={currentUser.api_key}
+                      readOnly
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg py-2 pl-3.5 pr-10 text-xs text-indigo-300 font-mono focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-200 cursor-pointer"
+                      title={showApiKey ? "Ẩn API Key" : "Hiển thị API Key"}
+                    >
+                      {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleCopyApiKey}
+                      className="bg-slate-850 hover:bg-slate-800 border border-slate-750 text-xs font-bold px-3 py-2 rounded-lg text-slate-200 hover:text-white cursor-pointer flex items-center gap-1.5 transition-colors"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Sao chép</span>
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={handleGenerateApiKey}
+                      disabled={generatingKey}
+                      className="bg-slate-850 hover:bg-slate-800 border border-slate-750 text-xs font-bold px-3 py-2 rounded-lg text-slate-200 hover:text-white cursor-pointer flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                    >
+                      <span>Tạo mới</span>
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={handleRevokeApiKey}
+                      disabled={revokingKey}
+                      className="bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-xs font-bold px-3 py-2 rounded-lg text-rose-400 hover:text-rose-350 cursor-pointer flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Thu hồi</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between bg-slate-900 border border-slate-800 p-3 rounded-lg text-xs text-slate-450">
+                  <span>Bạn chưa tạo API Key nào.</span>
+                  <button
+                    type="button"
+                    onClick={handleGenerateApiKey}
+                    disabled={generatingKey}
+                    className="bg-indigo-650 hover:bg-indigo-600 text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer transition-colors shadow-sm disabled:opacity-50"
+                  >
+                    {generatingKey ? "Đang tạo..." : "Tạo khóa API"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
           <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Hướng dẫn lấy API Key */}
             <div className="md:col-span-2 bg-indigo-950/20 border border-indigo-500/25 rounded-xl p-4 flex flex-col gap-2.5 backdrop-blur-sm shadow-inner">
               <div className="flex items-center gap-2 text-indigo-400">
                 <HelpCircle className="w-4 h-4 flex-shrink-0" />
-                <h4 className="font-semibold text-xs text-slate-200">Hướng dẫn lấy Kaggle API Key</h4>
+                <h4 className="font-semibold text-xs text-slate-200">Hướng dẫn cấu hình kết nối Kaggle</h4>
               </div>
               <div className="text-[11px] text-slate-400 space-y-2.5">
                 <div className="flex gap-2.5">

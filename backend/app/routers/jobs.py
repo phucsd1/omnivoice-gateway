@@ -1,18 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import TTSJob
+from app.models import TTSJob, User
 from app.schemas import JobStatusResponse
+from app.utils.auth import get_user_or_api_key
 
 router = APIRouter(prefix="/v1/jobs", tags=["Generic Jobs"])
 
 @router.get("", response_model=list[JobStatusResponse])
-def list_jobs(response: Response, db: Session = Depends(get_db)):
+def list_jobs(response: Response, db: Session = Depends(get_db), current_user: User = Depends(get_user_or_api_key)):
     """
-    Returns list of all jobs in the system, ordered by creation time descending.
+    Returns list of all jobs belonging to the current user, ordered by creation time descending.
     """
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    jobs = db.query(TTSJob).order_by(TTSJob.created_at.desc()).all()
+    jobs = db.query(TTSJob).filter(TTSJob.user_id == current_user.id).order_by(TTSJob.created_at.desc()).all()
     result = []
     for job in jobs:
         audio_url = None
@@ -34,13 +35,13 @@ def list_jobs(response: Response, db: Session = Depends(get_db)):
     return result
 
 @router.get("/{job_id}", response_model=JobStatusResponse)
-def get_job_status(job_id: str, response: Response, db: Session = Depends(get_db)):
+def get_job_status(job_id: str, response: Response, db: Session = Depends(get_db), current_user: User = Depends(get_user_or_api_key)):
     """
     Polled generic job status endpoint returning current state, progress rate,
-    any error messages, and the resolved audio download URL upon completion.
+    any error messages, and the resolved audio download URL upon completion for the user's job.
     """
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    job = db.query(TTSJob).filter(TTSJob.id == job_id).first()
+    job = db.query(TTSJob).filter(TTSJob.id == job_id, TTSJob.user_id == current_user.id).first()
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

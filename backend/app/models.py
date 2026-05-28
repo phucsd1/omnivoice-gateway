@@ -1,11 +1,29 @@
-from sqlalchemy import Column, String, Float, Integer, DateTime, Text
+from sqlalchemy import Column, String, Float, Integer, DateTime, Text, ForeignKey
 from datetime import datetime
 from app.database import Base
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String(50), primary_key=True, index=True)
+    username = Column(String(100), unique=True, index=True, nullable=False)
+    hashed_password = Column(String(255), nullable=False)
+    api_key = Column(String(100), unique=True, index=True, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class UserSetting(Base):
+    __tablename__ = "user_settings"
+
+    id = Column(String(50), primary_key=True, index=True)
+    user_id = Column(String(50), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    key = Column(String(100), nullable=False)
+    value = Column(Text, nullable=False)
 
 class VoiceSample(Base):
     __tablename__ = "voice_samples"
 
     id = Column(String(50), primary_key=True, index=True)
+    user_id = Column(String(50), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     source_type = Column(String(50), nullable=False)  # "uploaded" | "voice_design_preview"
     file_path = Column(String(255), nullable=False)
     ref_text = Column(Text, nullable=True)
@@ -18,6 +36,7 @@ class VoiceDesignPreview(Base):
     __tablename__ = "voice_design_previews"
 
     id = Column(String(50), primary_key=True, index=True)
+    user_id = Column(String(50), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     voice_request = Column(Text, nullable=False)
     instruct = Column(Text, nullable=False)
     preview_text = Column(Text, nullable=False)
@@ -30,6 +49,7 @@ class TTSJob(Base):
     __tablename__ = "tts_jobs"
 
     id = Column(String(50), primary_key=True, index=True)
+    user_id = Column(String(50), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     job_type = Column(String(50), nullable=False)  # "clone_voice" | "voice_design_preview" | "auto_voice" | "voice_design_tts"
     text = Column(Text, nullable=True)
     voice_sample_id = Column(String(50), nullable=True)
@@ -53,6 +73,7 @@ class WorkerSession(Base):
 
     id = Column(String(50), primary_key=True, index=True)
     worker_id = Column(String(100), nullable=False)
+    user_id = Column(String(50), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     status = Column(String(50), nullable=False)  # "starting" | "loading_model" | "ready" | "busy" | "idle" | "stopped" | "failed"
     last_heartbeat_at = Column(DateTime, default=datetime.utcnow)
     started_at = Column(DateTime, default=datetime.utcnow)

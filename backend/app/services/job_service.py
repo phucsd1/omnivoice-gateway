@@ -56,7 +56,7 @@ class JobService:
         return ", ".join(instructs)
 
     @staticmethod
-    def create_voice_design_preview(db: Session, voice_request: str, preview_text: str, public_api_url: str = None, speed: float = 1.0, num_step: int = 32) -> tuple[VoiceDesignPreview, TTSJob]:
+    def create_voice_design_preview(db: Session, voice_request: str, preview_text: str, public_api_url: str = None, speed: float = 1.0, num_step: int = 32, user_id: str = None) -> tuple[VoiceDesignPreview, TTSJob]:
         """Creates a VoiceDesignPreview entry and triggers a background preview TTS job."""
         preview_id = generate_id("vd")
         job_id = generate_id("job")
@@ -66,6 +66,7 @@ class JobService:
         # Create VoiceDesignPreview
         db_preview = VoiceDesignPreview(
             id=preview_id,
+            user_id=user_id,
             voice_request=voice_request,
             instruct=instruct,
             preview_text=preview_text,
@@ -76,6 +77,7 @@ class JobService:
         # Create TTSJob
         db_job = TTSJob(
             id=job_id,
+            user_id=user_id,
             job_type="voice_design_preview",
             text=preview_text,
             preview_id=preview_id,
@@ -93,7 +95,7 @@ class JobService:
         return db_preview, db_job
 
     @staticmethod
-    def create_tts_job(db: Session, mode: str, text: str, voice_sample_id: str = None, instruct: str = None, public_api_url: str = None, speed: float = 1.0, num_step: int = 32) -> TTSJob:
+    def create_tts_job(db: Session, mode: str, text: str, voice_sample_id: str = None, instruct: str = None, public_api_url: str = None, speed: float = 1.0, num_step: int = 32, user_id: str = None) -> TTSJob:
         """Creates a TTS job based on the chosen mode (clone_voice, auto_voice, voice_design)."""
         job_id = generate_id("job")
         
@@ -122,6 +124,7 @@ class JobService:
 
         db_job = TTSJob(
             id=job_id,
+            user_id=user_id,
             job_type=job_type,
             text=text,
             voice_sample_id=voice_sample_id,
@@ -140,12 +143,16 @@ class JobService:
         return db_job
 
     @staticmethod
-    def get_next_job(db: Session, worker_id: str) -> Optional[TTSJob]:
+    def get_next_job(db: Session, worker_id: str, user_id: str = None) -> Optional[TTSJob]:
         """Locks the oldest queued job for the requested worker and updates status to preparing_input."""
         # Find queued or starting_worker status jobs
-        job = db.query(TTSJob).filter(
+        query = db.query(TTSJob).filter(
             TTSJob.status.in_(["queued", "starting_worker"])
-        ).order_by(TTSJob.created_at.asc()).first()
+        )
+        if user_id:
+            query = query.filter(TTSJob.user_id == user_id)
+            
+        job = query.order_by(TTSJob.created_at.asc()).first()
 
         if not job:
             return None
@@ -212,7 +219,7 @@ class JobService:
         return job
 
     @staticmethod
-    def accept_preview(db: Session, preview_id: str) -> VoiceSample:
+    def accept_preview(db: Session, preview_id: str, user_id: str = None) -> VoiceSample:
         """Takes a completed preview audio and registers it as a reusable cloned VoiceSample."""
         preview = db.query(VoiceDesignPreview).filter(VoiceDesignPreview.id == preview_id).first()
         if not preview:
@@ -246,6 +253,7 @@ class JobService:
         # Save voice sample entry
         sample = VoiceSample(
             id=sample_id,
+            user_id=user_id or preview.user_id,
             source_type="voice_design_preview",
             file_path=dest_path,
             ref_text=preview.preview_text,

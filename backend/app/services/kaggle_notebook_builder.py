@@ -585,15 +585,21 @@ if __name__ == '__main__':
         return worker_path
 
     @staticmethod
-    def prepare_all(job=None, db=None, public_api_url: str = None, is_daemon: bool = True) -> str:
+    def prepare_all(job=None, db=None, public_api_url: str = None, is_daemon: bool = True, user_id: str = None) -> str:
         """
         Runs the full prepare pipeline: ensures directory,
         writes requirements.txt, kernel-metadata.json, and omnivoice_worker.py.
         Returns the absolute path of the worker directory.
         """
+        if not user_id and job:
+            if isinstance(job, dict):
+                user_id = job.get("user_id")
+            else:
+                user_id = getattr(job, "user_id", None)
+
         # Resolve settings/DB configs
         from app.services.kaggle_orchestrator import KaggleOrchestrator
-        username, _, kernel_ref, worker_dir = KaggleOrchestrator.get_credentials(db)
+        username, _, kernel_ref, worker_dir = KaggleOrchestrator.get_credentials(db, user_id)
         
         # Resolve public_api_url dynamically if not passed
         if not public_api_url:
@@ -607,8 +613,12 @@ if __name__ == '__main__':
         # Resolve accelerator settings
         accelerator = settings.KAGGLE_ACCELERATOR
         if db:
-            from app.models import SystemSetting
-            db_acc = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_accelerator").first()
+            if user_id:
+                from app.models import UserSetting
+                db_acc = db.query(UserSetting).filter(UserSetting.user_id == user_id, UserSetting.key == "kaggle_accelerator").first()
+            else:
+                from app.models import SystemSetting
+                db_acc = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_accelerator").first()
             if db_acc and db_acc.value.strip():
                 accelerator = db_acc.value.strip()
         
@@ -620,7 +630,15 @@ if __name__ == '__main__':
         KaggleNotebookBuilder.generate_requirements(worker_dir_abs)
         KaggleNotebookBuilder.generate_metadata(worker_dir_abs, username, slug, title, accelerator)
         
+        # Resolve worker token as user API key if applicable
+        worker_token = settings.WORKER_TOKEN
+        if user_id and db:
+            from app.models import User
+            user = db.query(User).filter(User.id == user_id).first()
+            if user and user.api_key:
+                worker_token = user.api_key
+
         # Generate worker script with embedded credentials and API URLs
-        KaggleNotebookBuilder.generate_worker_code(worker_dir_abs, job, public_api_url, settings.WORKER_TOKEN, is_daemon=is_daemon)
+        KaggleNotebookBuilder.generate_worker_code(worker_dir_abs, job, public_api_url, worker_token, is_daemon=is_daemon)
         
         return worker_dir_abs

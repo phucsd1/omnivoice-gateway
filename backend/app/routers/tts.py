@@ -3,14 +3,15 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import TTSJob
+from app.models import TTSJob, User
 from app.schemas import TTSJobCreate, TTSJobResponse
 from app.services.job_service import JobService
+from app.utils.auth import get_user_or_api_key
 
 router = APIRouter(prefix="/v1/tts/jobs", tags=["TTS"])
 
 @router.post("", response_model=TTSJobResponse)
-def create_tts_job(payload: TTSJobCreate, request: Request, db: Session = Depends(get_db)):
+def create_tts_job(payload: TTSJobCreate, request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_user_or_api_key)):
     """
     Creates a TTS job based on:
     - clone_voice: Requires voice_sample_id.
@@ -26,7 +27,8 @@ def create_tts_job(payload: TTSJobCreate, request: Request, db: Session = Depend
             instruct=payload.instruct,
             public_api_url=str(request.base_url).rstrip("/"),
             speed=payload.speed,
-            num_step=payload.num_step
+            num_step=payload.num_step,
+            user_id=current_user.id
         )
         return TTSJobResponse(
             job_id=job.id,
@@ -45,9 +47,9 @@ def create_tts_job(payload: TTSJobCreate, request: Request, db: Session = Depend
         )
 
 @router.get("/{job_id}")
-def get_tts_job(job_id: str, db: Session = Depends(get_db)):
+def get_tts_job(job_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_user_or_api_key)):
     """Retrieves status and details of a specific TTS job."""
-    job = db.query(TTSJob).filter(TTSJob.id == job_id).first()
+    job = db.query(TTSJob).filter(TTSJob.id == job_id, TTSJob.user_id == current_user.id).first()
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -65,9 +67,9 @@ def get_tts_job(job_id: str, db: Session = Depends(get_db)):
     }
 
 @router.get("/{job_id}/audio")
-def get_tts_audio(job_id: str, db: Session = Depends(get_db)):
+def get_tts_audio(job_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_user_or_api_key)):
     """Serves the completed TTS generated WAV file using FileResponse."""
-    job = db.query(TTSJob).filter(TTSJob.id == job_id).first()
+    job = db.query(TTSJob).filter(TTSJob.id == job_id, TTSJob.user_id == current_user.id).first()
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

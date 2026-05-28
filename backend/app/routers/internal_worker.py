@@ -49,12 +49,17 @@ def worker_heartbeat(payload: WorkerHeartbeatRequest, db: Session = Depends(get_
     return {"status": "ok"}
 
 @router.get("/jobs/next", response_model=WorkerNextJobResponse)
-def get_next_job(worker_id: str, request: Request, db: Session = Depends(get_db)):
+def get_next_job(worker_id: str, request: Request, db: Session = Depends(get_db), token: str = Depends(verify_worker_token)):
     """
     Called by workers to pull the oldest pending job.
     Locks the job, updates its state, and compiles parameters (including ref audio downloads).
     """
-    job = JobService.get_next_job(db, worker_id)
+    # Resolve user from token
+    from app.models import User
+    user = db.query(User).filter(User.api_key == token).first()
+    user_id = user.id if user else None
+
+    job = JobService.get_next_job(db, worker_id, user_id=user_id)
     if not job:
         return WorkerNextJobResponse(job=None, message="No pending job")
 

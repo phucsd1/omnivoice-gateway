@@ -11,7 +11,7 @@ from app.services.audio_service import AudioService
 from app.services.mock_worker import MockWorker
 
 # Import all routers
-from app.routers import health, voice_samples, voice_design, tts, jobs, internal_worker
+from app.routers import health, voice_samples, voice_design, tts, jobs, internal_worker, auth
 from app.routers import settings as settings_router
 
 # Auto-shutdown state
@@ -135,6 +135,7 @@ async def update_last_request_time(request: Request, call_next):
 
 # Register routers
 app.include_router(health.router)
+app.include_router(auth.router)
 app.include_router(voice_samples.router)
 app.include_router(voice_design.router)
 app.include_router(tts.router)

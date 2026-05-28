@@ -3,8 +3,9 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 from app.database import get_db
-from app.models import SystemSetting
+from app.models import User, UserSetting
 from app.config import settings
+from app.utils.auth import get_current_user
 
 router = APIRouter(prefix="/v1/settings", tags=["Settings"])
 
@@ -30,8 +31,8 @@ class SettingsUpdateRequest(BaseModel):
   kaggle_worker_dir: Optional[str] = None
 
 @router.get("", response_model=SettingsResponse)
-def get_system_settings(db: Session = Depends(get_db)):
-    """Retrieves current settings, masking the Kaggle key for security."""
+def get_system_settings(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Retrieves current user's settings, masking the Kaggle key for security."""
     # Load defaults
     username = settings.KAGGLE_USERNAME
     key_configured = bool(settings.KAGGLE_KEY)
@@ -42,35 +43,29 @@ def get_system_settings(db: Session = Depends(get_db)):
     timeout_seconds = settings.KAGGLE_TIMEOUT_SECONDS
     worker_dir = settings.KAGGLE_WORKER_DIR
 
-    # Load DB overrides
-    db_username = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_username").first()
-    db_key = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_key").first()
-    db_kernel_ref = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_kernel_ref").first()
-    db_kernel_slug = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_kernel_slug").first()
-    db_kernel_title = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_kernel_title").first()
-    db_accelerator = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_accelerator").first()
-    db_timeout_seconds = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_timeout_seconds").first()
-    db_worker_dir = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_worker_dir").first()
+    # Load User Setting overrides from DB
+    def get_setting(key: str, default_val):
+        entry = db.query(UserSetting).filter(UserSetting.user_id == current_user.id, UserSetting.key == key).first()
+        if entry and entry.value.strip():
+            return entry.value.strip()
+        return default_val
 
-    if db_username and db_username.value.strip():
-        username = db_username.value.strip()
-    if db_key and db_key.value.strip():
+    username = get_setting("kaggle_username", username)
+    db_key = get_setting("kaggle_key", "")
+    if db_key:
         key_configured = True
-    if db_kernel_ref and db_kernel_ref.value.strip():
-        kernel_ref = db_kernel_ref.value.strip()
-    if db_kernel_slug and db_kernel_slug.value.strip():
-        kernel_slug = db_kernel_slug.value.strip()
-    if db_kernel_title and db_kernel_title.value.strip():
-        kernel_title = db_kernel_title.value.strip()
-    if db_accelerator and db_accelerator.value.strip():
-        accelerator = db_accelerator.value.strip()
-    if db_timeout_seconds and db_timeout_seconds.value.strip():
-        try:
-            timeout_seconds = int(db_timeout_seconds.value.strip())
-        except ValueError:
-            pass
-    if db_worker_dir and db_worker_dir.value.strip():
-        worker_dir = db_worker_dir.value.strip()
+    kernel_ref = get_setting("kaggle_kernel_ref", kernel_ref)
+    kernel_slug = get_setting("kaggle_kernel_slug", kernel_slug)
+    kernel_title = get_setting("kaggle_kernel_title", kernel_title)
+    accelerator = get_setting("kaggle_accelerator", accelerator)
+    
+    timeout_str = get_setting("kaggle_timeout_seconds", str(timeout_seconds))
+    try:
+        timeout_seconds = int(timeout_str)
+    except ValueError:
+        pass
+        
+    worker_dir = get_setting("kaggle_worker_dir", worker_dir)
 
     return SettingsResponse(
         kaggle_username=username,
@@ -85,14 +80,15 @@ def get_system_settings(db: Session = Depends(get_db)):
     )
 
 @router.post("", response_model=dict)
-def update_system_settings(payload: SettingsUpdateRequest, db: Session = Depends(get_db)):
-    """Saves updated Kaggle settings in the database."""
+def update_system_settings(payload: SettingsUpdateRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Saves updated Kaggle settings in the database for the user."""
+    from app.utils.ids import generate_id
     def save_setting(key: str, val: Optional[str]):
         if val is None:
             return
-        entry = db.query(SystemSetting).filter(SystemSetting.key == key).first()
+        entry = db.query(UserSetting).filter(UserSetting.user_id == current_user.id, UserSetting.key == key).first()
         if not entry:
-            entry = SystemSetting(key=key, value=str(val))
+            entry = UserSetting(id=generate_id("us"), user_id=current_user.id, key=key, value=str(val))
             db.add(entry)
         else:
             entry.value = str(val)
@@ -116,14 +112,14 @@ def update_system_settings(payload: SettingsUpdateRequest, db: Session = Depends
         )
 
 @router.post("/test-kaggle", response_model=dict)
-def test_kaggle_connection(db: Session = Depends(get_db)):
-    """Tests the connection to Kaggle API using the saved credentials."""
+def test_kaggle_connection(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Tests the connection to Kaggle API using the saved credentials for the user."""
     import os
     import sys
     import subprocess
     from app.services.kaggle_orchestrator import KaggleOrchestrator
     
-    username, key, _, _ = KaggleOrchestrator.get_credentials(db)
+    username, key, _, _ = KaggleOrchestrator.get_credentials(db, current_user.id)
     
     if not username or not key:
         return {
@@ -168,15 +164,15 @@ def test_kaggle_connection(db: Session = Depends(get_db)):
         }
 
 @router.post("/push-notebook", response_model=dict)
-def push_notebook_to_kaggle(db: Session = Depends(get_db)):
-    """Prepares and pushes the worker notebook to Kaggle, returning the notebook web URL."""
+def push_notebook_to_kaggle(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Prepares and pushes the worker notebook to Kaggle for the user, returning the notebook web URL."""
     from app.services.kaggle_orchestrator import KaggleOrchestrator
     from app.services.kaggle_notebook_builder import KaggleNotebookBuilder
     import os
     import sys
     import subprocess
     
-    if not KaggleOrchestrator.is_configured(db):
+    if not KaggleOrchestrator.is_configured(db, current_user.id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Kaggle chưa được cấu hình. Vui lòng cập nhật cài đặt trước."
@@ -184,15 +180,15 @@ def push_notebook_to_kaggle(db: Session = Depends(get_db)):
         
     try:
         # Prepare files (worker.ipynb, kernel-metadata.json, requirements.txt)
-        worker_dir = KaggleNotebookBuilder.prepare_all(db=db)
-        username, key, kernel_ref, worker_dir_resolved = KaggleOrchestrator.get_credentials(db)
+        worker_dir = KaggleNotebookBuilder.prepare_all(db=db, user_id=current_user.id)
+        username, key, kernel_ref, worker_dir_resolved = KaggleOrchestrator.get_credentials(db, current_user.id)
         
         # Resolve accelerator and timeout settings
         accelerator = settings.KAGGLE_ACCELERATOR
         timeout = settings.KAGGLE_TIMEOUT_SECONDS
         
-        db_acc = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_accelerator").first()
-        db_timeout = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_timeout_seconds").first()
+        db_acc = db.query(UserSetting).filter(UserSetting.user_id == current_user.id, UserSetting.key == "kaggle_accelerator").first()
+        db_timeout = db.query(UserSetting).filter(UserSetting.user_id == current_user.id, UserSetting.key == "kaggle_timeout_seconds").first()
         if db_acc and db_acc.value.strip():
             accelerator = db_acc.value.strip()
         if db_timeout and db_timeout.value.strip():
@@ -250,6 +246,3 @@ def push_notebook_to_kaggle(db: Session = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Lỗi hệ thống khi đẩy notebook: {e}"
         )
-
-
-

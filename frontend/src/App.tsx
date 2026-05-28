@@ -1,14 +1,16 @@
 import { useState, useEffect } from "react";
-import { Sparkles, Radio, CheckCircle, XCircle, RefreshCw, Layers } from "lucide-react";
+import { Sparkles, Radio, CheckCircle, XCircle, RefreshCw, Layers, LogOut } from "lucide-react";
 import { api } from "./api/client";
 
 import { VoiceSampleUpload } from "./components/VoiceSampleUpload";
 import { VoiceDesignPanel } from "./components/VoiceDesignPanel";
 import { TTSPanel } from "./components/TTSPanel";
 import { SettingsPanel } from "./components/SettingsPanel";
-
+import { LoginRegister } from "./components/LoginRegister";
 
 function App() {
+  const [token, setToken] = useState<string | null>(localStorage.getItem("VITE_JWT_TOKEN"));
+  const [currentUser, setCurrentUser] = useState<{ username: string } | null>(null);
   const [activeVoiceSampleId, setActiveVoiceSampleId] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<"checking" | "connected" | "disconnected">("checking");
   const [apiBaseUrl, setApiBaseUrl] = useState("");
@@ -24,15 +26,42 @@ function App() {
     }
   };
 
+  const fetchUser = async () => {
+    try {
+      const res = await api.getMe();
+      setCurrentUser(res);
+    } catch (err) {
+      console.error("Lỗi lấy thông tin user:", err);
+      handleLogout();
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("VITE_JWT_TOKEN");
+    setToken(null);
+    setCurrentUser(null);
+  };
 
   useEffect(() => {
     setApiBaseUrl(api.getApiBaseUrl() || window.location.origin);
     checkHealth();
   }, []);
 
+  useEffect(() => {
+    if (token) {
+      fetchUser();
+    } else {
+      setCurrentUser(null);
+    }
+  }, [token]);
+
   const handleVoiceSampleActive = (sampleId: string) => {
     setActiveVoiceSampleId(sampleId);
   };
+
+  if (!token) {
+    return <LoginRegister onLoginSuccess={(t) => setToken(t)} />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans select-none">
@@ -59,8 +88,23 @@ function App() {
           </div>
         </div>
 
-        {/* API Info & Health */}
+        {/* API Info & Health & User Profile */}
         <div className="flex flex-wrap items-center gap-3">
+          {currentUser && (
+            <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-inner">
+              <span className="text-indigo-400">@{currentUser.username}</span>
+              <span className="text-slate-800">|</span>
+              <button
+                onClick={handleLogout}
+                className="text-slate-400 hover:text-rose-400 transition-colors cursor-pointer flex items-center gap-1"
+                title="Đăng xuất"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Đăng xuất</span>
+              </button>
+            </div>
+          )}
+
           <div className="bg-slate-900 border border-slate-800 focus-within:border-indigo-500/50 px-3 py-1.5 rounded-xl text-xs font-mono text-slate-400 flex items-center gap-2 transition-all">
             <span className={`w-1.5 h-1.5 rounded-full transition-colors ${connectionStatus === "connected" ? "bg-emerald-500" : connectionStatus === "checking" ? "bg-amber-500 animate-pulse" : "bg-rose-500"}`} />
             <span className="text-slate-500 select-none">API:</span>
@@ -111,7 +155,7 @@ function App() {
       {/* Main content */}
       <main className="flex-grow p-6 max-w-7xl w-full mx-auto flex flex-col gap-6 relative">
         {/* Settings Panel */}
-        <SettingsPanel />
+        <SettingsPanel key={token} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left Column - Voice setups */}

@@ -65,7 +65,19 @@ export interface JobStatusResponse {
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${getApiBaseUrl()}${path}`;
-  const response = await fetch(url, options);
+  
+  const token = localStorage.getItem("VITE_JWT_TOKEN");
+  const headers = new Headers(options?.headers);
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  
+  const newOptions = {
+    ...options,
+    headers
+  };
+  
+  const response = await fetch(url, newOptions);
   
   if (!response.ok) {
     let errorDetail = "";
@@ -174,7 +186,51 @@ export const api = {
       method: "POST",
     });
   },
+
+  login: async (username: string, password: string): Promise<{ access_token: string; token_type: string }> => {
+    return request<{ access_token: string; token_type: string }>("/v1/auth/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ username, password }),
+    });
+  },
+
+  register: async (username: string, password: string): Promise<{ status: string; message: string }> => {
+    return request<{ status: string; message: string }>("/v1/auth/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ username, password }),
+    });
+  },
+
+  getMe: async (): Promise<UserMeResponse> => {
+    return request<UserMeResponse>(`/v1/auth/me?t=${Date.now()}`);
+  },
+
+  generateApiKey: async (): Promise<{ status: string; message: string; api_key: string }> => {
+    return request<{ status: string; message: string; api_key: string }>("/v1/auth/apikey", {
+      method: "POST",
+    });
+  },
+
+  revokeApiKey: async (): Promise<{ status: string; message: string }> => {
+    return request<{ status: string; message: string }>("/v1/auth/apikey", {
+      method: "DELETE",
+    });
+  },
 };
+
+export interface UserMeResponse {
+  id: string;
+  username: string;
+  has_api_key: boolean;
+  api_key: string | null;
+  created_at: string;
+}
 
 
 export interface SystemSettings {
