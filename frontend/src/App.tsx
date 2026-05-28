@@ -6,6 +6,7 @@ import { VoiceSampleUpload } from "./components/VoiceSampleUpload";
 import { VoiceDesignPanel } from "./components/VoiceDesignPanel";
 import { TTSPanel } from "./components/TTSPanel";
 import { SettingsPanel } from "./components/SettingsPanel";
+import { ApiKeyPanel } from "./components/ApiKeyPanel";
 import { LoginRegister } from "./components/LoginRegister";
 import { AdminDashboard } from "./components/AdminDashboard";
 
@@ -174,6 +175,9 @@ function App() {
           <>
             {/* Settings Panel */}
             <SettingsPanel key={token} />
+
+            {/* API Keys Panel & Documentation */}
+            <ApiKeyPanel />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Left Column - Voice setups */}

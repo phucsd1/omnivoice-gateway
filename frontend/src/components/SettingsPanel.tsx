@@ -1,37 +1,23 @@
 import React, { useState, useEffect } from "react";
-import { Settings, Save, CheckCircle, AlertCircle, Key, ChevronDown, ChevronUp, HelpCircle, ExternalLink, Eye, EyeOff, Copy, Trash2, KeyRound } from "lucide-react";
+import { Settings, Save, CheckCircle, AlertCircle, Key, ChevronDown, ChevronUp, HelpCircle, ExternalLink } from "lucide-react";
 import { api } from "../api/client";
-import type { SystemSettings, UserMeResponse, ApiKeyResponse } from "../api/client";
+import type { SystemSettings } from "../api/client";
 
 export const SettingsPanel: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [config, setConfig] = useState<SystemSettings | null>(null);
-  const [currentUser, setCurrentUser] = useState<UserMeResponse | null>(null);
-  const [apiKeys, setApiKeys] = useState<ApiKeyResponse[]>([]);
   
   const [username, setUsername] = useState("");
   const [key, setKey] = useState("");
-  const [newKeyName, setNewKeyName] = useState("");
   
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [pushingNotebook, setPushingNotebook] = useState(false);
-  const [creatingKey, setCreatingKey] = useState(false);
-  const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({});
 
   const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [connectionResult, setConnectionResult] = useState<{ success: boolean; message: string } | null>(null);
   const [pushResult, setPushResult] = useState<{ success: boolean; message: string; url?: string } | null>(null);
-
-  const fetchUser = async () => {
-    try {
-      const res = await api.getMe();
-      setCurrentUser(res);
-    } catch (err) {
-      console.error("Lỗi lấy thông tin user:", err);
-    }
-  };
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -46,19 +32,8 @@ export const SettingsPanel: React.FC = () => {
     }
   };
 
-  const fetchApiKeys = async () => {
-    try {
-      const res = await api.getUserApiKeys();
-      setApiKeys(res);
-    } catch (err) {
-      console.error("Lỗi lấy danh sách API Keys:", err);
-    }
-  };
-
   useEffect(() => {
     fetchSettings();
-    fetchUser();
-    fetchApiKeys();
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -121,42 +96,6 @@ export const SettingsPanel: React.FC = () => {
     }
   };
 
-  const handleCreateApiKey = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newKeyName.trim()) return;
-    setCreatingKey(true);
-    try {
-      const newKey = await api.createUserApiKey(newKeyName.trim());
-      setNewKeyName("");
-      // Make it visible initially for convenience
-      setVisibleKeys(prev => ({ ...prev, [newKey.id]: true }));
-      await fetchApiKeys();
-    } catch (err: any) {
-      alert("Lỗi tạo API Key: " + err.message);
-    } finally {
-      setCreatingKey(false);
-    }
-  };
-
-  const handleDeleteApiKey = async (keyId: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa API Key này không? Các tích hợp bên ngoài sử dụng key này sẽ ngừng hoạt động.")) return;
-    try {
-      await api.deleteUserApiKey(keyId);
-      await fetchApiKeys();
-    } catch (err: any) {
-      alert("Lỗi xóa API Key: " + err.message);
-    }
-  };
-
-  const toggleKeyVisibility = (keyId: string) => {
-    setVisibleKeys(prev => ({ ...prev, [keyId]: !prev[keyId] }));
-  };
-
-  const handleCopyKey = (keyValue: string) => {
-    navigator.clipboard.writeText(keyValue);
-    alert("Đã sao chép API Key thành công vào Clipboard!");
-  };
-
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-lg overflow-hidden transition-all duration-300">
       {/* Header / Toggle Button */}
@@ -169,9 +108,9 @@ export const SettingsPanel: React.FC = () => {
             <Settings className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-bold text-slate-100 text-sm">Cấu hình Hệ thống &amp; API Key</h3>
+            <h3 className="font-bold text-slate-100 text-sm">Cấu hình Kết nối Máy chủ Kaggle</h3>
             <p className="text-[11px] text-slate-450 mt-0.5">
-              Cài đặt Kaggle Credentials và quản lý các API Key để kết nối bên ngoài.
+              Cài đặt tài khoản Kaggle Credentials để kích hoạt máy chủ dịch vụ Batch Job GPU tự động.
             </p>
           </div>
         </div>
@@ -193,106 +132,8 @@ export const SettingsPanel: React.FC = () => {
 
       {/* Collapsible Panel content */}
       {isOpen && (
-        <div className="border-t border-slate-850 p-6 bg-slate-950/40 flex flex-col gap-6">
+        <div className="border-t border-slate-855 p-6 bg-slate-950/40 flex flex-col gap-6">
           
-          {/* User API Key Section */}
-          <div className="bg-slate-950 border border-slate-850 rounded-xl p-4 flex flex-col gap-3 shadow-inner">
-            <div className="flex items-center gap-2 text-indigo-400">
-              <KeyRound className="w-4 h-4" />
-              <h4 className="font-bold text-xs text-slate-200">Quản lý mã API ({currentUser?.username})</h4>
-            </div>
-            <p className="text-[11px] text-slate-450 leading-relaxed">
-              Khóa API cho phép bạn gửi yêu cầu sinh giọng nói bằng code từ các ứng dụng hoặc script bên ngoài thông qua API Gateway. Bạn có thể tạo nhiều khóa để quản lý.
-            </p>
-            
-            {/* Create API Key Form */}
-            <form onSubmit={handleCreateApiKey} className="flex gap-2 mt-1">
-              <input
-                type="text"
-                placeholder="Tên gợi nhớ (ví dụ: App test, Python Script...)"
-                value={newKeyName}
-                onChange={(e) => setNewKeyName(e.target.value)}
-                className="flex-grow bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50"
-                required
-              />
-              <button
-                type="submit"
-                disabled={creatingKey}
-                className="bg-indigo-650 hover:bg-indigo-600 text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer transition-colors shadow-sm disabled:opacity-50 flex-shrink-0"
-              >
-                {creatingKey ? "Đang tạo..." : "Tạo khóa"}
-              </button>
-            </form>
-
-            <div className="mt-2 overflow-x-auto">
-              {apiKeys.length > 0 ? (
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-450 text-[10px] uppercase font-semibold">
-                      <th className="py-2 px-1">Tên khóa</th>
-                      <th className="py-2 px-1">Giá trị API Key</th>
-                      <th className="py-2 px-1">Ngày tạo</th>
-                      <th className="py-2 px-1">Hoạt động gần nhất</th>
-                      <th className="py-2 px-1 text-right">Hành động</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {apiKeys.map((k) => (
-                      <tr key={k.id} className="border-b border-slate-900/60 hover:bg-slate-900/20">
-                        <td className="py-2.5 px-1 font-medium text-slate-200 max-w-[120px] truncate">{k.name}</td>
-                        <td className="py-2.5 px-1 font-mono text-[11px] text-indigo-300">
-                          <div className="flex items-center gap-1.5">
-                            <span>
-                              {visibleKeys[k.id] ? k.key : `${k.key.substring(0, 12)}••••••••••••••••••••••••`}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => toggleKeyVisibility(k.id)}
-                              className="text-slate-455 hover:text-slate-200 cursor-pointer"
-                              title={visibleKeys[k.id] ? "Ẩn" : "Hiện"}
-                            >
-                              {visibleKeys[k.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                            </button>
-                          </div>
-                        </td>
-                        <td className="py-2.5 px-1 text-slate-450 text-[11px]">
-                          {new Date(k.created_at).toLocaleDateString("vi-VN")}
-                        </td>
-                        <td className="py-2.5 px-1 text-slate-450 text-[11px]">
-                          {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString("vi-VN") : "Chưa sử dụng"}
-                        </td>
-                        <td className="py-2.5 px-1 text-right">
-                          <div className="flex justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleCopyKey(k.key)}
-                              className="p-1 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded cursor-pointer transition-colors"
-                              title="Sao chép"
-                            >
-                              <Copy className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteApiKey(k.id)}
-                              className="p-1 hover:bg-rose-950/30 text-slate-400 hover:text-rose-450 rounded cursor-pointer transition-colors"
-                              title="Xóa khóa"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="text-center py-4 text-slate-500 text-[11px]">
-                  Bạn chưa tạo khóa API nào. Vui lòng nhập tên và tạo ở trên.
-                </div>
-              )}
-            </div>
-          </div>
-
           <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Hướng dẫn lấy API Key */}
             <div className="md:col-span-2 bg-indigo-950/20 border border-indigo-500/25 rounded-xl p-4 flex flex-col gap-2.5 backdrop-blur-sm shadow-inner">
@@ -379,7 +220,7 @@ export const SettingsPanel: React.FC = () => {
                 className={`md:col-span-2 p-3 rounded-lg text-xs border flex items-start gap-1.5 ${
                   connectionResult.success
                     ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                    : "bg-rose-500/10 border-rose-500/20 text-rose-450"
+                    : "bg-rose-500/10 border-rose-500/20 text-rose-455"
                 }`}
               >
                 {connectionResult.success ? (
@@ -396,7 +237,7 @@ export const SettingsPanel: React.FC = () => {
                 className={`md:col-span-2 p-4 rounded-xl text-xs border flex flex-col gap-2.5 ${
                   pushResult.success
                     ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-300"
-                    : "bg-rose-500/10 border-rose-500/20 text-rose-450"
+                    : "bg-rose-500/10 border-rose-500/20 text-rose-455"
                 }`}
               >
                 <div className="flex items-start gap-1.5">
@@ -424,7 +265,7 @@ export const SettingsPanel: React.FC = () => {
                       ).
                     </p>
                     <p className="leading-relaxed text-slate-400">
-                      Hệ thống đã chuyển sang mô hình <strong className="text-indigo-300">Kaggle Batch Job (Push-and-Poll)</strong> tự động hoàn toàn. Mỗi khi bạn gửi yêu cầu tạo âm thanh, backend sẽ tự tạo file script, tự động đẩy lên Kaggle dưới dạng batch job và poll tải file âm thanh kết quả về. Bạn <strong className="text-amber-450 font-semibold">không cần</strong> bật máy ảo hoặc chạy cell thủ công trên Kaggle.
+                      Hệ thống đã chuyển sang mô hình <strong className="text-indigo-300">Kaggle Batch Job (Push-and-Poll)</strong> tự động hoàn toàn. Bạn <strong className="text-amber-450 font-semibold">không cần</strong> bật máy ảo hoặc chạy cell thủ công trên Kaggle.
                     </p>
                   </div>
                 )}
@@ -482,7 +323,7 @@ export const SettingsPanel: React.FC = () => {
                 ) : (
                   <>
                     <Save className="w-3.5 h-3.5" />
-                    <span>Lưu Cấu Hướng</span>
+                    <span>Lưu Cấu Hình</span>
                   </>
                 )}
               </button>
