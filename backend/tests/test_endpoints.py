@@ -163,3 +163,35 @@ def test_tts_job_with_custom_speed_and_steps():
     assert job_data["job"]["speed"] == 1.2
     assert job_data["job"]["num_step"] == 25
 
+def test_openai_compatible_audio_endpoints():
+    # 1. Login to get JWT token
+    login_res = client.post("/v1/auth/login", json={
+        "username": "test_user_123",
+        "password": "password_123"
+    })
+    assert login_res.status_code == 200
+    token = login_res.json()["access_token"]
+    user_headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Get list of voices
+    voices_res = client.get("/v1/audio/voices", headers=user_headers)
+    assert voices_res.status_code == 200
+    voices_data = voices_res.json()
+    assert "voices" in voices_data
+    assert len(voices_data["voices"]) > 0
+
+    # 3. Request speech synthesis (synchronous)
+    speech_res = client.post("/v1/audio/speech", json={
+        "model": "omnivoice",
+        "input": "Xin chào thế giới OpenAI",
+        "voice": "female, young adult, american accent",
+        "response_format": "mp3",
+        "speed": 1.1
+    }, headers=user_headers)
+    print("SPEECH RESPONSE STATUS:", speech_res.status_code)
+    print("SPEECH RESPONSE CONTENT:", speech_res.text)
+    assert speech_res.status_code == 200
+    assert speech_res.headers["content-type"] == "audio/mpeg"
+    assert len(speech_res.content) > 0
+
+
