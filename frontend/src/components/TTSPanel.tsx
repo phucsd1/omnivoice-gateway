@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Play, Volume2, UserCheck, HelpCircle, AudioLines, Loader2, Settings } from "lucide-react";
+import { Play, Volume2, UserCheck, HelpCircle, AudioLines } from "lucide-react";
 import { api } from "../api/client";
 import type { JobStatusResponse } from "../api/client";
 
@@ -303,6 +303,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId }) => {
             <span className="text-[10px] text-slate-500 leading-tight">
               Mặc định: 32 (16 bước để chạy nhanh hơn)
             </span>
+          </div>
         </div>
 
         {/* Toggle Advanced Settings */}

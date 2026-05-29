@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Mic, Wand2, Check, Settings } from "lucide-react";
+import { Mic, Wand2, Check } from "lucide-react";
 import { api } from "../api/client";
 import type { JobStatusResponse } from "../api/client";
 
