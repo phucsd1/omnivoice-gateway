@@ -1,7 +1,56 @@
 @import "tailwindcss";
 
+/* Override Tailwind CSS v4's media-query dark mode with class selector dark */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* Slate palette overrides - Light Mode values */
+  --color-slate-950: #f8fafc; /* Page Background */
+  --color-slate-900: #ffffff; /* Card/Panel Background */
+  --color-slate-850: #f1f5f9; /* Inputs / Hover background */
+  --color-slate-800: #e2e8f0; /* Panel borders */
+  --color-slate-700: #cbd5e1; /* Secondary borders */
+  --color-slate-650: #94a3b8; /* Placeholders */
+  --color-slate-600: #64748b; /* Muted texts */
+  --color-slate-500: #64748b; /* Muted labels */
+  --color-slate-400: #475569; /* Secondary labels/titles */
+  --color-slate-350: #334155; /* Labels / secondary headings */
+  --color-slate-300: #1e293b; /* Headings */
+  --color-slate-200: #0f172a; /* Body text */
+  --color-slate-100: #0f172a; /* Main text / headings */
+  
+  --selection-bg: rgba(99, 102, 241, 0.15);
+  --shadow-color: rgba(99, 102, 241, 0.05);
+}
+
+.dark {
+  /* Slate palette overrides - Dark Mode values */
+  --color-slate-950: #020617; /* Page Background */
+  --color-slate-900: #0f172a; /* Card/Panel Background */
+  --color-slate-850: #1e293b; /* Inputs / Hover background */
+  --color-slate-800: #1e293b; /* Panel borders */
+  --color-slate-700: #334155; /* Secondary borders */
+  --color-slate-650: #475569; /* Placeholders */
+  --color-slate-600: #475569; /* Muted texts */
+  --color-slate-500: #64748b; /* Muted labels */
+  --color-slate-400: #94a3b8; /* Secondary labels/titles */
+  --color-slate-350: #cbd5e1; /* Labels / secondary headings */
+  --color-slate-300: #cbd5e1; /* Headings */
+  --color-slate-200: #e2e8f0; /* Body text */
+  --color-slate-100: #f1f5f9; /* Main text / headings */
+  
+  --selection-bg: rgba(99, 102, 241, 0.3);
+  --shadow-color: rgba(99, 102, 241, 0.1);
+}
+
 @layer base {
   body {
-    @apply bg-slate-950 text-slate-100 min-h-screen antialiased selection:bg-indigo-500/30;
+    background-color: var(--color-slate-950);
+    color: var(--color-slate-100);
+    @apply min-h-screen antialiased transition-colors duration-200;
+  }
+  
+  ::selection {
+    background-color: var(--selection-bg);
   }
 }

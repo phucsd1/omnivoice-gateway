@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Sparkles, Radio, CheckCircle, XCircle, RefreshCw, Layers, LogOut, Server, KeyRound, BookOpen } from "lucide-react";
+import { Sparkles, Radio, CheckCircle, XCircle, RefreshCw, Layers, LogOut, Server, KeyRound, BookOpen, Sun, Moon, Monitor } from "lucide-react";
 import { api } from "./api/client";
 
 import { VoiceSampleUpload } from "./components/VoiceSampleUpload";
@@ -14,6 +14,35 @@ import { AdminDashboard } from "./components/AdminDashboard";
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem("VITE_JWT_TOKEN"));
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
+  
+  const [theme, setTheme] = useState<"light" | "dark" | "system">(() => {
+    return (localStorage.getItem("theme") as "light" | "dark" | "system") || "system";
+  });
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    
+    const applyTheme = (themeName: "light" | "dark" | "system") => {
+      root.classList.remove("light", "dark");
+      
+      if (themeName === "system") {
+        const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        root.classList.add(systemTheme);
+      } else {
+        root.classList.add(themeName);
+      }
+    };
+
+    applyTheme(theme);
+    localStorage.setItem("theme", theme);
+
+    if (theme === "system") {
+      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      const handleChange = () => applyTheme("system");
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+  }, [theme]);
 
   useEffect(() => {
     const handleLocationChange = () => {
@@ -127,13 +156,13 @@ function App() {
       <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-purple-500/5 rounded-full blur-[150px] pointer-events-none" />
 
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-md border-b border-slate-900 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+      <header className="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-md border-b border-slate-800 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="bg-gradient-to-tr from-indigo-500 to-purple-500 p-2.5 rounded-xl shadow-lg shadow-indigo-500/10">
             <Radio className="w-6 h-6 text-white animate-pulse" />
           </div>
           <div className="flex flex-col">
-            <h1 className="text-xl font-black tracking-tight text-white flex items-center gap-1.5">
+            <h1 className="text-xl font-black tracking-tight text-slate-100 flex items-center gap-1.5">
               <span>OmniVoice On-Demand Gateway</span>
               <span className="text-[10px] bg-indigo-500/20 text-indigo-300 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                 MVP
@@ -157,7 +186,7 @@ function App() {
                     ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20"
                     : kaggleStatus === "error"
                     ? "bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20 animate-pulse"
-                    : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white"
+                    : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
                 }`}
                 title="Cấu hình kết nối máy chủ Kaggle GPU"
               >
@@ -170,7 +199,7 @@ function App() {
               {/* API Keys Manager Button */}
               <button
                 onClick={() => setShowApiKeyModal(true)}
-                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-bold text-slate-300 hover:text-white transition-all cursor-pointer flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-bold text-slate-300 hover:text-slate-100 transition-all cursor-pointer flex items-center gap-1.5"
                 title="Quản lý các API Keys của bạn"
               >
                 <KeyRound className="w-3.5 h-3.5" />
@@ -180,11 +209,29 @@ function App() {
               {/* API Docs Button */}
               <button
                 onClick={() => navigateTo("/docs")}
-                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-bold text-slate-300 hover:text-white transition-all cursor-pointer flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-bold text-slate-300 hover:text-slate-100 transition-all cursor-pointer flex items-center gap-1.5"
                 title="Tài liệu hướng dẫn nhúng & tích hợp hệ thống"
               >
                 <BookOpen className="w-3.5 h-3.5" />
                 <span>Tài liệu API</span>
+              </button>
+
+              {/* Theme Toggler Button */}
+              <button
+                onClick={() => {
+                  setTheme(prev => {
+                    if (prev === "system") return "light";
+                    if (prev === "light") return "dark";
+                    return "system";
+                  });
+                }}
+                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-bold text-slate-300 hover:text-slate-100 transition-all cursor-pointer flex items-center gap-1.5"
+                title={`Giao diện: ${theme === "system" ? "Tự động" : theme === "light" ? "Sáng" : "Tối"}`}
+              >
+                {theme === "system" && <Monitor className="w-3.5 h-3.5 text-slate-400" />}
+                {theme === "light" && <Sun className="w-3.5 h-3.5 text-amber-500" />}
+                {theme === "dark" && <Moon className="w-3.5 h-3.5 text-indigo-400" />}
+                <span className="capitalize hidden sm:inline">{theme === "system" ? "Tự động" : theme === "light" ? "Sáng" : "Tối"}</span>
               </button>
 
               <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-inner">
