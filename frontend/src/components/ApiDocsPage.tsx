@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Terminal, FileCode, Check, Play, Copy, ArrowLeft, KeyRound, BookOpen, Cpu, Code } from "lucide-react";
+import { Terminal, FileCode, Check, Play, Copy, ArrowLeft, KeyRound, BookOpen, Cpu, Code, Volume2 } from "lucide-react";
 import { api, getApiBaseUrl } from "../api/client";
 import type { ApiKeyResponse } from "../api/client";
 
@@ -39,8 +39,10 @@ curl -X POST "${baseUrl}/v1/tts/jobs" \\
   -H "Authorization: Bearer ${activeKey}" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "mode": "auto_voice",
-    "text": "Xin chào, đây là giọng đọc nhân bản tự động từ API Gateway.",
+    "mode": "clone_voice",
+    "voice_sample_id": "vs_xxxx",
+    "ref_text": "Mẫu văn bản của giọng ghi âm gốc",
+    "text": "[laughter] Xin chào, đây là giọng đọc nhân bản kèm tiếng cười.",
     "speed": 1.0,
     "num_step": 32
   }'
@@ -66,10 +68,12 @@ headers = {
     "Content-Type": "application/json"
 }
 
-# 1. Gửi văn bản sinh giọng nói
+# 1. Gửi văn bản sinh giọng nói (Clone voice với tiếng cười nhúng sẵn)
 payload = {
-    "mode": "auto_voice", # Hoặc "clone_voice" (yêu cầu voice_sample_id), "voice_design"
-    "text": "Xin chào, đây là mã tích hợp mẫu bằng ngôn ngữ Python.",
+    "mode": "clone_voice",
+    "voice_sample_id": "vs_xxxx",
+    "ref_text": "Mẫu văn bản của giọng ghi âm gốc",
+    "text": "[laughter] Xin chào, đây là mã tích hợp mẫu bằng ngôn ngữ Python.",
     "speed": 1.0,
     "num_step": 32
 }
@@ -119,14 +123,16 @@ const headers = {
 
 async function generateSpeech() {
   try {
-    // 1. Tạo Job
+    // 1. Tạo Job (Clone voice với tiếng cười nhúng sẵn)
     console.log("Đang tạo Job sinh giọng nói...");
     const res = await fetch(\`\${API_URL}/v1/tts/jobs\`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        mode: 'auto_voice',
-        text: 'Xin chào, đây là mã nguồn nhúng bằng Node.js.',
+        mode: 'clone_voice',
+        voice_sample_id: 'vs_xxxx',
+        ref_text: 'Mẫu văn bản của giọng ghi âm gốc',
+        text: '[laughter] Xin chào, đây là mã nguồn nhúng bằng Node.js.',
         speed: 1.0,
         num_step: 32
       })
@@ -282,7 +288,15 @@ generateSpeech();`
                 <span className="font-mono text-indigo-300 font-bold">text</span>
                 <span className="text-slate-500 text-[10px] ml-2 font-semibold">(Bắt buộc)</span>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Đoạn văn bản muốn chuyển đổi thành giọng nói (Khuyên dùng tối đa 500 ký tự).
+                  Đoạn văn bản muốn chuyển đổi thành giọng nói (Khuyên dùng tối đa 500 ký tự). Có thể nhúng các thẻ biểu cảm (ví dụ: <code className="text-indigo-300 font-mono">[laughter]</code>) và ký tự sửa phát âm.
+                </p>
+              </div>
+
+              <div>
+                <span className="font-mono text-indigo-300 font-bold">ref_text</span>
+                <span className="text-slate-500 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Văn bản của tệp ghi âm giọng mẫu tham chiếu khi dùng chế độ <code className="text-white font-mono">clone_voice</code>. Nếu bỏ trống, worker sẽ tự trích xuất bằng Whisper ASR.
                 </p>
               </div>
 
@@ -454,6 +468,78 @@ generateSpeech();`
                   <p className="text-xs text-slate-400 leading-relaxed mt-0.5">
                     Tải về tệp âm thanh kết quả định dạng WAV. <strong>Lưu ý quan trọng:</strong> Khi gọi GET endpoint này, bạn bắt buộc phải đính kèm Header Authorization API Key.
                   </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Fine-grained Control Documentation */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col gap-3 shadow-xl">
+            <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+              <Volume2 className="w-4 h-4 text-indigo-400" />
+              <h3 className="font-bold text-xs text-slate-200 uppercase tracking-wider">
+                Điều khiển tinh chỉnh: Biểu cảm &amp; Phát âm (Fine-grained Control)
+              </h3>
+            </div>
+            
+            <p className="text-xs text-slate-400 leading-relaxed">
+              OmniVoice cho phép bạn nhúng các ký tự điều khiển trực tiếp vào chuỗi văn bản đầu vào (<code className="text-indigo-300 font-mono">text</code>) để tạo ra các âm thanh phụ trợ tự nhiên hoặc sửa đổi phát âm chuẩn xác.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-1">
+              {/* Expressions */}
+              <div className="flex flex-col gap-2 p-3 bg-slate-950/60 border border-slate-850 rounded-xl">
+                <span className="text-xs font-bold text-slate-350 flex items-center gap-1">🎭 Biểu cảm phi ngôn ngữ</span>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Nhúng các thẻ biểu cảm trực tiếp vào bất kỳ vị trí nào trong câu để mô phỏng âm thanh tự nhiên của con người.
+                </p>
+                <div className="flex flex-col gap-1.5 mt-1 font-mono text-[10px]">
+                  <div className="bg-slate-900 p-1.5 rounded text-indigo-300">
+                    <span className="text-white font-semibold">Cười:</span> [laughter]
+                  </div>
+                  <div className="bg-slate-900 p-1.5 rounded text-indigo-300">
+                    <span className="text-white font-semibold">Thở dài:</span> [sigh]
+                  </div>
+                  <div className="bg-slate-900 p-1.5 rounded text-indigo-300">
+                    <span className="text-white font-semibold">Sụt sịt:</span> [sniff]
+                  </div>
+                  <div className="bg-slate-900 p-1.5 rounded text-indigo-300">
+                    <span className="text-white font-semibold">Nghe nghi vấn:</span> [question-en], [question-ah]
+                  </div>
+                  <div className="bg-slate-900 p-1.5 rounded text-indigo-300">
+                    <span className="text-white font-semibold">Ngạc nhiên:</span> [surprise-ah], [surprise-oh]
+                  </div>
+                </div>
+                <span className="text-[10px] text-slate-500 italic mt-0.5 leading-normal">
+                  Ví dụ: "[laughter] Thật tuyệt vời! [sigh] Nhưng tôi hơi mệt rồi."
+                </span>
+              </div>
+
+              {/* Pronunciation correction */}
+              <div className="flex flex-col gap-2 p-3 bg-slate-950/60 border border-slate-850 rounded-xl">
+                <span className="text-xs font-bold text-slate-350 flex items-center gap-1">🗣️ Sửa lỗi phát âm (Phonetic Overrides)</span>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Nếu mô hình đọc sai tên riêng, thuật ngữ hoặc từ ghép, bạn có thể thay thế cụm từ đó bằng ký tự phiên âm đặc biệt.
+                </p>
+                <div className="flex flex-col gap-2 mt-1">
+                  <div>
+                    <span className="text-[10px] text-slate-300 font-bold">🇺🇸 Phiên âm tiếng Anh (CMU Dictionary):</span>
+                    <p className="text-[11px] text-slate-400 mt-0.5 font-normal">
+                      Sử dụng âm tiết chuẩn CMU viết hoa, bọc trong dấu ngoặc vuông.
+                    </p>
+                    <div className="bg-slate-900 p-1.5 rounded text-indigo-300 font-mono text-[10px] mt-1">
+                      "read as [B EY1 S]" (phát âm giống word base)
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-300 font-bold">🇨🇳 Phiên âm tiếng Trung (Pinyin + Tone):</span>
+                    <p className="text-[11px] text-slate-400 mt-0.5 font-normal">
+                      Sử dụng chữ Pinyin viết hoa đính kèm số thanh điệu (1-4).
+                    </p>
+                    <div className="bg-slate-900 p-1.5 rounded text-indigo-300 font-mono text-[10px] mt-1">
+                      "打ZHE2出售" (phát âm chính xác chữ 折 thanh 2)
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

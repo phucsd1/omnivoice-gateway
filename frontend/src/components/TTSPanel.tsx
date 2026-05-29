@@ -14,6 +14,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId }) => {
   const [mode, setMode] = useState<"clone_voice" | "auto_voice" | "voice_design">("clone_voice");
   const [text, setText] = useState("Học sinh hôm nay được nghỉ học do thời tiết xấu. Xin nhắc lại, học sinh được nghỉ học.");
   const [customVoiceSampleId, setCustomVoiceSampleId] = useState("");
+  const [refText, setRefText] = useState("");
   const [instruct, setInstruct] = useState("female, young adult, natural");
   
   const [loading, setLoading] = useState(false);
@@ -23,6 +24,29 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId }) => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [speed, setSpeed] = useState(1.0);
   const [numStep, setNumStep] = useState(32);
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const insertTag = (tag: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      setText(prev => prev + " " + tag);
+      return;
+    }
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const currentText = textarea.value;
+    
+    const nextText = currentText.substring(0, start) + tag + currentText.substring(end);
+    setText(nextText);
+
+    // Reposition cursor after the inserted tag
+    setTimeout(() => {
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = start + tag.length;
+    }, 10);
+  };
 
   // Advanced OmniVoice parameters state
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -59,6 +83,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId }) => {
 
     const voiceSampleId = mode === "clone_voice" ? customVoiceSampleId : undefined;
     const instructParam = mode === "voice_design" ? instruct : undefined;
+    const refTextParam = mode === "clone_voice" && refText ? refText : undefined;
 
     if (mode === "clone_voice" && !voiceSampleId) {
       setErrorMsg("Vui lòng tải lên mẫu giọng hoặc điền mã Voice Sample ID để clone.");
@@ -81,7 +106,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId }) => {
     };
 
     try {
-      const res = await api.createTTSJob(mode, text, voiceSampleId, instructParam, speed, numStep, params);
+      const res = await api.createTTSJob(mode, text, voiceSampleId, instructParam, speed, numStep, params, refTextParam);
       setJobId(res.job_id);
       setJobStatus({
         job_id: res.job_id,
@@ -221,6 +246,19 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId }) => {
                 </span>
               )}
             </div>
+            <div className="flex flex-col gap-1.5 mt-1.5">
+              <label className="text-[11px] font-semibold text-slate-450">Văn bản giọng mẫu (ref_text) - Tùy chọn</label>
+              <input
+                type="text"
+                value={refText}
+                onChange={(e) => setRefText(e.target.value)}
+                placeholder="Ví dụ: Nội dung chữ được nói trong file ghi âm để tăng độ chính xác..."
+                className="bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors"
+              />
+              <span className="text-[9px] text-slate-500 leading-tight">
+                * Nếu để trống, worker GPU sẽ tự động chạy nhận dạng giọng nói (Whisper ASR) để trích xuất văn bản từ file âm thanh.
+              </span>
+            </div>
           </div>
         )}
 
@@ -257,12 +295,86 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId }) => {
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-semibold text-slate-400">Nội dung văn bản cần chuyển thành tiếng nói</label>
           <textarea
+            ref={textareaRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Nhập đoạn văn bản cần tạo thành tệp âm thanh..."
             rows={4}
             className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-650 resize-y"
           />
+        </div>
+
+        {/* Non-verbal symbols & pronunciation widget */}
+        <div className="flex flex-col gap-2.5 p-3.5 bg-slate-950 border border-slate-850 rounded-xl">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+              <Volume2 className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Biểu cảm &amp; Phát âm nâng cao (OmniVoice)</span>
+            </span>
+          </div>
+          
+          <div className="flex flex-wrap gap-1.5 mt-1">
+            <button
+              type="button"
+              onClick={() => insertTag("[laughter]")}
+              className="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[10px] text-indigo-300 font-bold rounded cursor-pointer transition-colors"
+              title="Chèn âm cười"
+            >
+              😊 Cười [laughter]
+            </button>
+            <button
+              type="button"
+              onClick={() => insertTag("[sigh]")}
+              className="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[10px] text-indigo-300 font-bold rounded cursor-pointer transition-colors"
+              title="Chèn tiếng thở dài"
+            >
+              😮‍💨 Thở dài [sigh]
+            </button>
+            <button
+              type="button"
+              onClick={() => insertTag("[sniff]")}
+              className="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[10px] text-indigo-300 font-bold rounded cursor-pointer transition-colors"
+              title="Chèn tiếng sụt sịt"
+            >
+              👃 Sụt sịt [sniff]
+            </button>
+            <button
+              type="button"
+              onClick={() => insertTag("[question-en]")}
+              className="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[10px] text-indigo-300 font-bold rounded cursor-pointer transition-colors"
+              title="Chèn ngữ điệu nghi vấn tiếng Anh"
+            >
+              ❓ Hỏi (EN) [question-en]
+            </button>
+            <button
+              type="button"
+              onClick={() => insertTag("[surprise-ah]")}
+              className="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[10px] text-indigo-300 font-bold rounded cursor-pointer transition-colors"
+              title="Chèn tiếng ngạc nhiên 'Ah'"
+            >
+              😲 Ngạc nhiên [surprise-ah]
+            </button>
+            <button
+              type="button"
+              onClick={() => insertTag("[dissatisfaction-hnn]")}
+              className="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[10px] text-indigo-300 font-bold rounded cursor-pointer transition-colors"
+              title="Chèn tiếng bất bình 'Hnn'"
+            >
+              😒 Bất bình [dissatisfaction-hnn]
+            </button>
+          </div>
+
+          <div className="text-[10px] text-slate-500 leading-normal border-t border-slate-900 pt-2 mt-1.5 space-y-1">
+            <div>
+              💡 <strong>Sửa phát âm:</strong> 
+              <span className="ml-1 text-slate-400">Tiếng Anh: nhúng CMU Dictionary viết hoa trong ngoặc, ví dụ: </span>
+              <code className="bg-slate-900 px-1.5 py-0.5 rounded text-indigo-400 font-mono select-all font-semibold">[B EY1 S]</code>
+            </div>
+            <div>
+              <span className="ml-5 text-slate-400">Tiếng Trung: sử dụng Pinyin viết hoa kèm số thanh điệu, ví dụ: </span>
+              <code className="bg-slate-900 px-1.5 py-0.5 rounded text-indigo-400 font-mono select-all font-semibold">ZHE2</code>
+            </div>
+          </div>
         </div>
 
         {/* Advanced parameters: Speed and Steps */}

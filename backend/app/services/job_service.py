@@ -145,13 +145,14 @@ class JobService:
         preprocess_prompt: bool = True,
         postprocess_output: bool = True,
         audio_chunk_duration: float = 15.0,
-        audio_chunk_threshold: float = 30.0
+        audio_chunk_threshold: float = 30.0,
+        ref_text: str = None
     ) -> TTSJob:
         """Creates a TTS job based on the chosen mode (clone_voice, auto_voice, voice_design)."""
         job_id = generate_id("job")
         
         ref_audio_path = None
-        ref_text = None
+        ref_text_val = None
         job_type = mode
 
         if mode == "clone_voice":
@@ -163,7 +164,7 @@ class JobService:
                 raise ValueError(f"Không tìm thấy Voice Sample với ID {voice_sample_id}")
             
             ref_audio_path = sample.file_path
-            ref_text = sample.ref_text
+            ref_text_val = ref_text if ref_text is not None else sample.ref_text
         elif mode == "auto_voice":
             job_type = "auto_voice"
         elif mode == "voice_design":
@@ -181,7 +182,7 @@ class JobService:
             voice_sample_id=voice_sample_id,
             instruct=instruct,
             ref_audio_path=ref_audio_path,
-            ref_text=ref_text,
+            ref_text=ref_text_val,
             speed=speed,
             num_step=num_step,
             denoise=denoise,

@@ -24,6 +24,7 @@ def create_tts_job(payload: TTSJobCreate, request: Request, db: Session = Depend
             mode=payload.mode,
             text=payload.text,
             voice_sample_id=payload.voice_sample_id,
+            ref_text=payload.ref_text,
             instruct=payload.instruct,
             public_api_url=str(request.base_url).rstrip("/"),
             speed=payload.speed,

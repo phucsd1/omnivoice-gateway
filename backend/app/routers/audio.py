@@ -20,6 +20,7 @@ class SpeechRequest(BaseModel):
     input: str
     voice: str
     response_format: Optional[str] = "mp3"
+    ref_text: Optional[str] = None
     speed: Optional[float] = 1.0
     num_step: Optional[int] = 32
     denoise: Optional[bool] = True
@@ -89,6 +90,7 @@ async def text_to_speech(
             mode=mode,
             text=payload.input,
             voice_sample_id=voice_sample_id,
+            ref_text=payload.ref_text,
             instruct=instruct,
             public_api_url=str(request.base_url).rstrip("/"),
             speed=payload.speed,

@@ -66,6 +66,7 @@ class TTSJobCreate(BaseModel):
     mode: str  # "clone_voice" | "auto_voice" | "voice_design"
     text: str
     voice_sample_id: Optional[str] = None
+    ref_text: Optional[str] = None
     instruct: Optional[str] = None
     speed: Optional[float] = 1.0
     num_step: Optional[int] = 32

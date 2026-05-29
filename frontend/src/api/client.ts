@@ -219,7 +219,7 @@ export const api = {
     });
   },
   
-  createTTSJob: async (mode: string, text: string, voiceSampleId?: string, instruct?: string, speed?: number, numStep?: number, params?: OmniVoiceParams): Promise<TTSJobResponse> => {
+  createTTSJob: async (mode: string, text: string, voiceSampleId?: string, instruct?: string, speed?: number, numStep?: number, params?: OmniVoiceParams, refText?: string): Promise<TTSJobResponse> => {
     return request<TTSJobResponse>("/v1/tts/jobs", {
       method: "POST",
       headers: {
@@ -229,6 +229,7 @@ export const api = {
         mode,
         text,
         voice_sample_id: voiceSampleId || null,
+        ref_text: refText || null,
         instruct: instruct || null,
         speed: speed !== undefined ? speed : 1.0,
         num_step: numStep !== undefined ? numStep : 32,
