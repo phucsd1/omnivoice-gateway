@@ -260,20 +260,12 @@ function App() {
             </>
           )}
 
-          <div className="bg-slate-900 border border-slate-800 focus-within:border-indigo-500/50 px-3 py-1.5 rounded-xl text-xs font-mono text-slate-400 flex items-center gap-2 transition-all">
+          <div className="bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-xs font-mono text-slate-400 flex items-center gap-2 select-none">
             <span className={`w-1.5 h-1.5 rounded-full transition-colors ${connectionStatus === "connected" ? "bg-emerald-500" : connectionStatus === "checking" ? "bg-amber-500 animate-pulse" : "bg-rose-500"}`} />
-            <span className="text-slate-500 select-none">API:</span>
-            <input
-              type="text"
-              value={apiBaseUrl}
-              onChange={(e) => {
-                const val = e.target.value;
-                setApiBaseUrl(val);
-                api.setApiBaseUrl(val);
-              }}
-              placeholder="http://localhost:6458"
-              className="bg-transparent border-none text-slate-200 focus:text-white outline-none w-56 font-mono text-xs"
-            />
+            <span className="text-slate-500">API:</span>
+            <span className="text-slate-300 font-mono text-xs select-all">
+              {apiBaseUrl}
+            </span>
           </div>
 
           <div className="flex items-center gap-2">

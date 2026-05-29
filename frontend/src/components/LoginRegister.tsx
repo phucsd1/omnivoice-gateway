@@ -23,12 +23,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [apiBaseUrl, setApiBaseUrlState] = useState(() => api.getApiBaseUrl() || "");
-
-  const handleApiUrlChange = (url: string) => {
-    setApiBaseUrlState(url);
-    api.setApiBaseUrl(url);
-  };
+  const apiBaseUrl = api.getApiBaseUrl();
   const [confirmPassword, setConfirmPassword] = useState("");
   
   // Verification states
@@ -371,21 +366,12 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
               </button>
             </div>
 
-            {/* API URL Config for Troubleshooting */}
-            <div className="mt-4 pt-4 border-t border-slate-800 flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cấu hình API Gateway</span>
-                <span className="text-[9px] bg-slate-950 text-indigo-400 font-mono px-2 py-0.5 rounded-full select-all">
-                  {apiBaseUrl}
-                </span>
-              </div>
-              <input
-                type="text"
-                value={apiBaseUrl}
-                onChange={(e) => handleApiUrlChange(e.target.value)}
-                placeholder="https://phucsd-omnivoice-gateway-backend.hf.space"
-                className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-2 px-3 text-[11px] font-mono text-slate-300 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-700"
-              />
+            {/* API URL Info */}
+            <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-500 font-semibold select-none">
+              <span>API Gateway</span>
+              <span className="font-mono text-indigo-400 bg-slate-950 px-2 py-0.5 rounded-full select-all">
+                {apiBaseUrl}
+              </span>
             </div>
           </>
         ) : (

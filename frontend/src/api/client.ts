@@ -1,15 +1,18 @@
 export function getApiBaseUrl(): string {
-  const stored = localStorage.getItem("VITE_API_BASE_URL");
-  if (stored !== null && !stored.includes("pages.dev")) return stored.replace(/\/$/, "");
+  // If running locally, check local environment or default to localhost:7860
+  if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+    const envUrl = import.meta.env.VITE_API_BASE_URL;
+    if (envUrl && !envUrl.includes("pages.dev")) return envUrl.replace(/\/$/, "");
+    return "http://localhost:7860";
+  }
   
-  const envUrl = import.meta.env.VITE_API_BASE_URL;
-  if (envUrl && !envUrl.includes("pages.dev")) return envUrl.replace(/\/$/, "");
-  
+  // For production, always use the fixed Hugging Face Space backend URL
   return "https://phucsd-omnivoice-gateway-backend.hf.space";
 }
 
 export function setApiBaseUrl(url: string) {
-  localStorage.setItem("VITE_API_BASE_URL", url.trim());
+  // Disabled as requested: URL is fixed for all users
+  void url;
 }
 
 export interface HealthResponse {
