@@ -21,6 +21,16 @@ class VoiceSampleResponse(BaseModel):
     sample_rate: Optional[int] = None
     status: str
     created_at: datetime
+    name: Optional[str] = None
+    is_public: bool = False
+    source_job_id: Optional[str] = None
+
+class SaveFavoriteVoiceRequest(BaseModel):
+    job_id: Optional[str] = None
+    preview_id: Optional[str] = None
+    name: str = Field(..., max_length=100)
+    is_public: bool = False
+    ref_text: str
 
 class VoiceDesignPreviewCreate(BaseModel):
     voice_request: str

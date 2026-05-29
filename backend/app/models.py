@@ -54,7 +54,10 @@ class VoiceSample(Base):
 
     id = Column(String(50), primary_key=True, index=True)
     user_id = Column(String(50), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    source_type = Column(String(50), nullable=False)  # "uploaded" | "voice_design_preview"
+    name = Column(String(100), nullable=True)
+    is_public = Column(Boolean, default=False, nullable=False)
+    source_type = Column(String(50), nullable=False)  # "uploaded" | "voice_design_preview" | "saved_favorite"
+    source_job_id = Column(String(50), nullable=True)
     file_path = Column(String(255), nullable=False)
     ref_text = Column(Text, nullable=True)
     duration = Column(Float, nullable=True)

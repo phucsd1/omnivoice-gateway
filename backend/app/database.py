@@ -59,6 +59,23 @@ def migrate_database(db_url: str):
             if col not in columns:
                 cursor.execute(f"ALTER TABLE tts_jobs ADD COLUMN {col} {col_type}")
                 print(f"[Migration] Added column {col} to tts_jobs table in {db_path}")
+        
+        # Check and migrate voice_samples table
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='voice_samples'")
+        if cursor.fetchone():
+            cursor.execute("PRAGMA table_info(voice_samples)")
+            vs_columns = [row[1] for row in cursor.fetchall()]
+            
+            vs_new_cols = {
+                "name": "VARCHAR(100)",
+                "is_public": "BOOLEAN DEFAULT 0",
+                "source_job_id": "VARCHAR(50)"
+            }
+            for col, col_type in vs_new_cols.items():
+                if col not in vs_columns:
+                    cursor.execute(f"ALTER TABLE voice_samples ADD COLUMN {col} {col_type}")
+                    print(f"[Migration] Added column {col} to voice_samples table in {db_path}")
+                    
         conn.commit()
     except Exception as e:
         print(f"[Migration Error] Failed to migrate database {db_path}: {e}")

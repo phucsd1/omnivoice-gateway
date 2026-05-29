@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Mic, Wand2, Check } from "lucide-react";
+import { Mic, Wand2, Check, Heart, Lock, Globe, X } from "lucide-react";
 import { api } from "../api/client";
 import type { JobStatusResponse } from "../api/client";
 
@@ -23,6 +23,14 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [speed, setSpeed] = useState(1.0);
   const [numStep, setNumStep] = useState(32);
+
+  // Favorite Voices states
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [saveVoiceName, setSaveVoiceName] = useState("");
+  const [saveVoiceRefText, setSaveVoiceRefText] = useState("");
+  const [saveVoiceIsPublic, setSaveVoiceIsPublic] = useState(false);
+  const [isSavingVoice, setIsSavingVoice] = useState(false);
+  const [saveVoiceStatus, setSaveVoiceStatus] = useState<string | null>(null);
 
   // Advanced OmniVoice parameters state
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -148,6 +156,42 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
       setErrorMsg(err.message || "Lỗi khi chấp nhận giọng thiết kế.");
     } finally {
       setAccepting(false);
+    }
+  };
+
+  const handleOpenSaveModal = (fullText: string) => {
+    setSaveVoiceName(`Giọng Lưu - ${new Date().toLocaleDateString("vi-VN")} ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`);
+    
+    // Suggest first 15 words of original text
+    const words = fullText.trim().split(/\s+/);
+    const suggestedText = words.slice(0, 15).join(" ") + (words.length > 15 ? "..." : "");
+    setSaveVoiceRefText(suggestedText);
+    
+    setSaveVoiceIsPublic(false);
+    setSaveVoiceStatus(null);
+    setIsSaveModalOpen(true);
+  };
+
+  const handleSaveVoiceSubmit = async () => {
+    if (!previewId || !saveVoiceName || !saveVoiceRefText) return;
+    setIsSavingVoice(true);
+    setSaveVoiceStatus(null);
+
+    try {
+      await api.saveFavoriteVoice({
+        preview_id: previewId,
+        name: saveVoiceName,
+        is_public: saveVoiceIsPublic,
+        ref_text: saveVoiceRefText,
+      });
+      setSaveVoiceStatus("Lưu giọng thành công vào Thư viện!");
+      setTimeout(() => {
+        setIsSaveModalOpen(false);
+      }, 1500);
+    } catch (err: any) {
+      setSaveVoiceStatus(`Lỗi: ${err.message || "Không thể lưu giọng."}`);
+    } finally {
+      setIsSavingVoice(false);
     }
   };
 
@@ -444,25 +488,139 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
                 url={`${api.getApiBaseUrl()}${jobStatus.audio_url}`}
                 title="Bản thiết kế nghe thử"
               />
-              <button
-                onClick={handleAccept}
-                disabled={accepting}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-emerald-650/10"
-              >
-                {accepting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Đang lưu mẫu...</span>
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-4 h-4" />
-                    <span>Chấp nhận giọng này làm mẫu Clone</span>
-                  </>
-                )}
-              </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  onClick={handleAccept}
+                  disabled={accepting}
+                  className="w-full bg-slate-800 hover:bg-slate-750 text-slate-200 font-bold text-xs py-2 px-3 border border-slate-700 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  {accepting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Đang lưu mẫu...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Dùng làm mẫu clone gốc (Full)</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOpenSaveModal(previewText)}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-emerald-700/10"
+                >
+                  <Heart className="w-3.5 h-3.5 fill-white" />
+                  <span>Lưu giọng yêu thích (Cắt 8s)</span>
+                </button>
+              </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Save Voice Modal Overlay */}
+      {isSaveModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md flex flex-col gap-4 shadow-2xl relative">
+            <button
+              onClick={() => setIsSaveModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-500 hover:text-slate-200 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            
+            <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
+              <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-400">
+                <Heart className="w-5 h-5 fill-emerald-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-slate-100">Lưu giọng nói yêu thích</h3>
+                <p className="text-[10px] text-slate-400 font-semibold">Cắt 8 giây đầu và lưu làm mẫu clone giọng</p>
+              </div>
+            </div>
+
+            {saveVoiceStatus && (
+              <div className={`p-3.5 rounded-xl text-xs font-semibold border ${saveVoiceStatus.startsWith("Lỗi") ? "bg-rose-500/10 border-rose-500/20 text-rose-450" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"}`}>
+                {saveVoiceStatus}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Tên giọng mẫu</label>
+                <input
+                  type="text"
+                  value={saveVoiceName}
+                  onChange={(e) => setSaveVoiceName(e.target.value)}
+                  placeholder="Ví dụ: Giọng nữ trầm ấm..."
+                  className="bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-semibold"
+                  required
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Văn bản tham khảo (Phát âm trong 8s đầu)</label>
+                <textarea
+                  value={saveVoiceRefText}
+                  onChange={(e) => setSaveVoiceRefText(e.target.value)}
+                  placeholder="Nhập phần chữ tương ứng với đoạn nói đầu tiên..."
+                  rows={2}
+                  className="bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-205 focus:outline-none focus:border-indigo-500 resize-none font-semibold"
+                  required
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Chế độ chia sẻ</label>
+                <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setSaveVoiceIsPublic(false)}
+                    className={`py-2 px-1 text-center font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      !saveVoiceIsPublic
+                        ? "bg-slate-800 text-white shadow-sm"
+                        : "text-slate-450 hover:text-slate-300"
+                    }`}
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Riêng tư (Private)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSaveVoiceIsPublic(true)}
+                    className={`py-2 px-1 text-center font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      saveVoiceIsPublic
+                        ? "bg-indigo-600 text-white shadow-sm"
+                        : "text-slate-450 hover:text-slate-300"
+                    }`}
+                  >
+                    <Globe className="w-3.5 h-3.5" />
+                    <span>Công khai (Public)</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end mt-2 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsSaveModalOpen(false)}
+                className="px-4 py-2 bg-slate-855 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-300 rounded-lg cursor-pointer transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveVoiceSubmit}
+                disabled={isSavingVoice || !saveVoiceName || !saveVoiceRefText}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-xs font-bold text-white rounded-lg cursor-pointer transition-colors"
+              >
+                {isSavingVoice ? "Đang lưu..." : "Xác nhận Lưu"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

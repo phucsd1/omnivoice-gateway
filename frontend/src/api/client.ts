@@ -26,6 +26,19 @@ export interface VoiceSampleUploadResponse {
   message: string;
 }
 
+export interface VoiceSampleResponse {
+  id: string;
+  source_type: string;
+  ref_text: string | null;
+  duration: number | null;
+  sample_rate: number | null;
+  status: string;
+  created_at: string;
+  name: string | null;
+  is_public: boolean;
+  source_job_id: string | null;
+}
+
 export interface VoiceDesignPreviewResponse {
   preview_id: string;
   job_id: string;
@@ -442,6 +455,20 @@ export const api = {
   getAdminLogs: async (statusCode?: number): Promise<ApiLogResponse[]> => {
     const url = statusCode !== undefined ? `/v1/admin/logs?status_code=${statusCode}` : "/v1/admin/logs";
     return request<ApiLogResponse[]>(url);
+  },
+
+  listVoiceSamples: async (): Promise<VoiceSampleResponse[]> => {
+    return request<VoiceSampleResponse[]>("/v1/voice-samples");
+  },
+
+  saveFavoriteVoice: async (payload: { job_id?: string; preview_id?: string; name: string; is_public: boolean; ref_text: string }): Promise<VoiceSampleUploadResponse> => {
+    return request<VoiceSampleUploadResponse>("/v1/voice-samples/save-favorite", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
   },
 };
 
