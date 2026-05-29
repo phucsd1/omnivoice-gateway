@@ -31,6 +31,8 @@ class SaveFavoriteVoiceRequest(BaseModel):
     name: str = Field(..., max_length=100)
     is_public: bool = False
     ref_text: str
+    custom_id: Optional[str] = Field(None, max_length=50)
+
 
 class VoiceDesignPreviewCreate(BaseModel):
     voice_request: str

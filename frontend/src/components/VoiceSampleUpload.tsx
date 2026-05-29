@@ -10,6 +10,8 @@ interface VoiceSampleUploadProps {
 export const VoiceSampleUpload: React.FC<VoiceSampleUploadProps> = ({ onUploadSuccess, layout = "classic" }) => {
   const [file, setFile] = useState<File | null>(null);
   const [refText, setRefText] = useState("");
+  const [voiceName, setVoiceName] = useState("");
+  const [customId, setCustomId] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -48,7 +50,12 @@ export const VoiceSampleUpload: React.FC<VoiceSampleUploadProps> = ({ onUploadSu
     setStatusMsg(null);
 
     try {
-      const res = await api.uploadVoiceSample(file, refText || undefined);
+      const res = await api.uploadVoiceSample(
+        file, 
+        refText || undefined, 
+        voiceName || undefined, 
+        customId || undefined
+      );
       setStatusMsg({
         type: "success",
         text: `Tải lên thành công! ID mẫu: ${res.voice_sample_id}`,
@@ -57,6 +64,8 @@ export const VoiceSampleUpload: React.FC<VoiceSampleUploadProps> = ({ onUploadSu
       // Reset inputs
       setFile(null);
       setRefText("");
+      setVoiceName("");
+      setCustomId("");
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err: any) {
       setStatusMsg({
@@ -141,6 +150,35 @@ export const VoiceSampleUpload: React.FC<VoiceSampleUploadProps> = ({ onUploadSu
             className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-650 resize-none"
           />
         </div>
+
+        {/* Name and Custom ID fields */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-slate-400">
+              Tên gợi nhớ (Không bắt buộc)
+            </label>
+            <input
+              type="text"
+              value={voiceName}
+              onChange={(e) => setVoiceName(e.target.value)}
+              placeholder="Ví dụ: Giọng Thùy Chi..."
+              className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-650"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-slate-400">
+              Mã ID giọng nói (slug - Không bắt buộc)
+            </label>
+            <input
+              type="text"
+              value={customId}
+              onChange={(e) => setCustomId(e.target.value)}
+              placeholder="Ví dụ: giong_thuy_chi"
+              className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-650 font-mono"
+            />
+          </div>
+        </div>
+
 
         {statusMsg && (
           <div

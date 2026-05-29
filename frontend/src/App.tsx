@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Sparkles, Radio, CheckCircle, XCircle, RefreshCw, Layers, LogOut, Server, KeyRound, BookOpen, Sun, Moon, Monitor } from "lucide-react";
+import { Sparkles, Radio, CheckCircle, XCircle, RefreshCw, Layers, LogOut, Server, KeyRound, BookOpen, Sun, Moon, Monitor, Volume2 } from "lucide-react";
 import { api } from "./api/client";
 
 import { VoiceSampleUpload } from "./components/VoiceSampleUpload";
@@ -11,6 +11,7 @@ import { ApiDocsPage } from "./components/ApiDocsPage";
 import { LoginRegister } from "./components/LoginRegister";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { JobHistoryPanel } from "./components/JobHistoryPanel";
+import { VoiceLibraryPanel } from "./components/VoiceLibraryPanel";
 
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem("VITE_JWT_TOKEN"));
@@ -82,7 +83,7 @@ function App() {
     setRefreshHistory(prev => prev + 1);
   };
   const [uiLayout, setUiLayout] = useState<"classic" | "modern">("modern");
-  const [modernTab, setModernTab] = useState<"workspace" | "history">("workspace");
+  const [modernTab, setModernTab] = useState<"workspace" | "library" | "history">("workspace");
   const [connectionStatus, setConnectionStatus] = useState<"checking" | "connected" | "disconnected">("checking");
   const [apiBaseUrl, setApiBaseUrl] = useState("");
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -404,6 +405,17 @@ function App() {
                     <span>Không gian làm việc (Workspace)</span>
                   </button>
                   <button
+                    onClick={() => setModernTab("library")}
+                    className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                      modernTab === "library"
+                        ? "bg-indigo-500 text-white shadow-md border border-indigo-400/20"
+                        : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <Volume2 className="w-4 h-4" />
+                    <span>Thư viện giọng nói (Voice Library)</span>
+                  </button>
+                  <button
                     onClick={() => setModernTab("history")}
                     className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
                       modernTab === "history"
@@ -416,7 +428,7 @@ function App() {
                   </button>
                 </div>
 
-                {modernTab === "workspace" ? (
+                {modernTab === "workspace" && (
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                     {/* Left Column (1/3) - Voice Setup */}
                     <section className="lg:col-span-1 flex flex-col gap-6">
@@ -466,7 +478,21 @@ function App() {
                       />
                     </section>
                   </div>
-                ) : (
+                )}
+
+                {modernTab === "library" && (
+                  <div className="w-full">
+                    <VoiceLibraryPanel 
+                      onUseVoice={(id) => { 
+                        setActiveVoiceSampleId(id); 
+                        setModernTab("workspace"); 
+                      }} 
+                      layout="modern" 
+                    />
+                  </div>
+                )}
+
+                {modernTab === "history" && (
                   <div className="w-full">
                     <JobHistoryPanel refreshTrigger={refreshHistory} layout="modern" />
                   </div>

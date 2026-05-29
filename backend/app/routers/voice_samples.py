@@ -2,11 +2,13 @@ import os
 import shutil
 from typing import Optional, List
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import VoiceSample, User
 from app.schemas import VoiceSampleUploadResponse, VoiceSampleResponse, SaveFavoriteVoiceRequest
 from app.utils.ids import generate_id
+from app.utils.slugify import slugify
 from app.services.audio_service import AudioService
 from app.config import settings
 from app.utils.auth import get_user_or_api_key
@@ -17,6 +19,8 @@ router = APIRouter(prefix="/v1/voice-samples", tags=["Voice Samples"])
 async def upload_voice_sample(
     file: UploadFile = File(...),
     ref_text: Optional[str] = Form(None),
+    name: Optional[str] = Form(None),
+    custom_id: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_user_or_api_key)
 ):
@@ -26,13 +30,49 @@ async def upload_voice_sample(
     """
     AudioService.ensure_directories()
     
-    # Generate unique ID
-    sample_id = generate_id("vs")
-    
+    # 1. Resolve ID
+    resolved_id = None
+    if custom_id and custom_id.strip():
+        norm_id = slugify(custom_id)
+        if not norm_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Mã ID giọng nói không hợp lệ (không chứa ký tự hợp lệ)."
+            )
+        # Check database uniqueness
+        existing = db.query(VoiceSample).filter(VoiceSample.id == norm_id).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Mã ID giọng nói '{norm_id}' đã được sử dụng. Vui lòng chọn mã khác."
+            )
+        resolved_id = norm_id
+    else:
+        # Auto-slugify from name or filename
+        base_name = name or file.filename or "uploaded_voice"
+        if not name and file.filename:
+            base_name = os.path.splitext(file.filename)[0]
+            
+        norm_id = slugify(base_name)
+        if not norm_id:
+            norm_id = "voice_sample"
+            
+        # Ensure unique resolved ID
+        resolved_id = norm_id
+        suffix_counter = 1
+        while db.query(VoiceSample).filter(VoiceSample.id == resolved_id).first():
+            resolved_id = f"{norm_id}_{suffix_counter}"
+            suffix_counter += 1
+
+    # 2. Resolve Name
+    resolved_name = name.strip() if name and name.strip() else None
+    if not resolved_name and file.filename:
+        resolved_name = os.path.splitext(file.filename)[0]
+        
     # Save the original upload first
-    filename = file.filename or f"{sample_id}_raw"
+    filename = file.filename or f"{resolved_id}_raw"
     ext = os.path.splitext(filename)[1] or ".bin"
-    upload_temp_path = os.path.join(settings.uploads_dir, f"{sample_id}_raw{ext}")
+    upload_temp_path = os.path.join(settings.uploads_dir, f"{resolved_id}_raw{ext}")
     
     try:
         with open(upload_temp_path, "wb") as buffer:
@@ -44,13 +84,12 @@ async def upload_voice_sample(
         )
     
     # Standardize and save into voice_samples
-    target_filename = f"{sample_id}.wav"
+    target_filename = f"{resolved_id}.wav"
     try:
         saved_path, duration, sample_rate = AudioService.process_and_save_upload(
             upload_temp_path, target_filename
         )
     except Exception as e:
-        # If standardizer fails, cleanup and return 500
         if os.path.exists(upload_temp_path):
             os.remove(upload_temp_path)
         raise HTTPException(
@@ -60,8 +99,9 @@ async def upload_voice_sample(
 
     # Save details to database
     db_sample = VoiceSample(
-        id=sample_id,
+        id=resolved_id,
         user_id=current_user.id,
+        name=resolved_name,
         source_type="uploaded",
         file_path=saved_path,
         ref_text=ref_text,
@@ -75,7 +115,7 @@ async def upload_voice_sample(
     db.refresh(db_sample)
     
     return VoiceSampleUploadResponse(
-        voice_sample_id=sample_id,
+        voice_sample_id=resolved_id,
         status="ready",
         message="Đã nhận voice sample."
     )
@@ -122,10 +162,37 @@ def save_favorite_voice(
     if not source_audio_path or not os.path.exists(source_audio_path):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tệp âm thanh nguồn không tồn tại trên hệ thống.")
 
-    # 2. Trim audio using soundfile to max 8 seconds
+    # 2. Resolve ID
+    resolved_id = None
+    if payload.custom_id and payload.custom_id.strip():
+        norm_id = slugify(payload.custom_id)
+        if not norm_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Mã ID giọng nói không hợp lệ (không chứa ký tự hợp lệ)."
+            )
+        existing = db.query(VoiceSample).filter(VoiceSample.id == norm_id).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Mã ID giọng nói '{norm_id}' đã được sử dụng. Vui lòng chọn mã khác."
+            )
+        resolved_id = norm_id
+    else:
+        # Auto-slugify from name
+        norm_id = slugify(payload.name)
+        if not norm_id:
+            norm_id = "saved_favorite"
+            
+        resolved_id = norm_id
+        suffix_counter = 1
+        while db.query(VoiceSample).filter(VoiceSample.id == resolved_id).first():
+            resolved_id = f"{norm_id}_{suffix_counter}"
+            suffix_counter += 1
+
+    # 3. Trim audio using soundfile to max 8 seconds
     import soundfile as sf
-    sample_id = generate_id("vs")
-    target_filename = f"{sample_id}.wav"
+    target_filename = f"{resolved_id}.wav"
     AudioService.ensure_directories()
     saved_path = os.path.join(settings.voice_samples_dir, target_filename)
 
@@ -134,15 +201,13 @@ def save_favorite_voice(
         max_samples = int(8 * sr)
         trimmed_data = data[:max_samples]
         sf.write(saved_path, trimmed_data, sr, format='WAV', subtype='PCM_16')
-        
-        # Calculate trimmed duration
         duration = float(len(trimmed_data)) / float(sr)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Lỗi khi xử lý cắt âm thanh: {e}")
 
-    # 3. Create VoiceSample record
+    # 4. Create VoiceSample record
     db_sample = VoiceSample(
-        id=sample_id,
+        id=resolved_id,
         user_id=current_user.id,
         name=payload.name,
         is_public=payload.is_public,
@@ -159,7 +224,7 @@ def save_favorite_voice(
     db.refresh(db_sample)
 
     return VoiceSampleUploadResponse(
-        voice_sample_id=sample_id,
+        voice_sample_id=resolved_id,
         status="ready",
         message=f"Đã lưu giọng đọc '{payload.name}' thành công."
     )
@@ -177,3 +242,52 @@ def get_voice_sample(voice_sample_id: str, db: Session = Depends(get_db), curren
             detail=f"Không tìm thấy Voice Sample với ID: {voice_sample_id}"
         )
     return sample
+
+@router.get("/{voice_sample_id}/audio")
+def get_voice_sample_audio(voice_sample_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_user_or_api_key)):
+    """Serves the WAV audio file of the voice sample."""
+    sample = db.query(VoiceSample).filter(
+        VoiceSample.id == voice_sample_id,
+        (VoiceSample.user_id == current_user.id) | (VoiceSample.is_public == True)
+    ).first()
+    if not sample:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Không tìm thấy Voice Sample với ID: {voice_sample_id}"
+        )
+    if not sample.file_path or not os.path.exists(sample.file_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tệp âm thanh của Voice Sample không tồn tại trên máy chủ."
+        )
+    return FileResponse(
+        sample.file_path,
+        media_type="audio/wav",
+        filename=f"{voice_sample_id}.wav",
+        content_disposition_type="inline"
+    )
+
+@router.delete("/{voice_sample_id}")
+def delete_voice_sample(voice_sample_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_user_or_api_key)):
+    """Deletes a user's own voice sample from database and disk storage."""
+    sample = db.query(VoiceSample).filter(
+        VoiceSample.id == voice_sample_id,
+        VoiceSample.user_id == current_user.id
+    ).first()
+    if not sample:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Không tìm thấy hoặc không có quyền xóa Voice Sample với ID: {voice_sample_id}"
+        )
+    
+    # Delete physical audio file if it exists
+    if sample.file_path and os.path.exists(sample.file_path):
+        try:
+            os.remove(sample.file_path)
+        except Exception as e:
+            print(f"Lỗi khi xóa file vật lý: {e}")
+            
+    db.delete(sample)
+    db.commit()
+    return {"status": "success", "message": "Đã xóa giọng mẫu thành công."}
+

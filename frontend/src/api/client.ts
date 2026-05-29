@@ -201,11 +201,17 @@ export const api = {
     return request<HealthResponse>("/health");
   },
   
-  uploadVoiceSample: async (file: File, refText?: string): Promise<VoiceSampleUploadResponse> => {
+  uploadVoiceSample: async (file: File, refText?: string, name?: string, customId?: string): Promise<VoiceSampleUploadResponse> => {
     const formData = new FormData();
     formData.append("file", file);
     if (refText) {
       formData.append("ref_text", refText);
+    }
+    if (name) {
+      formData.append("name", name);
+    }
+    if (customId) {
+      formData.append("custom_id", customId);
     }
     
     return request<VoiceSampleUploadResponse>("/v1/voice-samples", {
@@ -470,13 +476,19 @@ export const api = {
     return request<VoiceSampleResponse[]>("/v1/voice-samples");
   },
 
-  saveFavoriteVoice: async (payload: { job_id?: string; preview_id?: string; name: string; is_public: boolean; ref_text: string }): Promise<VoiceSampleUploadResponse> => {
+  saveFavoriteVoice: async (payload: { job_id?: string; preview_id?: string; name: string; is_public: boolean; ref_text: string; custom_id?: string }): Promise<VoiceSampleUploadResponse> => {
     return request<VoiceSampleUploadResponse>("/v1/voice-samples/save-favorite", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
+    });
+  },
+
+  deleteVoiceSample: async (voiceSampleId: string): Promise<{ status: string; message: string }> => {
+    return request<{ status: string; message: string }>(`/v1/voice-samples/${voiceSampleId}`, {
+      method: "DELETE",
     });
   },
 };

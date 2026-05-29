@@ -72,6 +72,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [saveVoiceName, setSaveVoiceName] = useState("");
   const [saveVoiceRefText, setSaveVoiceRefText] = useState("");
+  const [saveVoiceCustomId, setSaveVoiceCustomId] = useState("");
   const [saveVoiceIsPublic, setSaveVoiceIsPublic] = useState(false);
   const [saveVoiceJobId, setSaveVoiceJobId] = useState<string | null>(null);
   const [isSavingVoice, setIsSavingVoice] = useState(false);
@@ -112,6 +113,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
     const words = fullText.trim().split(/\s+/);
     const suggestedText = words.slice(0, 15).join(" ") + (words.length > 15 ? "..." : "");
     setSaveVoiceRefText(suggestedText);
+    setSaveVoiceCustomId("");
     
     setSaveVoiceIsPublic(false);
     setSaveVoiceStatus(null);
@@ -129,6 +131,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
         name: saveVoiceName,
         is_public: saveVoiceIsPublic,
         ref_text: saveVoiceRefText,
+        custom_id: saveVoiceCustomId || undefined,
       });
       setSaveVoiceStatus("Lưu giọng thành công vào Thư viện!");
       setTimeout(() => {
@@ -772,6 +775,18 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
                   required
                 />
               </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Mã ID giọng nói (slug - Không bắt buộc)</label>
+                <input
+                  type="text"
+                  value={saveVoiceCustomId}
+                  onChange={(e) => setSaveVoiceCustomId(e.target.value)}
+                  placeholder="Ví dụ: giong_nu_tram"
+                  className="bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-mono font-semibold"
+                />
+              </div>
+
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Văn bản tham khảo (Phát âm trong 8s đầu)</label>
