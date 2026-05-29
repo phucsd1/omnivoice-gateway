@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 import bcrypt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Query
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
@@ -60,12 +60,19 @@ def get_current_user(token: Optional[str] = Depends(oauth2_scheme), db: Session 
         
     return user
 
-def get_user_or_api_key(token: Optional[str] = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+def get_user_or_api_key(
+    token: Optional[str] = Depends(oauth2_scheme),
+    token_query: Optional[str] = Query(None, alias="token"),
+    db: Session = Depends(get_db)
+) -> User:
     """
     Authenticates either via JWT Token (Authorization: Bearer <JWT>)
     OR via User Static API Key (Authorization: Bearer <API_KEY>) from ApiKey table.
+    Allows query parameter fallback for browsers (?token=...)
     """
-    if not token:
+    auth_token = token or token_query
+    
+    if not auth_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Yêu cầu xác thực tài khoản hoặc API Key.",
@@ -74,7 +81,7 @@ def get_user_or_api_key(token: Optional[str] = Depends(oauth2_scheme), db: Sessi
         
     # 1. Try treating token as a JWT token
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        payload = jwt.decode(auth_token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         username: str = payload.get("sub")
         if username is not None:
             user = db.query(User).filter(User.username == username).first()
@@ -89,7 +96,7 @@ def get_user_or_api_key(token: Optional[str] = Depends(oauth2_scheme), db: Sessi
         pass
 
     # 2. Try treating token as a key from ApiKey table
-    api_key_obj = db.query(ApiKey).filter(ApiKey.key == token).first()
+    api_key_obj = db.query(ApiKey).filter(ApiKey.key == auth_token).first()
     if api_key_obj:
         api_key_obj.last_used_at = datetime.utcnow()
         db.commit()
@@ -103,7 +110,7 @@ def get_user_or_api_key(token: Optional[str] = Depends(oauth2_scheme), db: Sessi
             return user
 
     # 3. Fallback to old User.api_key for backward compatibility
-    user = db.query(User).filter(User.api_key == token).first()
+    user = db.query(User).filter(User.api_key == auth_token).first()
     if user:
         if not user.is_approved:
             raise HTTPException(

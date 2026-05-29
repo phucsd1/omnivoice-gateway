@@ -7,10 +7,13 @@ interface AudioPlayerProps {
 }
 
 export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
+  const token = localStorage.getItem("VITE_JWT_TOKEN");
+  const authenticatedUrl = url ? `${url}${url.includes("?") ? "&" : "?"}token=${token || ""}` : "";
+
   const handleDownload = (e: React.MouseEvent) => {
     e.preventDefault();
     const link = document.createElement("a");
-    link.href = url;
+    link.href = authenticatedUrl;
     link.download = title ? `${title.replace(/\s+/g, "_")}.wav` : "audio.wav";
     document.body.appendChild(link);
     link.click();
@@ -26,7 +29,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
         </div>
       )}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <audio src={url} controls className="w-full flex-grow accent-indigo-500 h-10" />
+        <audio src={authenticatedUrl} controls className="w-full flex-grow accent-indigo-500 h-10" />
         <button
           onClick={handleDownload}
           className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm px-4 py-2 rounded-lg transition-colors cursor-pointer"
