@@ -119,23 +119,23 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
   };
 
   return (
-    <div className={`border rounded-2xl p-6 flex flex-col gap-5 shadow-lg w-full transition-all ${
+    <div className={`border rounded-2xl p-6 flex flex-col gap-6 shadow-lg w-full transition-all duration-200 ${
       layout === "modern" ? "bg-slate-950 border-2 border-slate-700/90" : "bg-slate-900 border border-slate-800"
     }`}>
-      <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+      <div className="flex items-center justify-between border-b border-slate-850/80 pb-4.5 select-none">
         <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-indigo-400" />
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Clock className="w-5.5 h-5.5 text-slate-350" />
             <span>Lịch sử các Tác vụ</span>
           </h2>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-450 font-medium">
             Xem danh sách các file âm thanh đã tạo trước đó để nghe lại, tải về hoặc lưu giọng.
           </p>
         </div>
         <button
           onClick={loadJobs}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-200 disabled:text-slate-500 border border-slate-700/80 rounded-xl text-xs font-bold transition-all cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-850 text-slate-300 disabled:text-slate-500 border border-slate-850 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           <span>Làm mới</span>
@@ -143,7 +143,7 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
       </div>
 
       {errorMsg && (
-        <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-450 rounded-lg text-sm flex items-center gap-2">
+        <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs font-semibold flex items-center gap-2">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{errorMsg}</span>
         </div>
@@ -151,16 +151,16 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
 
       {loading && jobs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 gap-3 text-slate-500">
-          <RefreshCw className="w-8 h-8 animate-spin text-indigo-500" />
-          <span className="text-xs font-semibold">Đang tải lịch sử công việc...</span>
+          <RefreshCw className="w-8 h-8 animate-spin text-slate-400" />
+          <span className="text-xs font-bold">Đang tải lịch sử công việc...</span>
         </div>
       ) : jobs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 gap-3 text-slate-500 bg-slate-950/40 rounded-xl border border-dashed border-slate-800/80">
-          <Layers className="w-8 h-8 text-slate-650" />
-          <span className="text-xs font-semibold">Chưa có công việc nào được thực hiện.</span>
+        <div className="flex flex-col items-center justify-center py-12 gap-3 text-slate-500 bg-slate-950/20 rounded-2xl border border-dashed border-slate-850/80">
+          <Layers className="w-8 h-8 text-slate-600" />
+          <span className="text-xs font-bold">Chưa có công việc nào được thực hiện.</span>
         </div>
       ) : (
-        <div className="flex flex-col gap-4 max-h-[650px] overflow-y-auto pr-1">
+        <div className="flex flex-col gap-4.5 max-h-[650px] overflow-y-auto pr-1 scrollbar-thin">
           {jobs.map((job) => {
             const { label, color } = getJobTypeLabel(job.job_type);
             const isCompleted = job.status === "completed";
@@ -176,18 +176,18 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
             return (
               <div 
                 key={job.job_id} 
-                className="bg-slate-950 border border-slate-850/80 rounded-xl p-4 flex flex-col gap-3.5 hover:border-slate-800 transition-colors"
+                className="bg-slate-950/40 border border-slate-850/80 rounded-2xl p-4.5 flex flex-col gap-4 hover:border-slate-800 transition-all shadow-sm"
               >
                 {/* Job Header */}
                 <div className="flex flex-wrap items-center justify-between gap-2.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 border rounded-full uppercase tracking-wider ${color}`}>
+                    <span className={`text-[9px] font-extrabold px-2 py-0.5 border rounded-full uppercase tracking-wider ${color}`}>
                       {label}
                     </span>
-                    <span className="text-[10px] text-slate-500 font-mono">
+                    <span className="text-[10px] text-slate-500 font-bold font-mono">
                       ID: {job.job_id.substring(0, 8)}...
                     </span>
-                    <span className="text-[10px] text-slate-500 font-semibold flex items-center gap-1">
+                    <span className="text-[10px] text-slate-500 font-bold flex items-center gap-1 select-none">
                       <Clock className="w-3 h-3 text-slate-600" />
                       {formatTime(job.created_at)}
                     </span>
@@ -196,19 +196,19 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
                   {/* Status Badges */}
                   <div>
                     {isCompleted && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 rounded-full">
+                      <span className="inline-flex items-center gap-1 text-[9px] font-extrabold px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full select-none">
                         <CheckCircle className="w-3 h-3" />
                         <span>Hoàn thành</span>
                       </span>
                     )}
                     {isFailed && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 bg-rose-500/10 border border-rose-500/25 text-rose-450 rounded-full" title={job.error_message || ""}>
+                      <span className="inline-flex items-center gap-1 text-[9px] font-extrabold px-2 py-0.5 bg-rose-500/10 border border-rose-500/20 text-rose-455 rounded-full select-none" title={job.error_message || ""}>
                         <AlertCircle className="w-3 h-3" />
                         <span>Thất bại</span>
                       </span>
                     )}
                     {isProcessing && (
-                      <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 bg-indigo-500/10 border border-indigo-500/25 text-indigo-400 rounded-full animate-pulse">
+                      <span className="inline-flex items-center gap-1.5 text-[9px] font-extrabold px-2 py-0.5 bg-slate-800 border border-slate-750 text-slate-400 rounded-full animate-pulse select-none">
                         <RefreshCw className="w-3 h-3 animate-spin" />
                         <span>Đang xử lý ({job.progress}%)</span>
                       </span>
@@ -218,12 +218,12 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
 
                 {/* Job Text */}
                 {fullText && (
-                  <div className="text-xs text-slate-300 bg-slate-900/60 border border-slate-850 p-2.5 rounded-lg leading-relaxed relative group">
-                    <span className="whitespace-pre-wrap">{displayedText}</span>
+                  <div className="text-xs text-slate-205 bg-slate-900 border border-slate-850 rounded-xl p-3 leading-relaxed relative group shadow-inner">
+                    <span className="whitespace-pre-wrap font-medium">{displayedText}</span>
                     {isLongText && (
                       <button
                         onClick={() => toggleExpand(job.job_id)}
-                        className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold ml-1.5 focus:outline-none inline-flex items-center gap-0.5 cursor-pointer align-bottom"
+                        className="text-[10px] text-slate-400 hover:text-slate-200 font-extrabold ml-1.5 focus:outline-none inline-flex items-center gap-0.5 cursor-pointer align-bottom select-none"
                       >
                         {isExpanded ? (
                           <>
@@ -243,25 +243,25 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
 
                 {/* Job Output / Actions */}
                 {isCompleted && job.audio_url && (
-                  <div className="flex flex-col gap-2 bg-slate-900/40 p-2.5 rounded-lg border border-slate-850/50">
+                  <div className="flex flex-col gap-2.5 bg-slate-900/40 p-2 rounded-xl border border-slate-850/50">
                     <AudioPlayer
                       url={`${api.getApiBaseUrl()}${job.audio_url}`}
-                      title={`Kết quả ID ${job.job_id.substring(0, 8)}`}
+                      title="Kết quả Job"
                     />
                     <button
                       type="button"
                       onClick={() => handleOpenSaveModal(job.job_id, fullText)}
-                      className="w-full py-1.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-1"
+                      className="w-full py-2.5 px-4 bg-slate-950 hover:bg-slate-900 border border-slate-850/80 text-slate-200 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm mt-1"
                     >
-                      <Heart className="w-3 h-3 fill-white" />
+                      <Heart className="w-3.5 h-3.5 fill-slate-450 text-slate-450" />
                       <span>Lưu giọng nói này vào Thư viện</span>
                     </button>
                   </div>
                 )}
 
                 {isFailed && job.error_message && (
-                  <div className="text-xs text-rose-450 bg-rose-500/5 border border-rose-500/10 p-2.5 rounded-lg font-mono">
-                    <span className="font-semibold">Lỗi chi tiết: </span>
+                  <div className="text-xs text-rose-400 bg-rose-500/5 border border-rose-500/10 p-3 rounded-xl font-mono leading-relaxed font-semibold">
+                    <span className="font-bold">Lỗi chi tiết: </span>
                     {job.error_message}
                   </div>
                 )}

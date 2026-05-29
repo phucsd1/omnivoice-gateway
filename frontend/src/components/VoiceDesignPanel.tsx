@@ -12,7 +12,7 @@ interface VoiceDesignPanelProps {
   layout?: "classic" | "modern";
 }
 
-export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSuccess, onJobCreatedOrUpdated, layout = "classic" }) => {
+export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSuccess, onJobCreatedOrUpdated }) => {
   const [voiceRequest, setVoiceRequest] = useState("Giọng nữ trẻ, trầm, nhẹ nhàng, tự nhiên");
   const [previewText, setPreviewText] = useState("Xin chào, đây là giọng nói thiết kế thử nghiệm của OmniVoice.");
   const [loading, setLoading] = useState(false);
@@ -203,23 +203,21 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
   };
 
   return (
-    <div className={`rounded-2xl p-6 flex flex-col gap-5 shadow-lg transition-all ${
-      layout === "modern" ? "bg-slate-950 border-2 border-slate-700/90" : "bg-slate-900 border border-slate-800"
-    }`}>
+    <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-6 flex flex-col gap-6 shadow-xl transition-all duration-200">
       <div className="flex flex-col gap-1">
-        <h2 className={`text-lg font-bold flex items-center gap-2 ${layout === "modern" ? "text-white font-extrabold" : "text-slate-100"}`}>
-          <Mic className="w-5 h-5 text-indigo-400" />
+        <h2 className="text-xl font-bold flex items-center gap-2 text-white">
+          <Mic className="w-5.5 h-5.5 text-slate-350" />
           <span>2. Thiết kế giọng nói (Voice Design Preview)</span>
         </h2>
-        <p className={`text-xs ${layout === "modern" ? "text-slate-300" : "text-slate-400"}`}>
+        <p className="text-xs text-slate-450 font-medium">
           Mô tả kiểu giọng nói bạn muốn thiết kế bằng tiếng Việt, nghe thử rồi chấp nhận để clone.
         </p>
       </div>
 
-      <form onSubmit={handleGenerate} className="flex flex-col gap-4">
+      <form onSubmit={handleGenerate} className="flex flex-col gap-5">
         {/* Voice request */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-slate-400">
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-bold text-slate-450 uppercase tracking-wider">
             Mô tả giọng nói (Tiếng Việt)
           </label>
           <input
@@ -227,16 +225,16 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
             value={voiceRequest}
             onChange={(e) => setVoiceRequest(e.target.value)}
             placeholder="Ví dụ: giọng nữ trẻ trầm nhẹ nhàng tự nhiên..."
-            className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-650"
+            className="bg-slate-950/60 border border-slate-850/80 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-slate-700 transition-all font-semibold w-full"
           />
-          <span className="text-[10px] text-slate-500 leading-tight">
+          <span className="text-[10px] text-slate-500 font-medium leading-tight">
             * Backend sẽ tự động phân tích: &quot;nữ/nam&quot;, &quot;trẻ&quot;, &quot;trầm/thấp&quot;, &quot;nhẹ nhàng/thì thầm&quot;...
           </span>
         </div>
 
         {/* Preview text */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-slate-400">
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-bold text-slate-450 uppercase tracking-wider">
             Nội dung nghe thử (Preview Text)
           </label>
           <textarea
@@ -244,16 +242,16 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
             onChange={(e) => setPreviewText(e.target.value)}
             placeholder="Nhập nội dung ngắn để nghe thử giọng nói này..."
             rows={2}
-            className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-650 resize-none"
+            className="bg-slate-950/60 border border-slate-850/80 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-slate-700 transition-all font-semibold w-full resize-none"
           />
         </div>
 
         {/* Advanced parameters: Speed and Steps */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-950 border border-slate-850 rounded-xl">
-          <div className="flex flex-col gap-1.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 p-4 bg-slate-950/40 border border-slate-850/80 rounded-2xl shadow-inner">
+          <div className="flex flex-col gap-2">
             <div className="flex justify-between items-center text-xs">
-              <label className="font-semibold text-slate-350">Tốc độ nói (Speed): {speed.toFixed(1)}x</label>
-              <span className="text-[10px] text-slate-550 font-mono">0.5x - 2.0x</span>
+              <label className="font-bold text-slate-450 uppercase tracking-wider">Tốc độ nói: {speed.toFixed(1)}x</label>
+              <span className="text-[10px] text-slate-500 font-bold font-mono select-none">0.5x - 2.0x</span>
             </div>
             <input
               type="range"
@@ -262,17 +260,18 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
               step="0.1"
               value={speed}
               onChange={(e) => setSpeed(parseFloat(e.target.value))}
-              className="w-full h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-indigo-500 hover:accent-indigo-400 transition-colors"
+              className="seekbar w-full"
+              style={{ background: 'var(--color-slate-800)' }}
             />
-            <span className="text-[10px] text-slate-500 leading-tight">
+            <span className="text-[10px] text-slate-550 font-medium leading-tight">
               Mặc định: 1.0
             </span>
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2">
             <div className="flex justify-between items-center text-xs">
-              <label className="font-semibold text-slate-350">Độ chính xác (Steps): {numStep}</label>
-              <span className="text-[10px] text-slate-550 font-mono">10 - 64</span>
+              <label className="font-bold text-slate-450 uppercase tracking-wider">Độ chính xác (Steps): {numStep}</label>
+              <span className="text-[10px] text-slate-500 font-bold font-mono select-none">10 - 64</span>
             </div>
             <input
               type="range"
@@ -281,163 +280,171 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
               step="1"
               value={numStep}
               onChange={(e) => setNumStep(parseInt(e.target.value))}
-              className="w-full h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-indigo-500 hover:accent-indigo-400 transition-colors"
+              className="seekbar w-full"
+              style={{ background: 'var(--color-slate-800)' }}
             />
-            <span className="text-[10px] text-slate-500 leading-tight">
+            <span className="text-[10px] text-slate-550 font-medium leading-tight">
               Mặc định: 32 (16 bước để chạy nhanh hơn)
             </span>
           </div>
         </div>
 
         {/* Toggle Advanced Settings */}
-        <div className="border-t border-slate-800 pt-3">
+        <div className="border-t border-slate-850/80 pt-3">
           <button
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 font-bold transition-colors cursor-pointer"
+            className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200 font-extrabold transition-colors cursor-pointer select-none"
           >
             <span>{showAdvanced ? "Ẩn cấu hình nâng cao" : "Hiện cấu hình nâng cao (OmniVoice)"}</span>
           </button>
         </div>
 
         {showAdvanced && (
-          <div className="flex flex-col gap-4 p-4 bg-slate-950/60 border border-slate-850 rounded-xl">
+          <div className="flex flex-col gap-4 p-4 bg-slate-950/40 border border-slate-850/80 rounded-2xl shadow-inner">
             {/* Toggles Row */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <label className="flex items-center gap-2 text-xs font-semibold text-slate-355 cursor-pointer select-none">
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-350 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={denoise}
                   onChange={(e) => setDenoise(e.target.checked)}
-                  className="rounded border-slate-800 bg-slate-900 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                  className="rounded border-slate-850 bg-slate-900 text-slate-100 focus:ring-slate-700 w-4 h-4 cursor-pointer"
                 />
                 <span>Denoise (Lọc nhiễu)</span>
               </label>
 
-              <label className="flex items-center gap-2 text-xs font-semibold text-slate-355 cursor-pointer select-none">
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-350 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={preprocessPrompt}
                   onChange={(e) => setPreprocessPrompt(e.target.checked)}
-                  className="rounded border-slate-800 bg-slate-900 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                  className="rounded border-slate-850 bg-slate-900 text-slate-100 focus:ring-slate-700 w-4 h-4 cursor-pointer"
                 />
                 <span>Tiền xử lý tham chiếu</span>
               </label>
 
-              <label className="flex items-center gap-2 text-xs font-semibold text-slate-355 cursor-pointer select-none">
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-350 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={postprocessOutput}
                   onChange={(e) => setPostprocessOutput(e.target.checked)}
-                  className="rounded border-slate-800 bg-slate-900 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                  className="rounded border-slate-850 bg-slate-900 text-slate-100 focus:ring-slate-700 w-4 h-4 cursor-pointer"
                 />
                 <span>Hậu xử lý đầu ra</span>
               </label>
             </div>
 
-            <div className="h-px bg-slate-900 my-1" />
+            <div className="h-px bg-slate-900/60 my-1" />
 
             {/* Sliders and text fields grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4.5">
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="font-semibold text-slate-350">Guidance Scale: {guidanceScale.toFixed(1)}</span>
-                  <span className="text-[10px] text-slate-500 font-mono">0.5 - 5.0</span>
+                  <span className="font-bold text-slate-400">Guidance Scale: {guidanceScale.toFixed(1)}</span>
+                  <span className="text-[10px] text-slate-500 font-bold font-mono">0.5 - 5.0</span>
                 </div>
                 <input
                   type="range" min="0.5" max="5.0" step="0.1"
                   value={guidanceScale}
                   onChange={(e) => setGuidanceScale(parseFloat(e.target.value))}
-                  className="w-full h-1 bg-slate-900 rounded appearance-none cursor-pointer accent-indigo-500"
+                  className="seekbar w-full"
+                  style={{ background: 'var(--color-slate-800)' }}
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="font-semibold text-slate-350">Time-step Shift (t_shift): {tShift.toFixed(2)}</span>
-                  <span className="text-[10px] text-slate-500 font-mono">0.01 - 0.50</span>
+                  <span className="font-bold text-slate-400">Time-step Shift (t_shift): {tShift.toFixed(2)}</span>
+                  <span className="text-[10px] text-slate-500 font-bold font-mono">0.01 - 0.50</span>
                 </div>
                 <input
                   type="range" min="0.01" max="0.50" step="0.01"
                   value={tShift}
                   onChange={(e) => setTShift(parseFloat(e.target.value))}
-                  className="w-full h-1 bg-slate-900 rounded appearance-none cursor-pointer accent-indigo-500"
+                  className="seekbar w-full"
+                  style={{ background: 'var(--color-slate-800)' }}
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="font-semibold text-slate-350">Position Temperature: {positionTemperature.toFixed(1)}</span>
-                  <span className="text-[10px] text-slate-500 font-mono">0.0 - 10.0</span>
+                  <span className="font-bold text-slate-400">Position Temperature: {positionTemperature.toFixed(1)}</span>
+                  <span className="text-[10px] text-slate-500 font-bold font-mono">0.0 - 10.0</span>
                 </div>
                 <input
                   type="range" min="0.0" max="10.0" step="0.5"
                   value={positionTemperature}
                   onChange={(e) => setPositionTemperature(parseFloat(e.target.value))}
-                  className="w-full h-1 bg-slate-900 rounded appearance-none cursor-pointer accent-indigo-500"
+                  className="seekbar w-full"
+                  style={{ background: 'var(--color-slate-800)' }}
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="font-semibold text-slate-350">Class Temperature: {classTemperature.toFixed(1)}</span>
-                  <span className="text-[10px] text-slate-500 font-mono">0.0 - 5.0</span>
+                  <span className="font-bold text-slate-400">Class Temperature: {classTemperature.toFixed(1)}</span>
+                  <span className="text-[10px] text-slate-500 font-bold font-mono">0.0 - 5.0</span>
                 </div>
                 <input
                   type="range" min="0.0" max="5.0" step="0.1"
                   value={classTemperature}
                   onChange={(e) => setClassTemperature(parseFloat(e.target.value))}
-                  className="w-full h-1 bg-slate-900 rounded appearance-none cursor-pointer accent-indigo-500"
+                  className="seekbar w-full"
+                  style={{ background: 'var(--color-slate-800)' }}
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="font-semibold text-slate-350">Layer Penalty Factor: {layerPenaltyFactor.toFixed(1)}</span>
-                  <span className="text-[10px] text-slate-500 font-mono">0.0 - 10.0</span>
+                  <span className="font-bold text-slate-400">Layer Penalty Factor: {layerPenaltyFactor.toFixed(1)}</span>
+                  <span className="text-[10px] text-slate-500 font-bold font-mono">0.0 - 10.0</span>
                 </div>
                 <input
                   type="range" min="0.0" max="10.0" step="0.5"
                   value={layerPenaltyFactor}
                   onChange={(e) => setLayerPenaltyFactor(parseFloat(e.target.value))}
-                  className="w-full h-1 bg-slate-900 rounded appearance-none cursor-pointer accent-indigo-500"
+                  className="seekbar w-full"
+                  style={{ background: 'var(--color-slate-800)' }}
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-slate-355">Thời lượng cố định (Duration - giây)</label>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Thời lượng cố định (Duration - giây)</label>
                 <input
                   type="number" step="0.1" min="0.1"
                   value={duration}
                   onChange={(e) => setDuration(e.target.value)}
                   placeholder="Mặc định: Tự động tính theo văn bản"
-                  className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                  className="bg-slate-900/60 border border-slate-850/80 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-slate-700 transition-all font-semibold"
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="font-semibold text-slate-350">Đoạn cắt (Chunk Duration): {audioChunkDuration.toFixed(0)}s</span>
-                  <span className="text-[10px] text-slate-500 font-mono">5 - 60</span>
+                  <span className="font-bold text-slate-400">Đoạn cắt (Chunk Duration): {audioChunkDuration.toFixed(0)}s</span>
+                  <span className="text-[10px] text-slate-500 font-bold font-mono">5 - 60</span>
                 </div>
                 <input
                   type="range" min="5" max="60" step="1"
                   value={audioChunkDuration}
                   onChange={(e) => setAudioChunkDuration(parseFloat(e.target.value))}
-                  className="w-full h-1 bg-slate-900 rounded appearance-none cursor-pointer accent-indigo-500"
+                  className="seekbar w-full"
+                  style={{ background: 'var(--color-slate-800)' }}
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="font-semibold text-slate-350">Ngưỡng cắt (Chunk Threshold): {audioChunkThreshold.toFixed(0)}s</span>
-                  <span className="text-[10px] text-slate-500 font-mono">10 - 120</span>
+                  <span className="font-bold text-slate-400">Ngưỡng cắt (Chunk Threshold): {audioChunkThreshold.toFixed(0)}s</span>
+                  <span className="text-[10px] text-slate-500 font-bold font-mono">10 - 120</span>
                 </div>
                 <input
                   type="range" min="10" max="120" step="5"
                   value={audioChunkThreshold}
                   onChange={(e) => setAudioChunkThreshold(parseFloat(e.target.value))}
-                  className="w-full h-1 bg-slate-900 rounded appearance-none cursor-pointer accent-indigo-500"
+                  className="seekbar w-full"
+                  style={{ background: 'var(--color-slate-800)' }}
                 />
               </div>
             </div>
@@ -445,13 +452,13 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
         )}
 
         {errorMsg && (
-          <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-450 rounded-lg text-sm">
+          <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-450 rounded-xl text-xs font-semibold">
             {errorMsg}
           </div>
         )}
 
         {successMsg && (
-          <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-sm flex items-center gap-1.5">
+          <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs font-semibold flex items-center gap-1.5">
             <Check className="w-4 h-4 flex-shrink-0" />
             <span>{successMsg}</span>
           </div>
@@ -460,20 +467,20 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
         <button
           type="submit"
           disabled={loading || !voiceRequest || !previewText}
-          className={`w-full py-2.5 px-4 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
+          className={`w-full py-3 px-6 rounded-full font-bold text-sm transition-all duration-155 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer shadow-md ${
             !loading && voiceRequest && previewText
-              ? "bg-gradient-to-r from-indigo-650 to-purple-650 hover:from-indigo-600 hover:to-purple-600 text-white shadow-md shadow-indigo-650/15"
+              ? "bg-slate-100 text-slate-950 hover:bg-white border border-slate-200/10"
               : "bg-slate-800 text-slate-500 cursor-not-allowed"
           }`}
         >
           {loading ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin text-slate-550" />
               <span>Đang khởi tạo preview...</span>
             </>
           ) : (
             <>
-              <Wand2 className="w-4 h-4" />
+              <Wand2 className="w-4 h-4 fill-current" />
               <span>Tạo bản nghe thử</span>
             </>
           )}
@@ -492,16 +499,16 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
           />
 
           {jobStatus.status === "completed" && jobStatus.audio_url && (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 mt-1">
               <AudioPlayer
                 url={`${api.getApiBaseUrl()}${jobStatus.audio_url}`}
-                title="Bản thiết kế nghe thử"
+                title="Bản thiết nghe thử"
               />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <button
                   onClick={handleAccept}
                   disabled={accepting}
-                  className="w-full bg-slate-800 hover:bg-slate-750 text-slate-200 font-bold text-xs py-2 px-3 border border-slate-700 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="w-full bg-slate-950 hover:bg-slate-900 border border-slate-850 text-slate-200 font-bold text-xs py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
                 >
                   {accepting ? (
                     <>
@@ -518,9 +525,9 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
                 <button
                   type="button"
                   onClick={() => handleOpenSaveModal(previewText)}
-                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-emerald-700/10"
+                  className="w-full bg-slate-950 hover:bg-slate-900 border border-slate-850 text-slate-200 font-bold text-xs py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
                 >
-                  <Heart className="w-3.5 h-3.5 fill-white" />
+                  <Heart className="w-3.5 h-3.5 fill-slate-400 text-slate-400" />
                   <span>Lưu giọng yêu thích (Cắt 8s)</span>
                 </button>
               </div>
@@ -628,7 +635,7 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
               <button
                 type="button"
                 onClick={() => setIsSaveModalOpen(false)}
-                className="px-4 py-2 bg-slate-855 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-300 rounded-lg cursor-pointer transition-colors"
+                className="px-4 py-2 bg-slate-850 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-300 rounded-lg cursor-pointer transition-colors"
               >
                 Hủy
               </button>

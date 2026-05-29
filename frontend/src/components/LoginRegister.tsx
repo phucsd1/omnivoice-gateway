@@ -196,7 +196,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
         {!verificationMode ? (
           <>
             {/* Tab Selector */}
-            <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
+            <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-850">
               <button
                 type="button"
                 onClick={() => {
@@ -206,8 +206,8 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 }}
                 className={`py-2.5 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2 ${
                   isLogin
-                    ? "bg-indigo-600 text-white shadow-sm"
-                    : "text-slate-400 hover:text-slate-200"
+                    ? "bg-slate-850 text-white border border-slate-800 shadow-sm"
+                    : "text-slate-500 hover:text-slate-300"
                 }`}
               >
                 <KeyRound className="w-4 h-4" />
@@ -222,8 +222,8 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 }}
                 className={`py-2.5 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2 ${
                   !isLogin
-                    ? "bg-indigo-600 text-white shadow-sm"
-                    : "text-slate-400 hover:text-slate-200"
+                    ? "bg-slate-850 text-white border border-slate-800 shadow-sm"
+                    : "text-slate-500 hover:text-slate-300"
                 }`}
               >
                 <UserPlus className="w-4 h-4" />
@@ -251,14 +251,14 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                   Tên tài khoản
                 </label>
-                <div className="relative">
-                  <User className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
+                <div className="relative flex items-center bg-slate-950 border border-slate-850/60 rounded-xl focus-within:border-slate-750 transition-all shadow-inner px-3">
+                  <User className="w-4 h-4 text-slate-550 shrink-0" />
                   <input
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Nhập tên đăng nhập..."
-                    className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-600 font-semibold"
+                    className="w-full bg-transparent text-xs text-slate-200 focus:outline-none placeholder:text-slate-600 font-semibold py-3.5 pl-2.5"
                     required
                   />
                 </div>
@@ -269,14 +269,14 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                   <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                     Địa chỉ Email (Bắt buộc)
                   </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
+                  <div className="relative flex items-center bg-slate-950 border border-slate-850/60 rounded-xl focus-within:border-slate-750 transition-all shadow-inner px-3">
+                    <Mail className="w-4 h-4 text-slate-550 shrink-0" />
                     <input
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="email@example.com"
-                      className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-600 font-semibold font-mono"
+                      className="w-full bg-transparent text-xs text-slate-200 focus:outline-none placeholder:text-slate-600 font-semibold font-mono py-3.5 pl-2.5"
                       required
                     />
                   </div>
@@ -287,14 +287,14 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                   Mật khẩu
                 </label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
+                <div className="relative flex items-center bg-slate-950 border border-slate-850/60 rounded-xl focus-within:border-slate-750 transition-all shadow-inner px-3">
+                  <Lock className="w-4 h-4 text-slate-550 shrink-0" />
                   <input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Nhập mật khẩu..."
-                    className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-600 font-semibold"
+                    className="w-full bg-transparent text-xs text-slate-200 focus:outline-none placeholder:text-slate-600 font-semibold py-3.5 pl-2.5"
                     required
                   />
                 </div>
@@ -305,14 +305,14 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                   <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                     Xác nhận mật khẩu
                   </label>
-                  <div className="relative">
-                    <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
+                  <div className="relative flex items-center bg-slate-950 border border-slate-850/60 rounded-xl focus-within:border-slate-750 transition-all shadow-inner px-3">
+                    <Lock className="w-4 h-4 text-slate-550 shrink-0" />
                     <input
                       type="password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Nhập lại mật khẩu..."
-                      className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-slate-600 font-semibold"
+                      className="w-full bg-transparent text-xs text-slate-200 focus:outline-none placeholder:text-slate-600 font-semibold py-3.5 pl-2.5"
                       required
                     />
                   </div>
@@ -322,10 +322,10 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
               <button
                 type="submit"
                 disabled={loading}
-                className={`w-full py-3.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer mt-2 ${
+                className={`w-full py-3.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer mt-2 active:scale-[0.99] border ${
                   !loading
-                    ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/15"
-                    : "bg-slate-800 text-slate-500 cursor-not-allowed"
+                    ? "bg-slate-100 text-slate-950 hover:bg-white border-slate-200/10 shadow-sm"
+                    : "bg-slate-800 text-slate-500 border-transparent cursor-not-allowed"
                 }`}
               >
                 {loading ? (
@@ -384,7 +384,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 setErrorMsg(null);
                 setSuccessMsg(null);
               }}
-              className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 self-start cursor-pointer"
+              className="text-xs text-slate-400 hover:text-slate-200 font-bold flex items-center gap-1 self-start cursor-pointer transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Quay lại</span>
@@ -393,13 +393,13 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
             <div className="flex flex-col gap-1 text-center">
               <h2 className="text-lg font-bold text-white">Xác thực tài khoản</h2>
               <p className="text-xs text-slate-400 leading-relaxed px-4">
-                Mã OTP gồm 6 chữ số đã được gửi tới email của tài khoản <strong className="text-indigo-300">@{verificationUsername}</strong>.
+                Mã OTP gồm 6 chữ số đã được gửi tới email của tài khoản <strong className="text-slate-350 font-bold">@{verificationUsername}</strong>.
               </p>
             </div>
 
             {/* Status messages */}
             {errorMsg && (
-              <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs leading-relaxed flex items-start gap-2">
+              <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-450 rounded-xl text-xs leading-relaxed flex items-start gap-2">
                 <ShieldAlert className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
                 <span>{errorMsg}</span>
               </div>
@@ -412,8 +412,8 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
             )}
 
             {debugOtpCode && (
-              <div className="p-3.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 rounded-xl text-xs leading-relaxed flex flex-col gap-1">
-                <span className="font-bold uppercase tracking-wider text-[10px] text-indigo-400">Chế độ kiểm thử (Debug OTP):</span>
+              <div className="p-3.5 bg-slate-900 border border-slate-800 text-slate-200 rounded-xl text-xs leading-relaxed flex flex-col gap-1">
+                <span className="font-bold uppercase tracking-wider text-[10px] text-slate-400">Chế độ kiểm thử (Debug OTP):</span>
                 <span>Dùng mã sau để xác thực nhanh: <strong className="text-white font-mono text-sm tracking-widest bg-slate-950 px-2 py-0.5 rounded ml-1">{debugOtpCode}</strong></span>
               </div>
             )}
@@ -425,7 +425,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 value={otpCode}
                 onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
                 placeholder="000000"
-                className="w-full bg-slate-950 border-2 border-slate-800 focus:border-indigo-500 rounded-2xl py-4 text-center text-2xl font-bold tracking-[0.75em] text-white focus:outline-none font-mono transition-colors"
+                className="w-full bg-slate-950 border border-slate-850 focus:border-slate-700 rounded-2xl py-4 text-center text-2xl font-bold tracking-[0.75em] text-white focus:outline-none font-mono transition-colors"
                 required
               />
             </div>
@@ -434,7 +434,11 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-lg shadow-indigo-600/15"
+                className={`w-full py-3.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] border ${
+                  !loading
+                    ? "bg-slate-100 text-slate-950 hover:bg-white border-slate-200/10 shadow-sm"
+                    : "bg-slate-800 text-slate-500 border-transparent cursor-not-allowed"
+                }`}
               >
                 {loading ? "Đang xác thực..." : "Xác nhận và kích hoạt"}
               </button>
@@ -443,7 +447,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 type="button"
                 onClick={handleResendCode}
                 disabled={loading}
-                className="text-xs text-slate-400 hover:text-slate-200 font-semibold underline text-center cursor-pointer transition-colors"
+                className="text-xs text-slate-400 hover:text-slate-200 font-bold underline text-center cursor-pointer transition-colors"
               >
                 Gửi lại mã xác thực
               </button>
@@ -497,13 +501,13 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
               <button
                 type="button"
                 onClick={() => setShowOAuthModal(false)}
-                className="px-4 py-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-xs font-semibold text-slate-300 rounded-lg cursor-pointer transition-colors"
+                className="px-4 py-2 bg-slate-950 border border-slate-850 hover:bg-slate-800 text-xs font-semibold text-slate-350 rounded-lg cursor-pointer transition-colors"
               >
                 Hủy
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white rounded-lg cursor-pointer transition-colors"
+                className="px-4 py-2 bg-slate-100 hover:bg-white text-xs font-bold text-slate-950 rounded-lg cursor-pointer transition-colors shadow-sm"
               >
                 Xác nhận phê duyệt
               </button>

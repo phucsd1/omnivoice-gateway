@@ -391,40 +391,49 @@ function App() {
               </>
             ) : (
               <>
-                {/* Modern Layout tab selector */}
-                <div className="flex gap-2 p-1 bg-slate-900/60 backdrop-blur-md rounded-2xl border border-slate-800/85 self-start shadow-lg">
+                {/* Modern Layout tab selector (ElevenLabs styled underlined tabs) */}
+                <div className="flex gap-6 border-b border-slate-850/80 w-full mb-3 select-none">
                   <button
                     onClick={() => setModernTab("workspace")}
-                    className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                    className={`pb-3.5 pt-1 px-1 text-xs font-bold transition-all relative cursor-pointer flex items-center gap-2 ${
                       modernTab === "workspace"
-                        ? "bg-indigo-500 text-white shadow-md border border-indigo-400/20"
-                        : "text-slate-400 hover:text-slate-200"
+                        ? "text-white font-extrabold"
+                        : "text-slate-500 hover:text-slate-350"
                     }`}
                   >
                     <Sparkles className="w-4 h-4" />
-                    <span>Không gian làm việc (Workspace)</span>
+                    <span>Không gian làm việc</span>
+                    {modernTab === "workspace" && (
+                      <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-slate-100 rounded-full" />
+                    )}
                   </button>
                   <button
                     onClick={() => setModernTab("library")}
-                    className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                    className={`pb-3.5 pt-1 px-1 text-xs font-bold transition-all relative cursor-pointer flex items-center gap-2 ${
                       modernTab === "library"
-                        ? "bg-indigo-500 text-white shadow-md border border-indigo-400/20"
-                        : "text-slate-400 hover:text-slate-200"
+                        ? "text-white font-extrabold"
+                        : "text-slate-500 hover:text-slate-350"
                     }`}
                   >
                     <Volume2 className="w-4 h-4" />
-                    <span>Thư viện giọng nói (Voice Library)</span>
+                    <span>Thư viện giọng nói</span>
+                    {modernTab === "library" && (
+                      <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-slate-100 rounded-full" />
+                    )}
                   </button>
                   <button
                     onClick={() => setModernTab("history")}
-                    className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                    className={`pb-3.5 pt-1 px-1 text-xs font-bold transition-all relative cursor-pointer flex items-center gap-2 ${
                       modernTab === "history"
-                        ? "bg-indigo-500 text-white shadow-md border border-indigo-400/20"
-                        : "text-slate-400 hover:text-slate-200"
+                        ? "text-white font-extrabold"
+                        : "text-slate-500 hover:text-slate-355"
                     }`}
                   >
                     <Layers className="w-4 h-4" />
-                    <span>Lịch sử tác vụ (Job History)</span>
+                    <span>Lịch sử tác vụ</span>
+                    {modernTab === "history" && (
+                      <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-slate-100 rounded-full" />
+                    )}
                   </button>
                 </div>
 
