@@ -9,9 +9,10 @@ import { AudioPlayer } from "./AudioPlayer";
 interface TTSPanelProps {
   activeVoiceSampleId: string | null;
   onJobCreatedOrUpdated?: () => void;
+  layout?: "classic" | "modern";
 }
 
-export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCreatedOrUpdated }) => {
+export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCreatedOrUpdated, layout = "classic" }) => {
   const [mode, setMode] = useState<"clone_voice" | "auto_voice" | "voice_design">("clone_voice");
   const [text, setText] = useState("Học sinh hôm nay được nghỉ học do thời tiết xấu. Xin nhắc lại, học sinh được nghỉ học.");
   const [customVoiceSampleId, setCustomVoiceSampleId] = useState("");
@@ -96,6 +97,12 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
       fetchVoiceSamples();
     }
   }, [activeVoiceSampleId]);
+
+  useEffect(() => {
+    if (layout === "modern" && mode === "voice_design") {
+      setMode("clone_voice");
+    }
+  }, [layout, mode]);
 
   const handleOpenSaveModal = (targetJobId: string, fullText: string) => {
     setSaveVoiceJobId(targetJobId);
@@ -237,13 +244,15 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-5 shadow-lg">
+    <div className={`rounded-2xl p-6 flex flex-col gap-5 shadow-lg transition-all ${
+      layout === "modern" ? "bg-slate-950 border-2 border-slate-700/90" : "bg-slate-900 border border-slate-800"
+    }`}>
       <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+        <h2 className={`text-lg font-bold flex items-center gap-2 ${layout === "modern" ? "text-white font-extrabold" : "text-slate-100"}`}>
           <AudioLines className="w-5 h-5 text-indigo-400" />
           <span>3. Chuyển văn bản thành giọng nói (TTS Job)</span>
         </h2>
-        <p className="text-xs text-slate-400">
+        <p className={`text-xs ${layout === "modern" ? "text-slate-300" : "text-slate-400"}`}>
           Chạy job tạo giọng đọc từ văn bản với cấu hình giọng clone hoặc tự động.
         </p>
       </div>
@@ -252,41 +261,43 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
         {/* Mode selector */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-semibold text-slate-400">Chế độ tạo giọng nói</label>
-          <div className="grid grid-cols-3 gap-2 bg-slate-950 p-1 rounded-lg border border-slate-850">
-            <button
-              type="button"
-              onClick={() => setMode("clone_voice")}
-              className={`py-2 px-1 text-center font-bold text-xs rounded transition-all cursor-pointer ${
-                mode === "clone_voice"
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Clone Voice
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("auto_voice")}
-              className={`py-2 px-1 text-center font-bold text-xs rounded transition-all cursor-pointer ${
-                mode === "auto_voice"
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Auto Voice
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("voice_design")}
-              className={`py-2 px-1 text-center font-bold text-xs rounded transition-all cursor-pointer ${
-                mode === "voice_design"
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Voice Design Direct
-            </button>
-          </div>
+          <div className={`grid ${layout === "modern" ? "grid-cols-2" : "grid-cols-3"} gap-2 bg-slate-950 p-1 rounded-lg border border-slate-850`}>
+              <button
+                type="button"
+                onClick={() => setMode("clone_voice")}
+                className={`py-2 px-1 text-center font-bold text-xs rounded transition-all cursor-pointer ${
+                  mode === "clone_voice"
+                    ? "bg-indigo-600 text-white shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                {layout === "modern" ? "Sử dụng giọng mẫu" : "Clone Voice"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("auto_voice")}
+                className={`py-2 px-1 text-center font-bold text-xs rounded transition-all cursor-pointer ${
+                  mode === "auto_voice"
+                    ? "bg-indigo-600 text-white shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Auto Voice
+              </button>
+              {layout !== "modern" && (
+                <button
+                  type="button"
+                  onClick={() => setMode("voice_design")}
+                  className={`py-2 px-1 text-center font-bold text-xs rounded transition-all cursor-pointer ${
+                    mode === "voice_design"
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  Voice Design Direct
+                </button>
+              )}
+            </div>
         </div>
 
         {/* Dynamic Mode Fields */}
@@ -672,7 +683,9 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
           disabled={loading || !text}
           className={`w-full py-2.5 px-4 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
             !loading && text
-              ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-650/10"
+              ? layout === "modern"
+                ? "bg-indigo-500 hover:bg-indigo-400 text-white shadow-lg border border-indigo-400/20"
+                : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-650/10"
               : "bg-slate-800 text-slate-500 cursor-not-allowed"
           }`}
         >

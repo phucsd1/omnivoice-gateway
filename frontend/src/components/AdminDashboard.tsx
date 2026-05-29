@@ -5,9 +5,10 @@ import type { UserAdminResponse, AdminStatsResponse, ApiLogResponse, AdminApiKey
 
 interface AdminDashboardProps {
   onBack: () => void;
+  onSettingsChanged?: () => void;
 }
 
-export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettingsChanged }) => {
   const [activeTab, setActiveTab] = useState<"users" | "stats" | "logs" | "settings">("users");
   const [users, setUsers] = useState<UserAdminResponse[]>([]);
   const [stats, setStats] = useState<AdminStatsResponse | null>(null);
@@ -57,6 +58,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     kaggle_accelerator: "",
     kaggle_timeout_seconds: 3600,
     kaggle_worker_dir: "",
+    ui_layout: "modern",
   });
 
   const fetchUsers = async () => {
@@ -283,6 +285,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
       await api.adminUpdateSystemSettings(settingsData);
       setStatusMsg({ type: "success", text: "Cấu hình hệ thống đã được lưu thành công." });
       await fetchSystemSettings();
+      onSettingsChanged?.();
     } catch (err: any) {
       setStatusMsg({ type: "error", text: err.message || "Lỗi lưu cấu hình hệ thống." });
     }
@@ -543,6 +546,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
               >
                 <option value="mock">Chạy Giả lập (Mock Mode - Không tốn tài nguyên GPU)</option>
                 <option value="kaggle">Chạy Thật (Kaggle GPU Worker Mode)</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-400">Giao diện người dùng (UI Layout)</label>
+              <select
+                value={settingsData.ui_layout}
+                onChange={(e) => setSettingsData({ ...settingsData, ui_layout: e.target.value })}
+                className="bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer"
+              >
+                <option value="modern">Giao diện Hiện đại (Modern Layout - Độ tương phản cao)</option>
+                <option value="classic">Giao diện MVP Cũ (Classic Layout)</option>
               </select>
             </div>
 

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 from app.database import get_db
-from app.models import User, UserSetting
+from app.models import User, UserSetting, SystemSetting
 from app.config import settings
 from app.utils.auth import get_current_user
 
@@ -19,6 +19,7 @@ class SettingsResponse(BaseModel):
   kaggle_timeout_seconds: int
   kaggle_worker_dir: str
   worker_mode: str
+  ui_layout: str
 
 class SettingsUpdateRequest(BaseModel):
   kaggle_username: Optional[str] = None
@@ -66,6 +67,9 @@ def get_system_settings(db: Session = Depends(get_db), current_user: User = Depe
         pass
         
     worker_dir = get_setting("kaggle_worker_dir", worker_dir)
+    
+    ui_layout_entry = db.query(SystemSetting).filter(SystemSetting.key == "ui_layout").first()
+    ui_layout = ui_layout_entry.value.strip() if ui_layout_entry and ui_layout_entry.value.strip() else "modern"
 
     return SettingsResponse(
         kaggle_username=username,
@@ -76,7 +80,8 @@ def get_system_settings(db: Session = Depends(get_db), current_user: User = Depe
         kaggle_accelerator=accelerator,
         kaggle_timeout_seconds=timeout_seconds,
         kaggle_worker_dir=worker_dir,
-        worker_mode=settings.WORKER_MODE
+        worker_mode=settings.WORKER_MODE,
+        ui_layout=ui_layout
     )
 
 @router.post("", response_model=dict)

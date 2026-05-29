@@ -79,6 +79,7 @@ class SystemSettingsResponse(BaseModel):
     kaggle_accelerator: str
     kaggle_timeout_seconds: int
     kaggle_worker_dir: str
+    ui_layout: str
 
 class SystemSettingsUpdateRequest(BaseModel):
     worker_mode: Optional[str] = None
@@ -96,6 +97,7 @@ class SystemSettingsUpdateRequest(BaseModel):
     kaggle_accelerator: Optional[str] = None
     kaggle_timeout_seconds: Optional[int] = None
     kaggle_worker_dir: Optional[str] = None
+    ui_layout: Optional[str] = None
 
 class AdminStatsResponse(BaseModel):
     total_users: int
@@ -320,6 +322,7 @@ def get_system_settings_admin(
         kaggle_timeout_seconds = settings.KAGGLE_TIMEOUT_SECONDS
         
     kaggle_worker_dir = get_setting("kaggle_worker_dir", settings.KAGGLE_WORKER_DIR)
+    ui_layout = get_setting("ui_layout", "modern")
 
     return SystemSettingsResponse(
         worker_mode=worker_mode,
@@ -336,7 +339,8 @@ def get_system_settings_admin(
         kaggle_kernel_title=kaggle_kernel_title,
         kaggle_accelerator=kaggle_accelerator,
         kaggle_timeout_seconds=kaggle_timeout_seconds,
-        kaggle_worker_dir=kaggle_worker_dir
+        kaggle_worker_dir=kaggle_worker_dir,
+        ui_layout=ui_layout
     )
 
 @router.post("/settings", response_model=dict)
@@ -361,6 +365,11 @@ def update_system_settings_admin(
             if payload.worker_mode not in ["mock", "kaggle"]:
                 raise HTTPException(status_code=400, detail="worker_mode phải là 'mock' hoặc 'kaggle'.")
             save_setting("worker_mode", payload.worker_mode)
+            
+        if payload.ui_layout is not None:
+            if payload.ui_layout not in ["classic", "modern"]:
+                raise HTTPException(status_code=400, detail="ui_layout phải là 'classic' hoặc 'modern'.")
+            save_setting("ui_layout", payload.ui_layout)
             
         if payload.require_admin_approval is not None:
             save_setting("require_admin_approval", "true" if payload.require_admin_approval else "false")

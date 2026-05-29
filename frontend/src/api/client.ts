@@ -127,6 +127,7 @@ export interface SystemSettingsResponse {
   kaggle_accelerator: string;
   kaggle_timeout_seconds: number;
   kaggle_worker_dir: string;
+  ui_layout: string;
 }
 
 export interface SystemSettingsUpdateRequest {
@@ -145,6 +146,7 @@ export interface SystemSettingsUpdateRequest {
   kaggle_accelerator?: string;
   kaggle_timeout_seconds?: number;
   kaggle_worker_dir?: string;
+  ui_layout?: string;
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -532,6 +534,7 @@ export interface SystemSettings {
   kaggle_timeout_seconds: number;
   kaggle_worker_dir: string;
   worker_mode: string;
+  ui_layout: string;
 }
 
 export interface SettingsUpdateRequest {

@@ -81,13 +81,15 @@ function App() {
   const handleJobCreatedOrUpdated = () => {
     setRefreshHistory(prev => prev + 1);
   };
+  const [uiLayout, setUiLayout] = useState<"classic" | "modern">("modern");
+  const [modernTab, setModernTab] = useState<"workspace" | "history">("workspace");
   const [connectionStatus, setConnectionStatus] = useState<"checking" | "connected" | "disconnected">("checking");
   const [apiBaseUrl, setApiBaseUrl] = useState("");
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [kaggleStatus, setKaggleStatus] = useState<"unconfigured" | "connected" | "error">("unconfigured");
 
-  const fetchKaggleStatus = async () => {
+  const fetchSettings = async () => {
     try {
       const res = await api.getSettings();
       if (!res.kaggle_username || !res.kaggle_key_configured) {
@@ -95,8 +97,11 @@ function App() {
       } else {
         setKaggleStatus("connected");
       }
+      if (res.ui_layout) {
+        setUiLayout(res.ui_layout as "classic" | "modern");
+      }
     } catch (err) {
-      console.error("Lỗi lấy thông tin kết nối Kaggle:", err);
+      console.error("Lỗi lấy cấu hình hệ thống:", err);
     }
   };
 
@@ -136,7 +141,7 @@ function App() {
   useEffect(() => {
     if (token) {
       fetchUser();
-      fetchKaggleStatus();
+      fetchSettings();
     } else {
       setCurrentUser(null);
     }
@@ -307,7 +312,7 @@ function App() {
       {/* Main content */}
       <main className="flex-grow p-6 max-w-7xl w-full mx-auto flex flex-col gap-6 relative">
         {showAdminPortal ? (
-          <AdminDashboard onBack={() => setShowAdminPortal(false)} />
+          <AdminDashboard onBack={() => setShowAdminPortal(false)} onSettingsChanged={fetchSettings} />
         ) : (
           <>
             {/* Settings Modal */}
@@ -327,57 +332,147 @@ function App() {
               }}
             />
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Left Column - Voice setups */}
-              <section className="flex flex-col gap-6">
-                <VoiceSampleUpload onUploadSuccess={handleVoiceSampleActive} />
-                <VoiceDesignPanel 
-                  onAcceptSuccess={handleVoiceSampleActive} 
-                  onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
-                />
-              </section>
+            {uiLayout === "classic" ? (
+              <>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left Column - Voice setups */}
+                  <section className="flex flex-col gap-6">
+                    <VoiceSampleUpload onUploadSuccess={handleVoiceSampleActive} layout="classic" />
+                    <VoiceDesignPanel 
+                      onAcceptSuccess={handleVoiceSampleActive} 
+                      onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
+                      layout="classic"
+                    />
+                  </section>
 
-              {/* Right Column - Generation & Jobs */}
-              <section className="flex flex-col gap-6">
-                {/* Info select helper */}
-                {activeVoiceSampleId ? (
-                  <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/25 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-md">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-indigo-500/10 p-2 rounded-xl text-indigo-400">
-                        <Sparkles className="w-5 h-5" />
+                  {/* Right Column - Generation & Jobs */}
+                  <section className="flex flex-col gap-6">
+                    {/* Info select helper */}
+                    {activeVoiceSampleId ? (
+                      <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/25 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-md">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-indigo-500/10 p-2 rounded-xl text-indigo-400">
+                            <Sparkles className="w-5 h-5" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wide">
+                              Giọng mẫu đã chọn
+                            </span>
+                            <span className="text-xs font-mono font-bold text-slate-200 truncate max-w-[200px] sm:max-w-[300px]">
+                              {activeVoiceSampleId}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setActiveVoiceSampleId(null)}
+                          className="text-xs hover:text-white text-slate-400 border border-slate-800/80 hover:border-slate-700 bg-slate-950 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer font-bold"
+                        >
+                          Hủy chọn
+                        </button>
                       </div>
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wide">
-                          Giọng mẫu đã chọn
-                        </span>
-                        <span className="text-xs font-mono font-bold text-slate-200 truncate max-w-[200px] sm:max-w-[300px]">
-                          {activeVoiceSampleId}
-                        </span>
+                    ) : (
+                      <div className="bg-slate-900 border border-slate-800/50 rounded-2xl p-4 flex items-center gap-3 text-xs text-slate-400">
+                        <Layers className="w-5 h-5 text-slate-600" />
+                        <span>Chưa chọn mẫu giọng. Vui lòng Tải lên một mẫu hoặc Tạo thiết kế giọng ở cột bên trái để bắt đầu Clone.</span>
                       </div>
-                    </div>
-                    <button
-                      onClick={() => setActiveVoiceSampleId(null)}
-                      className="text-xs hover:text-white text-slate-400 border border-slate-800/80 hover:border-slate-700 bg-slate-950 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer font-bold"
-                    >
-                      Hủy chọn
-                    </button>
+                    )}
+
+                    <TTSPanel 
+                      activeVoiceSampleId={activeVoiceSampleId} 
+                      onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
+                      layout="classic"
+                    />
+                  </section>
+                </div>
+
+                {/* Job History Panel */}
+                <JobHistoryPanel refreshTrigger={refreshHistory} layout="classic" />
+              </>
+            ) : (
+              <>
+                {/* Modern Layout tab selector */}
+                <div className="flex gap-2 p-1 bg-slate-900/60 backdrop-blur-md rounded-2xl border border-slate-800/85 self-start shadow-lg">
+                  <button
+                    onClick={() => setModernTab("workspace")}
+                    className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                      modernTab === "workspace"
+                        ? "bg-indigo-500 text-white shadow-md border border-indigo-400/20"
+                        : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Không gian làm việc (Workspace)</span>
+                  </button>
+                  <button
+                    onClick={() => setModernTab("history")}
+                    className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                      modernTab === "history"
+                        ? "bg-indigo-500 text-white shadow-md border border-indigo-400/20"
+                        : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <Layers className="w-4 h-4" />
+                    <span>Lịch sử tác vụ (Job History)</span>
+                  </button>
+                </div>
+
+                {modernTab === "workspace" ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                    {/* Left Column (1/3) - Voice Setup */}
+                    <section className="lg:col-span-1 flex flex-col gap-6">
+                      {activeVoiceSampleId ? (
+                        <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border-2 border-indigo-500/30 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-md">
+                          <div className="flex items-center gap-3">
+                            <div className="bg-indigo-500/10 p-2 rounded-xl text-indigo-400">
+                              <Sparkles className="w-5 h-5" />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[10px] font-bold text-indigo-450 uppercase tracking-wide">
+                                Giọng mẫu hoạt động
+                              </span>
+                              <span className="text-xs font-mono font-bold text-white truncate max-w-[120px] sm:max-w-[180px]">
+                                {activeVoiceSampleId}
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setActiveVoiceSampleId(null)}
+                            className="text-xs hover:text-white text-slate-300 border border-slate-700 bg-slate-900 hover:bg-slate-850 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer font-bold"
+                          >
+                            Hủy chọn
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="bg-slate-950 border-2 border-slate-700/80 rounded-2xl p-4 flex items-center gap-3 text-xs text-slate-300 shadow-md">
+                          <Layers className="w-5 h-5 text-indigo-400 shrink-0" />
+                          <span>Chưa chọn mẫu giọng. Vui lòng tải một mẫu hoặc thiết kế giọng để bắt đầu.</span>
+                        </div>
+                      )}
+
+                      <VoiceSampleUpload onUploadSuccess={handleVoiceSampleActive} layout="modern" />
+                      <VoiceDesignPanel 
+                        onAcceptSuccess={handleVoiceSampleActive} 
+                        onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
+                        layout="modern"
+                      />
+                    </section>
+
+                    {/* Right Column (2/3) - TTS workspace */}
+                    <section className="lg:col-span-2 flex flex-col gap-6">
+                      <TTSPanel 
+                        activeVoiceSampleId={activeVoiceSampleId} 
+                        onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
+                        layout="modern"
+                      />
+                    </section>
                   </div>
                 ) : (
-                  <div className="bg-slate-900 border border-slate-800/50 rounded-2xl p-4 flex items-center gap-3 text-xs text-slate-400">
-                    <Layers className="w-5 h-5 text-slate-600" />
-                    <span>Chưa chọn mẫu giọng. Vui lòng Tải lên một mẫu hoặc Tạo thiết kế giọng ở cột bên trái để bắt đầu Clone.</span>
+                  <div className="w-full">
+                    <JobHistoryPanel refreshTrigger={refreshHistory} layout="modern" />
                   </div>
                 )}
-
-                <TTSPanel 
-                  activeVoiceSampleId={activeVoiceSampleId} 
-                  onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
-                />
-              </section>
-            </div>
-
-            {/* Job History Panel */}
-            <JobHistoryPanel refreshTrigger={refreshHistory} />
+              </>
+            )}
           </>
         )}
       </main>

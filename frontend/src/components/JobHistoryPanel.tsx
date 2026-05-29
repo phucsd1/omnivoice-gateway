@@ -5,9 +5,10 @@ import { AudioPlayer } from "./AudioPlayer";
 
 interface JobHistoryPanelProps {
   refreshTrigger: number;
+  layout?: "classic" | "modern";
 }
 
-export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger }) => {
+export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger, layout = "classic" }) => {
   const [jobs, setJobs] = useState<JobStatusResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -118,7 +119,9 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-5 shadow-lg w-full">
+    <div className={`border rounded-2xl p-6 flex flex-col gap-5 shadow-lg w-full transition-all ${
+      layout === "modern" ? "bg-slate-950 border-2 border-slate-700/90" : "bg-slate-900 border border-slate-800"
+    }`}>
       <div className="flex items-center justify-between border-b border-slate-800 pb-4">
         <div className="flex flex-col gap-1">
           <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">

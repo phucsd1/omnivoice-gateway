@@ -4,9 +4,10 @@ import { api } from "../api/client";
 
 interface VoiceSampleUploadProps {
   onUploadSuccess: (voiceSampleId: string) => void;
+  layout?: "classic" | "modern";
 }
 
-export const VoiceSampleUpload: React.FC<VoiceSampleUploadProps> = ({ onUploadSuccess }) => {
+export const VoiceSampleUpload: React.FC<VoiceSampleUploadProps> = ({ onUploadSuccess, layout = "classic" }) => {
   const [file, setFile] = useState<File | null>(null);
   const [refText, setRefText] = useState("");
   const [isUploading, setIsUploading] = useState(false);
@@ -68,13 +69,15 @@ export const VoiceSampleUpload: React.FC<VoiceSampleUploadProps> = ({ onUploadSu
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-5 shadow-lg">
+    <div className={`rounded-2xl p-6 flex flex-col gap-5 shadow-lg transition-all ${
+      layout === "modern" ? "bg-slate-950 border-2 border-slate-700/90" : "bg-slate-900 border border-slate-800"
+    }`}>
       <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+        <h2 className={`text-lg font-bold flex items-center gap-2 ${layout === "modern" ? "text-white font-extrabold" : "text-slate-100"}`}>
           <Upload className="w-5 h-5 text-indigo-400" />
           <span>1. Tải lên mẫu giọng nói</span>
         </h2>
-        <p className="text-xs text-slate-400">
+        <p className={`text-xs ${layout === "modern" ? "text-slate-300" : "text-slate-400"}`}>
           Upload file âm thanh giọng nói của bạn để hệ thống clone giọng.
         </p>
       </div>

@@ -9,9 +9,10 @@ import { AudioPlayer } from "./AudioPlayer";
 interface VoiceDesignPanelProps {
   onAcceptSuccess: (voiceSampleId: string) => void;
   onJobCreatedOrUpdated?: () => void;
+  layout?: "classic" | "modern";
 }
 
-export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSuccess, onJobCreatedOrUpdated }) => {
+export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSuccess, onJobCreatedOrUpdated, layout = "classic" }) => {
   const [voiceRequest, setVoiceRequest] = useState("Giọng nữ trẻ, trầm, nhẹ nhàng, tự nhiên");
   const [previewText, setPreviewText] = useState("Xin chào, đây là giọng nói thiết kế thử nghiệm của OmniVoice.");
   const [loading, setLoading] = useState(false);
@@ -199,13 +200,15 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-5 shadow-lg">
+    <div className={`rounded-2xl p-6 flex flex-col gap-5 shadow-lg transition-all ${
+      layout === "modern" ? "bg-slate-950 border-2 border-slate-700/90" : "bg-slate-900 border border-slate-800"
+    }`}>
       <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+        <h2 className={`text-lg font-bold flex items-center gap-2 ${layout === "modern" ? "text-white font-extrabold" : "text-slate-100"}`}>
           <Mic className="w-5 h-5 text-indigo-400" />
           <span>2. Thiết kế giọng nói (Voice Design Preview)</span>
         </h2>
-        <p className="text-xs text-slate-400">
+        <p className={`text-xs ${layout === "modern" ? "text-slate-300" : "text-slate-400"}`}>
           Mô tả kiểu giọng nói bạn muốn thiết kế bằng tiếng Việt, nghe thử rồi chấp nhận để clone.
         </p>
       </div>
