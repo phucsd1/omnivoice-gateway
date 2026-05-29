@@ -8,9 +8,10 @@ import { AudioPlayer } from "./AudioPlayer";
 
 interface TTSPanelProps {
   activeVoiceSampleId: string | null;
+  onJobCreatedOrUpdated?: () => void;
 }
 
-export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId }) => {
+export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCreatedOrUpdated }) => {
   const [mode, setMode] = useState<"clone_voice" | "auto_voice" | "voice_design">("clone_voice");
   const [text, setText] = useState("Học sinh hôm nay được nghỉ học do thời tiết xấu. Xin nhắc lại, học sinh được nghỉ học.");
   const [customVoiceSampleId, setCustomVoiceSampleId] = useState("");
@@ -179,6 +180,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId }) => {
         error_message: null,
       });
       setIsPolling(true);
+      onJobCreatedOrUpdated?.();
     } catch (err: any) {
       setErrorMsg(err.message || "Không thể khởi tạo tiến trình TTS.");
       setLoading(false);
@@ -194,6 +196,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId }) => {
 
           if (status.status === "completed" || status.status === "failed") {
             stopPolling();
+            onJobCreatedOrUpdated?.();
           }
         } catch (err: any) {
           setErrorMsg(`Lỗi khi thăm dò trạng thái: ${err.message}`);

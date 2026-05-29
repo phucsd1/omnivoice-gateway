@@ -29,7 +29,10 @@ def list_jobs(response: Response, db: Session = Depends(get_db), current_user: U
                 message=job.message,
                 progress=job.progress,
                 audio_url=audio_url,
-                error_message=job.error_message
+                error_message=job.error_message,
+                job_type=job.job_type,
+                text=job.text,
+                created_at=job.created_at
             )
         )
     return result
@@ -61,5 +64,8 @@ def get_job_status(job_id: str, response: Response, db: Session = Depends(get_db
         message=job.message,
         progress=job.progress,
         audio_url=audio_url,
-        error_message=job.error_message
+        error_message=job.error_message,
+        job_type=job.job_type,
+        text=job.text,
+        created_at=job.created_at
     )

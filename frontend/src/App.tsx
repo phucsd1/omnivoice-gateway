@@ -10,6 +10,7 @@ import { ApiKeyPanel } from "./components/ApiKeyPanel";
 import { ApiDocsPage } from "./components/ApiDocsPage";
 import { LoginRegister } from "./components/LoginRegister";
 import { AdminDashboard } from "./components/AdminDashboard";
+import { JobHistoryPanel } from "./components/JobHistoryPanel";
 
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem("VITE_JWT_TOKEN"));
@@ -76,6 +77,10 @@ function App() {
   const [currentUser, setCurrentUser] = useState<{ username: string; is_admin: boolean } | null>(null);
   const [showAdminPortal, setShowAdminPortal] = useState(false);
   const [activeVoiceSampleId, setActiveVoiceSampleId] = useState<string | null>(null);
+  const [refreshHistory, setRefreshHistory] = useState(0);
+  const handleJobCreatedOrUpdated = () => {
+    setRefreshHistory(prev => prev + 1);
+  };
   const [connectionStatus, setConnectionStatus] = useState<"checking" | "connected" | "disconnected">("checking");
   const [apiBaseUrl, setApiBaseUrl] = useState("");
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -326,7 +331,10 @@ function App() {
               {/* Left Column - Voice setups */}
               <section className="flex flex-col gap-6">
                 <VoiceSampleUpload onUploadSuccess={handleVoiceSampleActive} />
-                <VoiceDesignPanel onAcceptSuccess={handleVoiceSampleActive} />
+                <VoiceDesignPanel 
+                  onAcceptSuccess={handleVoiceSampleActive} 
+                  onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
+                />
               </section>
 
               {/* Right Column - Generation & Jobs */}
@@ -361,9 +369,15 @@ function App() {
                   </div>
                 )}
 
-                <TTSPanel activeVoiceSampleId={activeVoiceSampleId} />
+                <TTSPanel 
+                  activeVoiceSampleId={activeVoiceSampleId} 
+                  onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
+                />
               </section>
             </div>
+
+            {/* Job History Panel */}
+            <JobHistoryPanel refreshTrigger={refreshHistory} />
           </>
         )}
       </main>

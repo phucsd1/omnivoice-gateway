@@ -8,9 +8,10 @@ import { AudioPlayer } from "./AudioPlayer";
 
 interface VoiceDesignPanelProps {
   onAcceptSuccess: (voiceSampleId: string) => void;
+  onJobCreatedOrUpdated?: () => void;
 }
 
-export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSuccess }) => {
+export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSuccess, onJobCreatedOrUpdated }) => {
   const [voiceRequest, setVoiceRequest] = useState("Giọng nữ trẻ, trầm, nhẹ nhàng, tự nhiên");
   const [previewText, setPreviewText] = useState("Xin chào, đây là giọng nói thiết kế thử nghiệm của OmniVoice.");
   const [loading, setLoading] = useState(false);
@@ -87,6 +88,7 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
         error_message: null,
       });
       setIsPolling(true);
+      onJobCreatedOrUpdated?.();
     } catch (err: any) {
       setErrorMsg(err.message || "Không thể gửi yêu cầu thiết kế giọng nói.");
       setLoading(false);
@@ -103,6 +105,7 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
 
           if (status.status === "completed" || status.status === "failed") {
             stopPolling();
+            onJobCreatedOrUpdated?.();
           }
         } catch (err: any) {
           setErrorMsg(`Lỗi khi thăm dò trạng thái: ${err.message}`);

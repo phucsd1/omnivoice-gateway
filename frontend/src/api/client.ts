@@ -76,6 +76,9 @@ export interface JobStatusResponse {
   progress: number;
   audio_url: string | null;
   error_message: string | null;
+  job_type?: string;
+  text?: string;
+  created_at?: string;
 }
 
 export interface ApiKeyResponse {
@@ -256,6 +259,10 @@ export const api = {
   
   getJobStatus: async (jobId: string): Promise<JobStatusResponse> => {
     return request<JobStatusResponse>(`/v1/jobs/${jobId}?t=${Date.now()}`);
+  },
+  
+  listJobs: async (): Promise<JobStatusResponse[]> => {
+    return request<JobStatusResponse[]>("/v1/jobs");
   },
 
   getSettings: async (): Promise<SystemSettings> => {

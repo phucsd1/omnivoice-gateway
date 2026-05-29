@@ -104,6 +104,9 @@ class JobStatusResponse(BaseModel):
     progress: int
     audio_url: Optional[str] = None
     error_message: Optional[str] = None
+    job_type: Optional[str] = None
+    text: Optional[str] = None
+    created_at: Optional[datetime] = None
 
 # Worker related schemas
 class WorkerRegisterRequest(BaseModel):
