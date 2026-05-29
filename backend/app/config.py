@@ -74,3 +74,9 @@ class Settings(BaseSettings):
         return os.path.join(self.STORAGE_DIR, "outputs")
 
 settings = Settings()
+
+# Check for Hugging Face Spaces Persistent Storage (/data is mounted and writable)
+if os.path.exists("/data") and os.access("/data", os.W_OK):
+    print("[Config] Persistent storage detected at /data. Redirecting SQLite database and Storage directories.")
+    settings.DATABASE_URL = "sqlite:////data/omnivoice_gateway.db"
+    settings.STORAGE_DIR = "/data/storage"
