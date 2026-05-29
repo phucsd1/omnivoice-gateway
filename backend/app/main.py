@@ -155,8 +155,20 @@ app.add_middleware(
 @app.middleware("http")
 async def log_api_usage(request: Request, call_next):
     path = request.url.path
+    
+    # Exclude high-frequency polling and worker endpoints from DB logging
+    is_polling = (
+        path.startswith("/v1/internal/worker")
+        or path.startswith("/v1/auth/me")
+        or (request.method == "GET" and (
+            (path.startswith("/v1/tts/jobs/") and len(path) > 13)
+            or (path.startswith("/v1/voice-design/previews/") and len(path) > 26)
+        ))
+    )
+    
     is_loggable = (
         request.method != "OPTIONS"
+        and not is_polling
         and not path.startswith("/health")
         and not path.startswith("/docs")
         and not path.startswith("/redoc")
