@@ -205,7 +205,7 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
   return (
     <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-6 flex flex-col gap-6 shadow-xl transition-all duration-200">
       <div className="flex flex-col gap-1">
-        <h2 className="text-xl font-bold flex items-center gap-2 text-white">
+        <h2 className="text-xl font-bold flex items-center gap-2 text-slate-100">
           <Mic className="w-5.5 h-5.5 text-slate-350" />
           <span>2. Thiết kế giọng nói (Voice Design Preview)</span>
         </h2>
@@ -469,7 +469,7 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
           disabled={loading || !voiceRequest || !previewText}
           className={`w-full py-3 px-6 rounded-full font-bold text-sm transition-all duration-155 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer shadow-md ${
             !loading && voiceRequest && previewText
-              ? "bg-slate-100 text-slate-950 hover:bg-white border border-slate-200/10"
+              ? "bg-slate-100 text-slate-950 hover:bg-slate-200 border border-slate-200/10"
               : "bg-slate-800 text-slate-500 cursor-not-allowed"
           }`}
         >
@@ -602,14 +602,14 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Chế độ chia sẻ</label>
-                <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-850">
                   <button
                     type="button"
                     onClick={() => setSaveVoiceIsPublic(false)}
                     className={`py-2 px-1 text-center font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                       !saveVoiceIsPublic
-                        ? "bg-slate-800 text-white shadow-sm"
-                        : "text-slate-450 hover:text-slate-300"
+                        ? "bg-slate-850 text-slate-100 border border-slate-800/80 shadow-sm"
+                        : "text-slate-500 hover:text-slate-350"
                     }`}
                   >
                     <Lock className="w-3.5 h-3.5" />
@@ -620,8 +620,8 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
                     onClick={() => setSaveVoiceIsPublic(true)}
                     className={`py-2 px-1 text-center font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                       saveVoiceIsPublic
-                        ? "bg-indigo-600 text-white shadow-sm"
-                        : "text-slate-450 hover:text-slate-300"
+                        ? "bg-slate-850 text-slate-100 border border-slate-800/80 shadow-sm"
+                        : "text-slate-500 hover:text-slate-350"
                     }`}
                   >
                     <Globe className="w-3.5 h-3.5" />
@@ -643,7 +643,7 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
                 type="button"
                 onClick={handleSaveVoiceSubmit}
                 disabled={isSavingVoice || !saveVoiceName || !saveVoiceRefText}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-xs font-bold text-white rounded-lg cursor-pointer transition-colors"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 disabled:bg-slate-800 disabled:text-slate-500 text-xs font-bold text-slate-950 rounded-lg cursor-pointer transition-colors border border-slate-200/10 shadow-sm"
               >
                 {isSavingVoice ? "Đang lưu..." : "Xác nhận Lưu"}
               </button>

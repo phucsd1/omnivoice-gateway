@@ -78,7 +78,7 @@ export const ApiKeyPanel: React.FC<ApiKeyPanelProps> = ({ isOpen, onClose, onNav
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-2xl w-full flex flex-col gap-4 shadow-2xl relative animate-fadeIn max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}
-          className="absolute right-5 top-5 text-slate-400 hover:text-white cursor-pointer"
+          className="absolute right-5 top-5 text-slate-400 hover:text-slate-100 cursor-pointer"
           title="Đóng"
         >
           <X className="w-4.5 h-4.5" />

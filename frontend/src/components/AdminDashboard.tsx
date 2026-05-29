@@ -298,13 +298,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl text-slate-400 hover:text-white cursor-pointer transition-colors"
+            className="p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl text-slate-400 hover:text-slate-100 cursor-pointer transition-colors"
             title="Quay lại Dashboard"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h2 className="text-lg font-black tracking-tight text-white flex items-center gap-2">
+            <h2 className="text-lg font-black tracking-tight text-slate-100 flex items-center gap-2">
               <span>Admin Portal</span>
               <span className="text-[10px] bg-rose-500/20 text-rose-300 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                 Quản trị viên
@@ -331,7 +331,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
           <button
             onClick={loadData}
             disabled={loading}
-            className="flex items-center gap-1.5 bg-slate-950 hover:bg-slate-800 disabled:opacity-50 text-xs font-bold px-3.5 py-2 border border-slate-800 hover:border-slate-700 rounded-xl text-slate-300 hover:text-white transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 bg-slate-950 hover:bg-slate-800 disabled:opacity-50 text-xs font-bold px-3.5 py-2 border border-slate-800 hover:border-slate-700 rounded-xl text-slate-300 hover:text-slate-100 transition-colors cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             <span>Làm mới</span>
@@ -509,7 +509,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
                           </button>
                           <button
                             onClick={() => handleOpenEditModal(user)}
-                            className="p-1.5 bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg cursor-pointer transition-colors"
+                            className="p-1.5 bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg cursor-pointer transition-colors"
                             title="Sửa thông tin"
                           >
                             <Pencil className="w-4 h-4" />
@@ -699,15 +699,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
               <>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-2xl flex flex-col gap-1">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tổng số User</span>
-                  <span className="text-3xl font-black text-white">{stats.total_users}</span>
-                  <p className="text-[10px] text-emerald-400 font-semibold mt-2 flex items-center gap-1">
+                  <span className="text-3xl font-black text-slate-100">{stats.total_users}</span>
+                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-2 flex items-center gap-1">
                     <ShieldCheck className="w-3.5 h-3.5" />
                     <span>{stats.verified_users} người dùng đã xác thực OTP</span>
                   </p>
                 </div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-2xl flex flex-col gap-1">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tổng cuộc gọi API</span>
-                  <span className="text-3xl font-black text-white">{stats.total_api_calls}</span>
+                  <span className="text-3xl font-black text-slate-100">{stats.total_api_calls}</span>
                   <p className="text-[10px] text-slate-500 font-semibold mt-2 flex items-center gap-1">
                     <Globe className="w-3.5 h-3.5" />
                     <span>Ghi nhận từ HTTP requests Gateway</span>
@@ -715,9 +715,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
                 </div>
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-2xl flex flex-col gap-1">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">TTS Jobs hoạt động</span>
-                  <span className="text-3xl font-black text-indigo-400">{stats.active_jobs}</span>
+                  <span className="text-3xl font-black text-indigo-600 dark:text-indigo-400">{stats.active_jobs}</span>
                   <p className="text-[10px] text-slate-500 font-semibold mt-2">
-                    Tổng Job chạy: <strong className="text-emerald-400">{stats.completed_jobs} OK</strong> / <strong className="text-rose-500">{stats.failed_jobs} Lỗi</strong>
+                    Tổng Job chạy: <strong className="text-emerald-600 dark:text-emerald-400">{stats.completed_jobs} OK</strong> / <strong className="text-rose-600 dark:text-rose-500">{stats.failed_jobs} Lỗi</strong>
                   </p>
                 </div>
               </>
@@ -813,7 +813,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
           <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 flex flex-col gap-4 shadow-2xl relative">
             <button
               onClick={() => setShowCreateModal(false)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-white cursor-pointer"
+              className="absolute right-4 top-4 text-slate-400 hover:text-slate-100 cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -915,7 +915,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
           <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 flex flex-col gap-4 shadow-2xl relative">
             <button
               onClick={() => setEditingUser(null)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-white cursor-pointer"
+              className="absolute right-4 top-4 text-slate-400 hover:text-slate-100 cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -1017,7 +1017,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
           <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 flex flex-col gap-4 shadow-2xl relative max-h-[85vh] overflow-y-auto">
             <button
               onClick={() => setKeysUser(null)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-white cursor-pointer"
+              className="absolute right-4 top-4 text-slate-400 hover:text-slate-100 cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>

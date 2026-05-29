@@ -71,7 +71,7 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({ onUseVoice
       {/* Header Info */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex flex-col gap-1">
-          <h2 className="text-xl font-extrabold text-white flex items-center gap-2.5">
+          <h2 className="text-xl font-extrabold text-slate-100 flex items-center gap-2.5">
             <Volume2 className="w-5 h-5 text-indigo-400 animate-pulse" />
             <span>Thư viện Giọng nói (Voice Library)</span>
           </h2>
@@ -100,7 +100,7 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({ onUseVoice
           <button
             onClick={() => setFilter("all")}
             className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              filter === "all" ? "bg-slate-850 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
+              filter === "all" ? "bg-slate-850 text-slate-100 shadow-sm" : "text-slate-400 hover:text-slate-200"
             }`}
           >
             Tất cả ({voices.length})
@@ -108,7 +108,7 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({ onUseVoice
           <button
             onClick={() => setFilter("private")}
             className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              filter === "private" ? "bg-slate-850 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
+              filter === "private" ? "bg-slate-850 text-slate-100 shadow-sm" : "text-slate-400 hover:text-slate-200"
             }`}
           >
             Cá nhân ({voices.filter(v => !v.is_public).length})
@@ -116,7 +116,7 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({ onUseVoice
           <button
             onClick={() => setFilter("public")}
             className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              filter === "public" ? "bg-slate-850 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
+              filter === "public" ? "bg-slate-850 text-slate-100 shadow-sm" : "text-slate-400 hover:text-slate-200"
             }`}
           >
             Cộng đồng ({voices.filter(v => v.is_public).length})
@@ -174,7 +174,7 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({ onUseVoice
                 {/* Top Info */}
                 <div className="flex flex-col gap-2.5">
                   <div className="flex justify-between items-start gap-2">
-                    <span className="font-extrabold text-sm text-white truncate group-hover:text-slate-300 transition-colors">
+                    <span className="font-extrabold text-sm text-slate-100 truncate group-hover:text-slate-250 transition-colors">
                       {voice.name || "Giọng không tên"}
                     </span>
                     <div className="flex items-center gap-1.5 shrink-0">
@@ -239,7 +239,7 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({ onUseVoice
                   <div className="flex gap-2 mt-1">
                     <button
                       onClick={() => onUseVoice(voice.id)}
-                      className="flex-grow py-2 px-3 bg-slate-100 text-slate-950 hover:bg-white font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm hover:translate-y-[-0.5px]"
+                      className="flex-grow py-2 px-3 bg-slate-100 text-slate-950 hover:bg-slate-200 font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm hover:translate-y-[-0.5px]"
                     >
                       <Sparkles className="w-3.5 h-3.5 fill-current" />
                       <span>Sử dụng</span>

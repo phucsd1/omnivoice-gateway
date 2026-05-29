@@ -82,7 +82,7 @@ export const VoiceSampleUpload: React.FC<VoiceSampleUploadProps> = ({ onUploadSu
       layout === "modern" ? "bg-slate-950 border-2 border-slate-700/90" : "bg-slate-900 border border-slate-800"
     }`}>
       <div className="flex flex-col gap-1">
-        <h2 className={`text-lg font-bold flex items-center gap-2 ${layout === "modern" ? "text-white font-extrabold" : "text-slate-100"}`}>
+        <h2 className={`text-lg font-bold flex items-center gap-2 ${layout === "modern" ? "text-slate-100 font-extrabold" : "text-slate-100"}`}>
           <Upload className="w-5 h-5 text-indigo-400" />
           <span>1. Tải lên mẫu giọng nói</span>
         </h2>
@@ -208,7 +208,7 @@ export const VoiceSampleUpload: React.FC<VoiceSampleUploadProps> = ({ onUploadSu
           disabled={!file || isUploading}
           className={`w-full py-3 px-6 rounded-full font-bold text-sm transition-all duration-150 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer shadow-md border ${
             file && !isUploading
-              ? "bg-slate-100 text-slate-950 hover:bg-white border-slate-200/10"
+              ? "bg-slate-100 text-slate-950 hover:bg-slate-200 border-slate-200/10"
               : "bg-slate-800 text-slate-500 border-transparent cursor-not-allowed"
           }`}
         >

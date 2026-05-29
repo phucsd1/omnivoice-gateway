@@ -12,77 +12,77 @@ interface JobStatusCardProps {
 const statusMap: Record<string, { label: string; color: string; icon: any }> = {
   queued: {
     label: "Đang xếp hàng chờ",
-    color: "text-slate-400 bg-slate-500/10 border-slate-500/20",
+    color: "text-slate-650 dark:text-slate-400 bg-slate-500/10 border-slate-500/20",
     icon: Info,
   },
   queued_kaggle: {
     label: "Kaggle đang xếp hàng chờ cấp GPU",
-    color: "text-amber-400 bg-slate-500/10 border-slate-500/20",
+    color: "text-amber-700 dark:text-amber-400 bg-slate-500/10 border-slate-500/20",
     icon: Loader2,
   },
   preparing_input: {
     label: "Đang chuẩn bị dữ liệu đầu vào",
-    color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+    color: "text-amber-700 dark:text-amber-400 bg-amber-500/10 border-amber-500/20",
     icon: Loader2,
   },
   starting_worker: {
     label: "Đang khởi tạo máy chủ xử lý giọng nói",
-    color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+    color: "text-amber-700 dark:text-amber-400 bg-amber-500/10 border-amber-500/20",
     icon: Loader2,
   },
   booting_kaggle: {
     label: "Đang khởi động Kaggle Worker",
-    color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+    color: "text-amber-700 dark:text-amber-400 bg-amber-500/10 border-amber-500/20",
     icon: Loader2,
   },
   installing_runtime: {
     label: "Đang cài đặt môi trường chạy",
-    color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+    color: "text-amber-700 dark:text-amber-400 bg-amber-500/10 border-amber-500/20",
     icon: Loader2,
   },
   loading_model: {
     label: "Đang tải mô hình OmniVoice",
-    color: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20",
+    color: "text-cyan-700 dark:text-cyan-400 bg-cyan-500/10 border-cyan-500/20",
     icon: Loader2,
   },
   transcribing_ref: {
     label: "Đang chuyển mã giọng tham chiếu",
-    color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
+    color: "text-indigo-700 dark:text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
     icon: Loader2,
   },
   generating_preview: {
     label: "Đang tạo bản nghe thử",
-    color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
+    color: "text-indigo-700 dark:text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
     icon: Loader2,
   },
   normalizing_sample: {
     label: "Đang chuẩn hóa âm thanh mẫu",
-    color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
+    color: "text-indigo-700 dark:text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
     icon: Loader2,
   },
   cloning_voice: {
     label: "Đang xử lý âm thanh clone",
-    color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
+    color: "text-indigo-700 dark:text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
     icon: Loader2,
   },
   generating_audio: {
     label: "Đang xử lý âm thanh",
-    color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
+    color: "text-indigo-700 dark:text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
     icon: Loader2,
   },
   exporting_wav: {
     label: "Đang xuất tệp âm thanh WAV",
-    color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
+    color: "text-indigo-700 dark:text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
     icon: Loader2,
   },
   completed: {
     label: "Hoàn tất",
-    color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
+    color: "text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
     icon: CheckCircle2,
   },
   failed: {
     label: "Lỗi xử lý",
-    color: "text-rose-400 bg-rose-500/10 border-rose-500/20",
+    color: "text-rose-700 dark:text-rose-400 bg-rose-500/10 border-rose-500/20",
     icon: AlertCircle,
   },
 };

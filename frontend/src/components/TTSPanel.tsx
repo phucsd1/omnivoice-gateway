@@ -249,7 +249,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
   return (
     <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-6 flex flex-col gap-6 shadow-xl transition-all duration-200">
       <div className="flex flex-col gap-1">
-        <h2 className="text-xl font-bold flex items-center gap-2 text-white">
+        <h2 className="text-xl font-bold flex items-center gap-2 text-slate-100">
           <AudioLines className="w-5.5 h-5.5 text-slate-350" />
           <span>Chuyển đổi văn bản thành giọng nói</span>
         </h2>
@@ -268,7 +268,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
                 onClick={() => setMode("clone_voice")}
                 className={`py-2 px-3 text-center font-bold text-xs rounded-xl transition-all cursor-pointer ${
                   mode === "clone_voice"
-                    ? "bg-slate-900 border border-slate-800/80 text-white shadow-sm"
+                    ? "bg-slate-900 border border-slate-800/80 text-slate-100 shadow-sm"
                     : "text-slate-500 hover:text-slate-200"
                 }`}
               >
@@ -279,7 +279,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
                 onClick={() => setMode("auto_voice")}
                 className={`py-2 px-3 text-center font-bold text-xs rounded-xl transition-all cursor-pointer ${
                   mode === "auto_voice"
-                    ? "bg-slate-900 border border-slate-800/80 text-white shadow-sm"
+                    ? "bg-slate-900 border border-slate-800/80 text-slate-100 shadow-sm"
                     : "text-slate-500 hover:text-slate-200"
                 }`}
               >
@@ -291,7 +291,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
                   onClick={() => setMode("voice_design")}
                   className={`py-2 px-3 text-center font-bold text-xs rounded-xl transition-all cursor-pointer ${
                     mode === "voice_design"
-                      ? "bg-slate-900 border border-slate-800/80 text-white shadow-sm"
+                      ? "bg-slate-900 border border-slate-800/80 text-slate-100 shadow-sm"
                       : "text-slate-500 hover:text-slate-200"
                   }`}
                 >
@@ -704,7 +704,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
           disabled={loading || !text}
           className={`w-full py-3 px-6 rounded-full font-bold text-sm transition-all duration-150 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer shadow-md ${
             !loading && text
-              ? "bg-slate-100 text-slate-950 hover:bg-white border border-slate-200/10"
+              ? "bg-slate-100 text-slate-950 hover:bg-slate-200 border border-slate-200/10"
               : "bg-slate-800 text-slate-500 cursor-not-allowed"
           }`}
         >
@@ -824,7 +824,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
                     onClick={() => setSaveVoiceIsPublic(false)}
                     className={`py-2 px-1 text-center font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                       !saveVoiceIsPublic
-                        ? "bg-slate-800 text-white shadow-sm"
+                        ? "bg-slate-800 text-slate-100 shadow-sm"
                         : "text-slate-450 hover:text-slate-300"
                     }`}
                   >

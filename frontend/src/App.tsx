@@ -18,7 +18,7 @@ function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
   
   const [theme, setTheme] = useState<"light" | "dark" | "system">(() => {
-    return (localStorage.getItem("theme") as "light" | "dark" | "system") || "system";
+    return (localStorage.getItem("theme") as "light" | "dark" | "system") || "light";
   });
 
   useEffect(() => {
@@ -301,7 +301,7 @@ function App() {
 
             <button
               onClick={checkHealth}
-              className="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer"
+              className="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-300 hover:text-slate-100 transition-colors cursor-pointer"
               title="Refresh Health"
             >
               <RefreshCw className="w-3.5 h-3.5" />
@@ -366,7 +366,7 @@ function App() {
                         </div>
                         <button
                           onClick={() => setActiveVoiceSampleId(null)}
-                          className="text-xs hover:text-white text-slate-400 border border-slate-800/80 hover:border-slate-700 bg-slate-950 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer font-bold"
+                          className="text-xs hover:text-slate-100 text-slate-400 border border-slate-800/80 hover:border-slate-700 bg-slate-950 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer font-bold"
                         >
                           Hủy chọn
                         </button>
@@ -397,7 +397,7 @@ function App() {
                     onClick={() => setModernTab("workspace")}
                     className={`pb-3.5 pt-1 px-1 text-xs font-bold transition-all relative cursor-pointer flex items-center gap-2 ${
                       modernTab === "workspace"
-                        ? "text-white font-extrabold"
+                        ? "text-slate-100 font-extrabold"
                         : "text-slate-500 hover:text-slate-350"
                     }`}
                   >
@@ -411,7 +411,7 @@ function App() {
                     onClick={() => setModernTab("library")}
                     className={`pb-3.5 pt-1 px-1 text-xs font-bold transition-all relative cursor-pointer flex items-center gap-2 ${
                       modernTab === "library"
-                        ? "text-white font-extrabold"
+                        ? "text-slate-100 font-extrabold"
                         : "text-slate-500 hover:text-slate-350"
                     }`}
                   >
@@ -425,7 +425,7 @@ function App() {
                     onClick={() => setModernTab("history")}
                     className={`pb-3.5 pt-1 px-1 text-xs font-bold transition-all relative cursor-pointer flex items-center gap-2 ${
                       modernTab === "history"
-                        ? "text-white font-extrabold"
+                        ? "text-slate-100 font-extrabold"
                         : "text-slate-500 hover:text-slate-355"
                     }`}
                   >
@@ -451,14 +451,14 @@ function App() {
                               <span className="text-[10px] font-bold text-indigo-450 uppercase tracking-wide">
                                 Giọng mẫu hoạt động
                               </span>
-                              <span className="text-xs font-mono font-bold text-white truncate max-w-[120px] sm:max-w-[180px]">
+                              <span className="text-xs font-mono font-bold text-slate-100 truncate max-w-[120px] sm:max-w-[180px]">
                                 {activeVoiceSampleId}
                               </span>
                             </div>
                           </div>
                           <button
                             onClick={() => setActiveVoiceSampleId(null)}
-                            className="text-xs hover:text-white text-slate-300 border border-slate-700 bg-slate-900 hover:bg-slate-850 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer font-bold"
+                            className="text-xs hover:text-slate-100 text-slate-300 border border-slate-700 bg-slate-900 hover:bg-slate-850 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer font-bold"
                           >
                             Hủy chọn
                           </button>

@@ -128,7 +128,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
         {/* Play/Pause Button */}
         <button
           onClick={togglePlay}
-          className="w-8 h-8 rounded-full border border-slate-800 hover:border-slate-600 bg-slate-900/60 hover:bg-slate-850 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-sm"
+          className="w-8 h-8 rounded-full border border-slate-800 hover:border-slate-600 bg-slate-900/60 hover:bg-slate-850 text-slate-300 hover:text-slate-100 flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-sm"
           title={isPlaying ? "Tạm dừng" : "Phát"}
         >
           {isPlaying ? (
@@ -173,7 +173,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
         <div className="relative shrink-0 flex items-center">
           <button
             onClick={() => setShowSpeedMenu(!showSpeedMenu)}
-            className="px-1.5 py-0.5 bg-slate-950 hover:bg-slate-850 border border-slate-800 rounded text-[9px] font-bold text-slate-400 hover:text-slate-200 transition-colors cursor-pointer select-none"
+            className="px-1.5 py-0.5 bg-slate-950 hover:bg-slate-850 border border-slate-800 rounded text-[9px] font-bold text-slate-400 hover:text-slate-100 transition-colors cursor-pointer select-none"
           >
             {playbackRate.toFixed(1)}x
           </button>
@@ -192,7 +192,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
                     className={`px-2 py-0.5 text-left rounded-lg text-[9px] font-bold transition-colors cursor-pointer w-full ${
                       playbackRate === s
                         ? "bg-slate-100 text-slate-950"
-                        : "text-slate-400 hover:text-slate-200 hover:bg-slate-850"
+                        : "text-slate-400 hover:text-slate-100 hover:bg-slate-850"
                     }`}
                   >
                     {s.toFixed(2)}x
@@ -207,7 +207,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={toggleMute}
-            className="text-slate-400 hover:text-slate-200 transition-colors cursor-pointer p-0.5"
+            className="text-slate-400 hover:text-slate-100 transition-colors cursor-pointer p-0.5"
             title={isMuted ? "Bật âm thanh" : "Tắt âm thanh"}
           >
             {isMuted || volume === 0 ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
@@ -230,7 +230,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
         {/* Download Button */}
         <button
           onClick={handleDownload}
-          className="text-slate-400 hover:text-slate-200 transition-colors cursor-pointer p-0.5 shrink-0"
+          className="text-slate-400 hover:text-slate-100 transition-colors cursor-pointer p-0.5 shrink-0"
           title="Tải xuống tệp WAV"
         >
           <Download className="w-3.5 h-3.5" />

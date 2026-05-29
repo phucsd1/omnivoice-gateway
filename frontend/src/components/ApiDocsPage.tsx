@@ -194,7 +194,7 @@ generateSpeech();`
           <div className="w-px h-6 bg-slate-800" />
           <div className="flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-indigo-400" />
-            <h1 className="text-sm font-bold text-white tracking-tight">Tài liệu API Tích hợp</h1>
+            <h1 className="text-sm font-bold text-slate-100 tracking-tight">Tài liệu API Tích hợp</h1>
           </div>
         </div>
 
@@ -250,7 +250,7 @@ generateSpeech();`
             </p>
 
             <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl font-mono text-[11px] text-indigo-300 select-all leading-normal">
-              Authorization: Bearer <span className="text-white font-bold">{activeKey}</span>
+              Authorization: Bearer <span className="text-slate-100 font-bold">{activeKey}</span>
             </div>
 
             {!isLoggedIn ? (
@@ -280,7 +280,7 @@ generateSpeech();`
                 <span className="font-mono text-indigo-300 font-bold">mode</span>
                 <span className="text-slate-500 text-[10px] ml-2 font-semibold">(Bắt buộc)</span>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Chế độ sinh. Gồm: <code className="text-white bg-slate-950 px-1 py-0.5 rounded font-mono">auto_voice</code> (giọng tự động), <code className="text-white bg-slate-950 px-1 py-0.5 rounded font-mono">clone_voice</code> (nhân bản), <code className="text-white bg-slate-950 px-1 py-0.5 rounded font-mono">voice_design</code> (thiết kế).
+                  Chế độ sinh. Gồm: <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">auto_voice</code> (giọng tự động), <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">clone_voice</code> (nhân bản), <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">voice_design</code> (thiết kế).
                 </p>
               </div>
 
@@ -296,7 +296,7 @@ generateSpeech();`
                 <span className="font-mono text-indigo-300 font-bold">ref_text</span>
                 <span className="text-slate-500 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Văn bản của tệp ghi âm giọng mẫu tham chiếu khi dùng chế độ <code className="text-white font-mono">clone_voice</code>. Nếu bỏ trống, worker sẽ tự trích xuất bằng Whisper ASR.
+                  Văn bản của tệp ghi âm giọng mẫu tham chiếu khi dùng chế độ <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">clone_voice</code>. Nếu bỏ trống, worker sẽ tự trích xuất bằng Whisper ASR.
                 </p>
               </div>
 
@@ -304,7 +304,7 @@ generateSpeech();`
                 <span className="font-mono text-indigo-300 font-bold">speed</span>
                 <span className="text-slate-500 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Tốc độ đọc giọng nói (từ <code className="text-white font-mono">0.5</code> đến <code className="text-white font-mono">2.0</code>). Mặc định là <code className="text-white font-mono">1.0</code>.
+                  Tốc độ đọc giọng nói (từ <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">0.5</code> đến <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">2.0</code>). Mặc định là <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">1.0</code>.
                 </p>
               </div>
 
@@ -312,7 +312,7 @@ generateSpeech();`
                 <span className="font-mono text-indigo-300 font-bold">num_step</span>
                 <span className="text-slate-500 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Số bước suy diễn mạng nơ-ron (chất lượng âm thanh). Từ <code className="text-white font-mono">16</code> đến <code className="text-white font-mono">64</code>. Mặc định là <code className="text-white font-mono">32</code>.
+                  Số bước suy diễn mạng nơ-ron (chất lượng âm thanh). Từ <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">16</code> đến <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">64</code>. Mặc định là <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">32</code>.
                 </p>
               </div>
 
@@ -320,7 +320,7 @@ generateSpeech();`
                 <span className="font-mono text-indigo-300 font-bold">denoise</span>
                 <span className="text-slate-500 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Lọc nhiễu âm thanh đầu ra. Kiểu boolean (<code className="text-white font-mono">true</code> / <code className="text-white font-mono">false</code>). Mặc định là <code className="text-white font-mono">true</code>.
+                  Lọc nhiễu âm thanh đầu ra. Kiểu boolean (<code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">true</code> / <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">false</code>). Mặc định là <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">true</code>.
                 </p>
               </div>
 
@@ -328,7 +328,7 @@ generateSpeech();`
                 <span className="font-mono text-indigo-300 font-bold">guidance_scale</span>
                 <span className="text-slate-500 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Mức độ bám sát điều kiện mô tả (Classifier-free guidance). Mặc định là <code className="text-white font-mono">2.0</code>.
+                  Mức độ bám sát điều kiện mô tả (Classifier-free guidance). Mặc định là <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">2.0</code>.
                 </p>
               </div>
 
@@ -336,7 +336,7 @@ generateSpeech();`
                 <span className="font-mono text-indigo-300 font-bold">t_shift</span>
                 <span className="text-slate-500 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Độ dịch chuyển bước thời gian nhiễu (noise schedule). Mặc định là <code className="text-white font-mono">0.1</code>.
+                  Độ dịch chuyển bước thời gian nhiễu (noise schedule). Mặc định là <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">0.1</code>.
                 </p>
               </div>
 
@@ -344,7 +344,7 @@ generateSpeech();`
                 <span className="font-mono text-indigo-300 font-bold">position_temperature</span>
                 <span className="text-slate-500 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Nhiệt độ chọn vị trí sinh (ngẫu nhiên hóa). Mặc định là <code className="text-white font-mono">5.0</code>.
+                  Nhiệt độ chọn vị trí sinh (ngẫu nhiên hóa). Mặc định là <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">5.0</code>.
                 </p>
               </div>
 
@@ -352,7 +352,7 @@ generateSpeech();`
                 <span className="font-mono text-indigo-300 font-bold">class_temperature</span>
                 <span className="text-slate-500 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Nhiệt độ lấy mẫu mã âm thanh (tính ngẫu nhiên giọng nói). Mặc định là <code className="text-white font-mono">0.0</code> (quyết định).
+                  Nhiệt độ lấy mẫu mã âm thanh (tính ngẫu nhiên giọng nói). Mặc định là <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">0.0</code> (quyết định).
                 </p>
               </div>
 
@@ -360,7 +360,7 @@ generateSpeech();`
                 <span className="font-mono text-indigo-300 font-bold">layer_penalty_factor</span>
                 <span className="text-slate-550 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Hệ số phạt độ sâu codebook, tăng tính ổn định bước đầu. Mặc định là <code className="text-white font-mono">5.0</code>.
+                  Hệ số phạt độ sâu codebook, tăng tính ổn định bước đầu. Mặc định là <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">5.0</code>.
                 </p>
               </div>
 
@@ -368,7 +368,7 @@ generateSpeech();`
                 <span className="font-mono text-indigo-300 font-bold">duration</span>
                 <span className="text-slate-550 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Cố định thời lượng âm thanh trả về tính bằng giây. Ví dụ: <code className="text-white font-mono">10.0</code>.
+                  Cố định thời lượng âm thanh trả về tính bằng giây. Ví dụ: <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">10.0</code>.
                 </p>
               </div>
 
@@ -376,7 +376,7 @@ generateSpeech();`
                 <span className="font-mono text-indigo-300 font-bold">preprocess_prompt</span>
                 <span className="text-slate-550 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Tiền xử lý âm thanh mẫu (cắt bớt khoảng lặng, căn chỉnh). Mặc định là <code className="text-white font-mono">true</code>.
+                  Tiền xử lý âm thanh mẫu (cắt bớt khoảng lặng, căn chỉnh). Mặc định là <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">true</code>.
                 </p>
               </div>
 
@@ -384,7 +384,7 @@ generateSpeech();`
                 <span className="font-mono text-indigo-300 font-bold">postprocess_output</span>
                 <span className="text-slate-550 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Hậu xử lý âm thanh đầu ra (cắt silence thừa). Mặc định là <code className="text-white font-mono">true</code>.
+                  Hậu xử lý âm thanh đầu ra (cắt silence thừa). Mặc định là <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">true</code>.
                 </p>
               </div>
 
@@ -392,7 +392,7 @@ generateSpeech();`
                 <span className="font-mono text-indigo-300 font-bold">audio_chunk_duration</span>
                 <span className="text-slate-550 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Độ dài đoạn âm thanh khi sinh văn bản dài (giây). Mặc định là <code className="text-white font-mono">15.0</code>.
+                  Đoài đoạn âm thanh khi sinh văn bản dài (giây). Mặc định là <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">15.0</code>.
                 </p>
               </div>
 
@@ -400,7 +400,7 @@ generateSpeech();`
                 <span className="font-mono text-indigo-300 font-bold">audio_chunk_threshold</span>
                 <span className="text-slate-550 text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Ngưỡng độ dài văn bản kích hoạt cơ chế chia nhỏ (giây). Mặc định là <code className="text-white font-mono">30.0</code>.
+                  Ngưỡng độ dài văn bản kích hoạt cơ chế chia nhỏ (giây). Mặc định là <code className="text-slate-100 bg-slate-850 border border-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">30.0</code>.
                 </p>
               </div>
             </div>
@@ -495,9 +495,6 @@ generateSpeech();`
                 </p>
                 <div className="flex flex-col gap-1.5 mt-1 font-mono text-[10px]">
                   <div className="bg-slate-900 p-1.5 rounded text-indigo-300">
-                    <span className="text-white font-semibold">Cười:</span> [laughter]
-                  </div>
-                  <div className="bg-slate-900 p-1.5 rounded text-indigo-300">
                     <span className="text-white font-semibold">Thở dài:</span> [sigh]
                   </div>
                   <div className="bg-slate-900 p-1.5 rounded text-indigo-300">
@@ -554,11 +551,11 @@ generateSpeech();`
                 <span className="text-xs font-bold text-slate-200">Đoạn mã nguồn mẫu tích hợp hệ thống</span>
               </div>
               
-              <div className="flex gap-1.5 bg-slate-900 p-0.5 border border-slate-800 rounded-lg self-start sm:self-auto">
+              <div className="flex bg-slate-900 p-0.5 border border-slate-800 rounded-lg self-start sm:self-auto">
                 <button
                   onClick={() => setDocTab("curl")}
                   className={`px-3.5 py-1.5 text-[10px] font-bold rounded-md flex items-center gap-1.5 transition-all cursor-pointer ${
-                    docTab === "curl" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+                    docTab === "curl" ? "bg-slate-850 text-slate-100 border border-slate-800 shadow-sm" : "text-slate-400 hover:text-slate-200"
                   }`}
                 >
                   <Play className="w-2.5 h-2.5" />
@@ -567,7 +564,7 @@ generateSpeech();`
                 <button
                   onClick={() => setDocTab("python")}
                   className={`px-3.5 py-1.5 text-[10px] font-bold rounded-md flex items-center gap-1.5 transition-all cursor-pointer ${
-                    docTab === "python" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+                    docTab === "python" ? "bg-slate-850 text-slate-100 border border-slate-800 shadow-sm" : "text-slate-400 hover:text-slate-200"
                   }`}
                 >
                   <FileCode className="w-2.5 h-2.5" />
@@ -576,7 +573,7 @@ generateSpeech();`
                 <button
                   onClick={() => setDocTab("nodejs")}
                   className={`px-3.5 py-1.5 text-[10px] font-bold rounded-md flex items-center gap-1.5 transition-all cursor-pointer ${
-                    docTab === "nodejs" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+                    docTab === "nodejs" ? "bg-slate-850 text-slate-100 border border-slate-800 shadow-sm" : "text-slate-400 hover:text-slate-200"
                   }`}
                 >
                   <FileCode className="w-2.5 h-2.5" />

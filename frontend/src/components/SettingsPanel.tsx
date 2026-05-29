@@ -129,7 +129,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-lg w-full flex flex-col gap-4 shadow-2xl relative animate-fadeIn max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}
-          className="absolute right-5 top-5 text-slate-400 hover:text-white cursor-pointer"
+          className="absolute right-5 top-5 text-slate-400 hover:text-slate-100 cursor-pointer"
           title="Đóng"
         >
           <X className="w-4.5 h-4.5" />
@@ -261,7 +261,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
               type="button"
               onClick={handleTestConnection}
               disabled={testingConnection || loading || pushingNotebook}
-              className="flex-grow flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs px-4 py-2.5 rounded-lg transition-colors cursor-pointer border border-slate-700/80 disabled:opacity-55 disabled:cursor-not-allowed"
+              className="flex-grow flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-slate-100 font-bold text-xs px-4 py-2.5 rounded-lg transition-colors cursor-pointer border border-slate-700/80 disabled:opacity-55 disabled:cursor-not-allowed"
             >
               {testingConnection ? (
                 <>

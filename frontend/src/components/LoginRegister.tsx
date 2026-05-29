@@ -184,7 +184,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
           <div className="bg-gradient-to-tr from-indigo-500 to-purple-500 p-3 rounded-2xl shadow-lg shadow-indigo-500/10">
             <Radio className="w-8 h-8 text-white animate-pulse" />
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-white mt-2">
+          <h1 className="text-2xl font-black tracking-tight text-slate-100 mt-2">
             OmniVoice Gateway
           </h1>
           <p className="text-xs text-slate-400 font-semibold max-w-[285px]">
@@ -206,7 +206,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 }}
                 className={`py-2.5 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2 ${
                   isLogin
-                    ? "bg-slate-850 text-white border border-slate-800 shadow-sm"
+                    ? "bg-slate-850 text-slate-100 border border-slate-800 shadow-sm"
                     : "text-slate-500 hover:text-slate-300"
                 }`}
               >
@@ -222,7 +222,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 }}
                 className={`py-2.5 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2 ${
                   !isLogin
-                    ? "bg-slate-850 text-white border border-slate-800 shadow-sm"
+                    ? "bg-slate-850 text-slate-100 border border-slate-800 shadow-sm"
                     : "text-slate-500 hover:text-slate-300"
                 }`}
               >
@@ -324,7 +324,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 disabled={loading}
                 className={`w-full py-3.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer mt-2 active:scale-[0.99] border ${
                   !loading
-                    ? "bg-slate-100 text-slate-950 hover:bg-white border-slate-200/10 shadow-sm"
+                    ? "bg-slate-100 text-slate-950 hover:bg-slate-200 border-slate-200/10 shadow-sm"
                     : "bg-slate-800 text-slate-500 border-transparent cursor-not-allowed"
                 }`}
               >
@@ -391,7 +391,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
             </button>
 
             <div className="flex flex-col gap-1 text-center">
-              <h2 className="text-lg font-bold text-white">Xác thực tài khoản</h2>
+              <h2 className="text-lg font-bold text-slate-100">Xác thực tài khoản</h2>
               <p className="text-xs text-slate-400 leading-relaxed px-4">
                 Mã OTP gồm 6 chữ số đã được gửi tới email của tài khoản <strong className="text-slate-350 font-bold">@{verificationUsername}</strong>.
               </p>
@@ -425,7 +425,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 value={otpCode}
                 onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
                 placeholder="000000"
-                className="w-full bg-slate-950 border border-slate-850 focus:border-slate-700 rounded-2xl py-4 text-center text-2xl font-bold tracking-[0.75em] text-white focus:outline-none font-mono transition-colors"
+                className="w-full bg-slate-950 border border-slate-850 focus:border-slate-700 rounded-2xl py-4 text-center text-2xl font-bold tracking-[0.75em] text-slate-100 focus:outline-none font-mono transition-colors"
                 required
               />
             </div>
@@ -436,7 +436,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 disabled={loading}
                 className={`w-full py-3.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] border ${
                   !loading
-                    ? "bg-slate-100 text-slate-950 hover:bg-white border-slate-200/10 shadow-sm"
+                    ? "bg-slate-100 text-slate-950 hover:bg-slate-200 border-slate-200/10 shadow-sm"
                     : "bg-slate-800 text-slate-500 border-transparent cursor-not-allowed"
                 }`}
               >
@@ -507,7 +507,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-slate-100 hover:bg-white text-xs font-bold text-slate-950 rounded-lg cursor-pointer transition-colors shadow-sm"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-950 rounded-lg cursor-pointer transition-colors shadow-sm"
               >
                 Xác nhận phê duyệt
               </button>
