@@ -1,13 +1,3 @@
----
-title: OmniVoice Gateway Backend
-emoji: 🎙️
-colorFrom: indigo
-colorTo: purple
-sdk: docker
-app_port: 7860
-pinned: false
----
-
 # OmniVoice On-Demand Gateway
 
 OmniVoice On-Demand Gateway is an MVP system that connects a CPU-bound web application and FastAPI gateway running on Lightning AI with a GPU-bound OmniVoice TTS model running on Kaggle.
@@ -147,33 +137,37 @@ Once pushed, the worker will boot up, install `requirements.txt`, load OmniVoice
 
 ---
 
-## C. Tự tạo và đẩy Kaggle Worker
+## C. Automatically Create and Push the Kaggle Worker
 
-Hệ thống hỗ trợ cơ chế tự động xây dựng thư mục và mã nguồn worker dựa trên các tham số cấu hình hệ thống (nhập qua .env hoặc bảng Settings trên Web Dashboard). Điều này giúp chạy worker headless ổn định mà không cần thao tác qua giao diện Kaggle Notebook.
+The system supports an automatic mechanism to build the worker directory and source code based on system configuration parameters entered via `.env` or the Settings panel on the Web Dashboard. This helps run the worker stably in headless mode without needing to interact with the Kaggle Notebook interface.
 
-### Quy trình các bước thực hiện:
+### Step-by-step workflow:
 
-1. **Thiết lập biến môi trường**: Đảm bảo điền đầy đủ các thông tin trong file `.env` hoặc cập nhật thông qua panel cấu hình hệ thống trên Web Dashboard:
-   - `KAGGLE_USERNAME`: Tên đăng nhập Kaggle
-   - `KAGGLE_KEY`: Kaggle API Key
-   - `KAGGLE_KERNEL_SLUG`: ID đường dẫn kernel (Mặc định: `omnivoice-worker`)
-   - `KAGGLE_KERNEL_TITLE`: Tiêu đề hiển thị (Mặc định: `OmniVoice Worker`)
-   - `PUBLIC_API_BASE_URL`: Public URL của FastAPI Gateway (chạy trên Lightning AI)
-   - `WORKER_TOKEN`: Mã bảo mật Bearer token chung giữa worker và gateway
+1. **Set environment variables**: Make sure to fully provide the required information in the `.env` file or update it through the system configuration panel on the Web Dashboard:
 
-2. **Tự động sinh mã nguồn (Prepare Worker)**:
+   * `KAGGLE_USERNAME`: Kaggle username
+   * `KAGGLE_KEY`: Kaggle API Key
+   * `KAGGLE_KERNEL_SLUG`: Kernel path ID (Default: `omnivoice-worker`)
+   * `KAGGLE_KERNEL_TITLE`: Display title (Default: `OmniVoice Worker`)
+   * `PUBLIC_API_BASE_URL`: Public URL of the FastAPI Gateway running on Lightning AI
+   * `WORKER_TOKEN`: Shared Bearer token security key between the worker and the gateway
+
+2. **Automatically generate source code (Prepare Worker)**:
+
    ```bash
    python backend/scripts/prepare_kaggle_worker.py
    ```
-   Lệnh này sẽ tự tạo thư mục `kaggle_worker` (nếu chưa có), tự sinh file `kernel-metadata.json`, `requirements.txt` và file script chạy headless `worker.py` tích hợp sẵn bộ kiểm tra dependencies tự cài đặt `ensure_dependencies()`.
 
-3. **Đẩy Worker lên Kaggle (Push Worker)**:
+   This command will automatically create the `kaggle_worker` directory if it does not already exist, generate the `kernel-metadata.json`, `requirements.txt`, and the headless execution script `worker.py`, which includes the built-in dependency checking and auto-installation function `ensure_dependencies()`.
+
+3. **Push the Worker to Kaggle (Push Worker)**:
+
    ```bash
    python backend/scripts/push_kaggle_worker.py
    ```
-   Lệnh này sẽ gọi Kaggle CLI để đẩy mã nguồn lên Kaggle Kernel với cấu hình Accelerator mặc định là GPU `NvidiaTeslaT4` (hoặc thông số cấu hình khác từ env). 
-   Sau khi push thành công, Kaggle sẽ tự khởi động instance GPU và chạy worker.
 
-4. **Tự động kích hoạt (Automated push)**:
-   Nếu chạy backend ở chế độ `WORKER_MODE=kaggle` và hiện tại chưa có worker nào hoạt động, FastAPI gateway sẽ tự động kích hoạt tiến trình prepare và push này khi nhận được job TTS đầu tiên từ người dùng.
+   This command will call the Kaggle CLI to push the source code to a Kaggle Kernel, with the default Accelerator configuration set to GPU `NvidiaTeslaT4` or another configuration value defined in the environment variables.
+   After the push is successful, Kaggle will automatically start a GPU instance and run the worker.
 
+4. **Automatic activation (Automated push)**:
+   If the backend is running in `WORKER_MODE=kaggle` and there is currently no active worker, the FastAPI gateway will automatically trigger this prepare-and-push process when it receives the first TTS job from a user.
