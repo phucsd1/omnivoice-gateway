@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Sparkles, Radio, CheckCircle, XCircle, RefreshCw, Layers, LogOut, Server, KeyRound, BookOpen, Sun, Moon, Monitor, Volume2 } from "lucide-react";
+import { Sparkles, Radio, RefreshCw, Layers, LogOut, Server, KeyRound, BookOpen, Sun, Moon, Monitor, Volume2, Menu, X } from "lucide-react";
 import { api } from "./api/client";
 
 import { VoiceSampleUpload } from "./components/VoiceSampleUpload";
@@ -15,10 +15,11 @@ import { VoiceLibraryPanel } from "./components/VoiceLibraryPanel";
 
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem("VITE_JWT_TOKEN"));
-  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"workspace" | "library" | "history" | "docs" | "admin" >("workspace");
   
   const [theme, setTheme] = useState<"light" | "dark" | "system">(() => {
-    return (localStorage.getItem("theme") as "light" | "dark" | "system") || "light";
+    return (localStorage.getItem("theme") as "light" | "dark" | "system") || "dark";
   });
 
   useEffect(() => {
@@ -47,43 +48,40 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
-    const handleLocationChange = () => {
-      setCurrentPath(window.location.pathname);
-    };
-    window.addEventListener("popstate", handleLocationChange);
-
     const handleHashChange = () => {
       if (window.location.hash === "#/docs") {
-        setCurrentPath("/docs");
+        setActiveTab("docs");
       } else if (window.location.hash === "#/" || window.location.hash === "") {
-        setCurrentPath("/");
+        setActiveTab("workspace");
       }
     };
     window.addEventListener("hashchange", handleHashChange);
 
     if (window.location.hash === "#/docs") {
-      setCurrentPath("/docs");
+      setActiveTab("docs");
     }
 
     return () => {
-      window.removeEventListener("popstate", handleLocationChange);
       window.removeEventListener("hashchange", handleHashChange);
     };
   }, []);
 
-  const navigateTo = (path: string) => {
-    window.history.pushState({}, "", path);
-    setCurrentPath(path);
+  const navigateToTab = (tab: "workspace" | "library" | "history" | "docs" | "admin") => {
+    setActiveTab(tab);
+    setSidebarOpen(false);
+    if (tab === "docs") {
+      window.location.hash = "#/docs";
+    } else {
+      window.location.hash = "#/";
+    }
   };
+
   const [currentUser, setCurrentUser] = useState<{ username: string; is_admin: boolean } | null>(null);
-  const [showAdminPortal, setShowAdminPortal] = useState(false);
   const [activeVoiceSampleId, setActiveVoiceSampleId] = useState<string | null>(null);
   const [refreshHistory, setRefreshHistory] = useState(0);
   const handleJobCreatedOrUpdated = () => {
     setRefreshHistory(prev => prev + 1);
   };
-  const [uiLayout, setUiLayout] = useState<"classic" | "modern">("modern");
-  const [modernTab, setModernTab] = useState<"workspace" | "library" | "history">("workspace");
   const [connectionStatus, setConnectionStatus] = useState<"checking" | "connected" | "disconnected">("checking");
   const [apiBaseUrl, setApiBaseUrl] = useState("");
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -97,9 +95,6 @@ function App() {
         setKaggleStatus("unconfigured");
       } else {
         setKaggleStatus("connected");
-      }
-      if (res.ui_layout) {
-        setUiLayout(res.ui_layout as "classic" | "modern");
       }
     } catch (err) {
       console.error("Lỗi lấy cấu hình hệ thống:", err);
@@ -131,7 +126,6 @@ function App() {
     localStorage.removeItem("VITE_JWT_TOKEN");
     setToken(null);
     setCurrentUser(null);
-    setShowAdminPortal(false);
   };
 
   useEffect(() => {
@@ -152,370 +146,371 @@ function App() {
     setActiveVoiceSampleId(sampleId);
   };
 
-  if (currentPath === "/docs") {
-    return <ApiDocsPage onBack={() => navigateTo("/")} isLoggedIn={!!token} />;
-  }
-
   if (!token) {
     return <LoginRegister onLoginSuccess={(t) => setToken(t)} />;
   }
 
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans select-none">
-      {/* Background patterns */}
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-purple-500/5 rounded-full blur-[150px] pointer-events-none" />
+  // AI Agent Orb configuration based on system health and Kaggle status
+  let orbColorClass = "bg-slate-600";
+  let orbPulseClass = "";
+  let orbLabel = "GPU Agent: Ngoại tuyến";
+  let orbDesc = "Không có kết nối với máy chủ";
 
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-md border-b border-slate-800 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="bg-gradient-to-tr from-indigo-500 to-purple-500 p-2.5 rounded-xl shadow-lg shadow-indigo-500/10">
-            <Radio className="w-6 h-6 text-white animate-pulse" />
-          </div>
-          <div className="flex flex-col">
-            <h1 className="text-xl font-black tracking-tight text-slate-100 flex items-center gap-1.5">
-              <span>OmniVoice On-Demand Gateway</span>
-              <span className="text-[10px] bg-indigo-500/20 text-indigo-300 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                MVP
-              </span>
-            </h1>
-            <span className="text-xs text-slate-400 font-semibold">
-              Lightning AI FastAPI &nbsp;•&nbsp; Kaggle GPU Worker &nbsp;•&nbsp; OmniVoice
+  if (connectionStatus === "disconnected") {
+    orbColorClass = "bg-rose-500";
+    orbPulseClass = "animate-orb-red";
+    orbLabel = "GPU Agent: Lỗi kết nối";
+    orbDesc = "Gateway offline";
+  } else if (kaggleStatus === "unconfigured") {
+    orbColorClass = "bg-slate-600";
+    orbLabel = "GPU Agent: Chưa thiết lập";
+    orbDesc = "Cần cấu hình Kaggle";
+  } else if (kaggleStatus === "error") {
+    orbColorClass = "bg-rose-500";
+    orbPulseClass = "animate-orb-red";
+    orbLabel = "GPU Agent: Lỗi kết nối";
+    orbDesc = "Kiểm tra thông số Kaggle";
+  } else {
+    // Standard connected
+    orbColorClass = "bg-emerald-500";
+    orbPulseClass = "animate-orb-green";
+    orbLabel = "GPU Agent: Sẵn sàng";
+    orbDesc = "Đang chờ tác vụ mới";
+  }
+
+  const sidebarContent = (
+    <div className="flex flex-col h-full bg-slate-900 border-r border-slate-800 text-slate-100 select-none">
+      {/* Brand Logo & Name */}
+      <div className="p-6 border-b border-slate-800 flex items-center gap-3">
+        <div className="bg-gradient-to-tr from-indigo-500 to-purple-500 p-2 rounded-xl shadow-md shadow-indigo-500/10 shrink-0">
+          <Radio className="w-5 h-5 text-white animate-pulse" />
+        </div>
+        <div className="flex flex-col min-w-0">
+          <h2 className="text-base font-bold tracking-tight text-slate-100 flex items-center gap-1.5 leading-none">
+            <span>OmniVoice</span>
+            <span className="text-[9px] bg-indigo-500/20 text-indigo-300 font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+              Gateway
             </span>
+          </h2>
+          <span className="text-[10px] text-slate-500 font-semibold mt-1 truncate">
+            Lightning AI Dashboard
+          </span>
+        </div>
+      </div>
+
+      {/* Navigation Links */}
+      <nav className="flex-grow p-4 flex flex-col gap-1.5 overflow-y-auto">
+        <button
+          onClick={() => navigateToTab("workspace")}
+          className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
+            activeTab === "workspace"
+              ? "bg-slate-800 text-slate-100 shadow-sm border border-slate-700/50"
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-850/50"
+          }`}
+        >
+          <Sparkles className="w-4 h-4 shrink-0" />
+          <span>Không gian làm việc</span>
+        </button>
+
+        <button
+          onClick={() => navigateToTab("library")}
+          className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
+            activeTab === "library"
+              ? "bg-slate-800 text-slate-100 shadow-sm border border-slate-700/50"
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-850/50"
+          }`}
+        >
+          <Volume2 className="w-4 h-4 shrink-0" />
+          <span>Thư viện giọng nói</span>
+        </button>
+
+        <button
+          onClick={() => navigateToTab("history")}
+          className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
+            activeTab === "history"
+              ? "bg-slate-800 text-slate-100 shadow-sm border border-slate-700/50"
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-850/50"
+          }`}
+        >
+          <Layers className="w-4 h-4 shrink-0" />
+          <span>Lịch sử tác vụ</span>
+        </button>
+
+        <button
+          onClick={() => navigateToTab("docs")}
+          className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
+            activeTab === "docs"
+              ? "bg-slate-800 text-slate-100 shadow-sm border border-slate-700/50"
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-850/50"
+          }`}
+        >
+          <BookOpen className="w-4 h-4 shrink-0" />
+          <span>Tài liệu API</span>
+        </button>
+
+        {currentUser?.is_admin && (
+          <button
+            onClick={() => navigateToTab("admin")}
+            className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
+              activeTab === "admin"
+                ? "bg-slate-800 text-slate-100 shadow-sm border border-slate-700/50"
+                : "text-slate-400 hover:text-slate-200 hover:bg-slate-850/50"
+            }`}
+          >
+            <Server className="w-4 h-4 shrink-0" />
+            <span>Cổng quản trị (Admin)</span>
+          </button>
+        )}
+      </nav>
+
+      {/* AI Agent Status Orb Box */}
+      <div className="p-4 border-t border-slate-800 bg-slate-900/60 mx-4 my-2 rounded-2xl border border-slate-800">
+        <div className="flex items-center gap-3">
+          <div className={`w-3.5 h-3.5 rounded-full shrink-0 relative ${orbColorClass} ${orbPulseClass}`} />
+          <div className="flex flex-col min-w-0">
+            <span className="text-xs font-bold text-slate-200 truncate">{orbLabel}</span>
+            <span className="text-[10px] text-slate-500 font-semibold truncate mt-0.5">{orbDesc}</span>
           </div>
         </div>
+      </div>
 
-        {/* API Info & Health & User Profile */}
-        <div className="flex flex-wrap items-center gap-3">
-          {currentUser && (
-            <>
-              {/* Kaggle Connection Status Button */}
-              <button
-                onClick={() => setShowSettingsModal(true)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
-                  kaggleStatus === "connected"
-                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20"
-                    : kaggleStatus === "error"
-                    ? "bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20 animate-pulse"
-                    : "bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
-                }`}
-                title="Cấu hình kết nối máy chủ Kaggle GPU"
-              >
-                <Server className="w-3.5 h-3.5" />
-                <span>
-                  Kaggle: {kaggleStatus === "connected" ? "Đã kết nối" : kaggleStatus === "error" ? "Lỗi kết nối" : "Chưa thiết lập"}
-                </span>
-              </button>
-
-              {/* API Keys Manager Button */}
-              <button
-                onClick={() => setShowApiKeyModal(true)}
-                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-bold text-slate-300 hover:text-slate-100 transition-all cursor-pointer flex items-center gap-1.5"
-                title="Quản lý các API Keys của bạn"
-              >
-                <KeyRound className="w-3.5 h-3.5" />
-                <span>API Keys</span>
-              </button>
-
-              {/* API Docs Button */}
-              <button
-                onClick={() => navigateTo("/docs")}
-                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-bold text-slate-300 hover:text-slate-100 transition-all cursor-pointer flex items-center gap-1.5"
-                title="Tài liệu hướng dẫn nhúng & tích hợp hệ thống"
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>Tài liệu API</span>
-              </button>
-
-              {/* Theme Toggler Button */}
-              <button
-                onClick={() => {
-                  setTheme(prev => {
-                    if (prev === "system") return "light";
-                    if (prev === "light") return "dark";
-                    return "system";
-                  });
-                }}
-                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-bold text-slate-300 hover:text-slate-100 transition-all cursor-pointer flex items-center gap-1.5"
-                title={`Giao diện: ${theme === "system" ? "Tự động" : theme === "light" ? "Sáng" : "Tối"}`}
-              >
-                {theme === "system" && <Monitor className="w-3.5 h-3.5 text-slate-400" />}
-                {theme === "light" && <Sun className="w-3.5 h-3.5 text-amber-500" />}
-                {theme === "dark" && <Moon className="w-3.5 h-3.5 text-indigo-400" />}
-                <span className="capitalize hidden sm:inline">{theme === "system" ? "Tự động" : theme === "light" ? "Sáng" : "Tối"}</span>
-              </button>
-
-              <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-inner">
-                <span className="text-indigo-400">@{currentUser.username}</span>
-                <span className="text-slate-800">|</span>
-                {currentUser.is_admin && (
-                  <>
-                    <button
-                      onClick={() => setShowAdminPortal(!showAdminPortal)}
-                      className="text-amber-400 hover:text-amber-300 font-bold transition-colors cursor-pointer flex items-center gap-1"
-                    >
-                      <span>{showAdminPortal ? "Main View" : "Admin Portal"}</span>
-                    </button>
-                    <span className="text-slate-800">|</span>
-                  </>
-                )}
-                <button
-                  onClick={handleLogout}
-                  className="text-slate-400 hover:text-rose-400 transition-colors cursor-pointer flex items-center gap-1"
-                  title="Đăng xuất"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>Đăng xuất</span>
-                </button>
-              </div>
-            </>
-          )}
-
-          <div className="bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-xs font-mono text-slate-400 flex items-center gap-2 select-none">
-            <span className={`w-1.5 h-1.5 rounded-full transition-colors ${connectionStatus === "connected" ? "bg-emerald-500" : connectionStatus === "checking" ? "bg-amber-500 animate-pulse" : "bg-rose-500"}`} />
-            <span className="text-slate-500">API:</span>
-            <span className="text-slate-300 font-mono text-xs select-all">
-              {apiBaseUrl}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {connectionStatus === "checking" && (
-              <span className="bg-slate-900 border border-slate-800 text-slate-400 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                <span>Checking gateway...</span>
+      {/* Footer Profile & Actions */}
+      <div className="p-4 border-t border-slate-800 flex flex-col gap-3">
+        {currentUser && (
+          <div className="flex items-center justify-between gap-2 bg-slate-850/30 border border-slate-800/80 px-3 py-2.5 rounded-xl">
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs font-bold text-slate-250 truncate">@{currentUser.username}</span>
+              <span className="text-[9px] text-slate-550 font-bold uppercase tracking-wider mt-0.5">
+                {currentUser.is_admin ? "Administrator" : "Standard User"}
               </span>
-            )}
-            {connectionStatus === "connected" && (
-              <span className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5">
-                <CheckCircle className="w-3.5 h-3.5" />
-                <span>Gateway OK</span>
-              </span>
-            )}
-            {connectionStatus === "disconnected" && (
-              <span className="bg-rose-500/10 border border-rose-500/20 text-rose-400 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5">
-                <XCircle className="w-3.5 h-3.5" />
-                <span>Gateway Offline</span>
-              </span>
-            )}
-
+            </div>
             <button
-              onClick={checkHealth}
-              className="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-300 hover:text-slate-100 transition-colors cursor-pointer"
-              title="Refresh Health"
+              onClick={handleLogout}
+              className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer shrink-0"
+              title="Đăng xuất"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-1.5">
+          <button
+            onClick={() => setShowSettingsModal(true)}
+            className="flex-grow py-2 bg-slate-850 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold text-slate-300 hover:text-slate-100 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+            title="Cấu hình Kaggle"
+          >
+            <Server className="w-3.5 h-3.5" />
+            <span>Kaggle</span>
+          </button>
+
+          <button
+            onClick={() => setShowApiKeyModal(true)}
+            className="flex-grow py-2 bg-slate-850 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold text-slate-300 hover:text-slate-100 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+            title="API Keys"
+          >
+            <KeyRound className="w-3.5 h-3.5" />
+            <span>Keys</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setTheme(prev => {
+                if (prev === "system") return "light";
+                if (prev === "light") return "dark";
+                return "system";
+              });
+            }}
+            className="px-2.5 py-2 bg-slate-850 hover:bg-slate-800 border border-slate-800 rounded-xl text-slate-300 hover:text-slate-100 transition-colors cursor-pointer shrink-0"
+            title={`Giao diện: ${theme === "system" ? "Tự động" : theme === "light" ? "Sáng" : "Tối"}`}
+          >
+            {theme === "system" && <Monitor className="w-3.5 h-3.5" />}
+            {theme === "light" && <Sun className="w-3.5 h-3.5 text-amber-500" />}
+            {theme === "dark" && <Moon className="w-3.5 h-3.5 text-indigo-400" />}
+          </button>
+        </div>
+
+        {/* Mini stats */}
+        <div className="flex items-center justify-between text-[10px] text-slate-600 font-mono px-1">
+          <span>Gateway: {connectionStatus === "connected" ? "Online" : "Offline"}</span>
+          <button 
+            onClick={checkHealth}
+            className="hover:text-slate-400 cursor-pointer flex items-center gap-1"
+          >
+            <RefreshCw className="w-2.5 h-2.5" />
+            <span>Reload</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-200 flex font-sans select-none overflow-x-hidden relative">
+      {/* Background glow animations */}
+      <div className="absolute top-0 left-1/4 w-[400px] h-[400px] bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-purple-500/5 rounded-full blur-[120px] pointer-events-none" />
+
+      {/* Desktop Sidebar (Permanent) */}
+      <aside className="hidden lg:block w-64 h-screen fixed top-0 left-0 shrink-0 z-40">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile Drawer Sidebar */}
+      {sidebarOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex">
+          {/* Backdrop overlay */}
+          <div 
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+          />
+          {/* Drawer menu */}
+          <div className="relative w-64 max-w-xs h-full flex-col z-50 animate-fadeIn">
+            {sidebarContent}
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="absolute top-4 -right-12 p-2 bg-slate-900 border border-slate-800 text-slate-300 rounded-xl"
+            >
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
-      </header>
+      )}
 
-      {/* Main content */}
-      <main className="flex-grow p-6 max-w-7xl w-full mx-auto flex flex-col gap-6 relative">
-        {showAdminPortal ? (
-          <AdminDashboard onBack={() => setShowAdminPortal(false)} onSettingsChanged={fetchSettings} />
-        ) : (
-          <>
-            {/* Settings Modal */}
-            <SettingsPanel
-              isOpen={showSettingsModal}
-              onClose={() => setShowSettingsModal(false)}
-              onStatusChange={(status) => setKaggleStatus(status)}
-            />
+      {/* Main Container */}
+      <div className="flex-grow flex flex-col min-w-0 lg:pl-64 min-h-screen">
+        {/* Mobile Header Topbar */}
+        <header className="lg:hidden sticky top-0 z-30 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 hover:bg-slate-900 border border-slate-850 rounded-xl text-slate-300"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-2">
+              <div className="bg-gradient-to-tr from-indigo-500 to-purple-500 p-1.5 rounded-lg">
+                <Radio className="w-4 h-4 text-white" />
+              </div>
+              <span className="text-sm font-bold tracking-tight text-slate-100">OmniVoice</span>
+            </div>
+          </div>
 
-            {/* API Keys & Documentation Modal */}
-            <ApiKeyPanel
-              isOpen={showApiKeyModal}
-              onClose={() => setShowApiKeyModal(false)}
-              onNavigateToDocs={() => {
-                setShowApiKeyModal(false);
-                navigateTo("/docs");
-              }}
-            />
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${connectionStatus === "connected" ? "bg-emerald-500" : "bg-rose-500"}`} />
+            <span className="text-[10px] font-mono text-slate-400 select-all truncate max-w-[120px]">
+              {apiBaseUrl}
+            </span>
+          </div>
+        </header>
 
-            {uiLayout === "classic" ? (
-              <>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Left Column - Voice setups */}
-                  <section className="flex flex-col gap-6">
-                    <VoiceSampleUpload onUploadSuccess={handleVoiceSampleActive} layout="classic" />
-                    <VoiceDesignPanel 
-                      onAcceptSuccess={handleVoiceSampleActive} 
-                      onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
-                      layout="classic"
-                    />
-                  </section>
+        {/* Pages Content Area */}
+        <main className="flex-grow p-4 md:p-6 lg:p-8 w-full max-w-7xl mx-auto flex flex-col gap-6 relative">
+          
+          {/* Modals */}
+          <SettingsPanel
+            isOpen={showSettingsModal}
+            onClose={() => setShowSettingsModal(false)}
+            onStatusChange={(status) => setKaggleStatus(status)}
+          />
 
-                  {/* Right Column - Generation & Jobs */}
-                  <section className="flex flex-col gap-6">
-                    {/* Info select helper */}
-                    {activeVoiceSampleId ? (
-                      <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/25 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-md">
-                        <div className="flex items-center gap-3">
-                          <div className="bg-indigo-500/10 p-2 rounded-xl text-indigo-400">
-                            <Sparkles className="w-5 h-5" />
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wide">
-                              Giọng mẫu đã chọn
-                            </span>
-                            <span className="text-xs font-mono font-bold text-slate-200 truncate max-w-[200px] sm:max-w-[300px]">
-                              {activeVoiceSampleId}
-                            </span>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => setActiveVoiceSampleId(null)}
-                          className="text-xs hover:text-slate-100 text-slate-400 border border-slate-800/80 hover:border-slate-700 bg-slate-950 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer font-bold"
-                        >
-                          Hủy chọn
-                        </button>
+          <ApiKeyPanel
+            isOpen={showApiKeyModal}
+            onClose={() => setShowApiKeyModal(false)}
+            onNavigateToDocs={() => navigateToTab("docs")}
+          />
+
+          {/* Active view mapping */}
+          {activeTab === "workspace" && (
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+              
+              {/* Left Column (2/3 width) - TTS Interface */}
+              <section className="xl:col-span-2 flex flex-col gap-6">
+                <TTSPanel 
+                  activeVoiceSampleId={activeVoiceSampleId} 
+                  onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
+                  layout="modern"
+                />
+              </section>
+
+              {/* Right Column (1/3 width) - Voice Configuration */}
+              <section className="xl:col-span-1 flex flex-col gap-6">
+                {activeVoiceSampleId ? (
+                  <div className="bg-gradient-to-tr from-indigo-950/20 to-purple-950/20 border border-indigo-500/20 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-indigo-500/10 p-2 rounded-xl text-indigo-400">
+                        <Sparkles className="w-5 h-5 animate-pulse" />
                       </div>
-                    ) : (
-                      <div className="bg-slate-900 border border-slate-800/50 rounded-2xl p-4 flex items-center gap-3 text-xs text-slate-400">
-                        <Layers className="w-5 h-5 text-slate-600" />
-                        <span>Chưa chọn mẫu giọng. Vui lòng Tải lên một mẫu hoặc Tạo thiết kế giọng ở cột bên trái để bắt đầu Clone.</span>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">
+                          Mẫu giọng hoạt động
+                        </span>
+                        <span className="text-xs font-mono font-bold text-slate-200 truncate max-w-[150px] sm:max-w-[200px]">
+                          {activeVoiceSampleId}
+                        </span>
                       </div>
-                    )}
-
-                    <TTSPanel 
-                      activeVoiceSampleId={activeVoiceSampleId} 
-                      onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
-                      layout="classic"
-                    />
-                  </section>
-                </div>
-
-                {/* Job History Panel */}
-                <JobHistoryPanel refreshTrigger={refreshHistory} layout="classic" />
-              </>
-            ) : (
-              <>
-                {/* Modern Layout tab selector (ElevenLabs styled underlined tabs) */}
-                <div className="flex gap-6 border-b border-slate-850/80 w-full mb-3 select-none">
-                  <button
-                    onClick={() => setModernTab("workspace")}
-                    className={`pb-3.5 pt-1 px-1 text-xs font-bold transition-all relative cursor-pointer flex items-center gap-2 ${
-                      modernTab === "workspace"
-                        ? "text-slate-100 font-extrabold"
-                        : "text-slate-500 hover:text-slate-350"
-                    }`}
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    <span>Không gian làm việc</span>
-                    {modernTab === "workspace" && (
-                      <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-slate-100 rounded-full" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setModernTab("library")}
-                    className={`pb-3.5 pt-1 px-1 text-xs font-bold transition-all relative cursor-pointer flex items-center gap-2 ${
-                      modernTab === "library"
-                        ? "text-slate-100 font-extrabold"
-                        : "text-slate-500 hover:text-slate-350"
-                    }`}
-                  >
-                    <Volume2 className="w-4 h-4" />
-                    <span>Thư viện giọng nói</span>
-                    {modernTab === "library" && (
-                      <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-slate-100 rounded-full" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setModernTab("history")}
-                    className={`pb-3.5 pt-1 px-1 text-xs font-bold transition-all relative cursor-pointer flex items-center gap-2 ${
-                      modernTab === "history"
-                        ? "text-slate-100 font-extrabold"
-                        : "text-slate-500 hover:text-slate-355"
-                    }`}
-                  >
-                    <Layers className="w-4 h-4" />
-                    <span>Lịch sử tác vụ</span>
-                    {modernTab === "history" && (
-                      <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-slate-100 rounded-full" />
-                    )}
-                  </button>
-                </div>
-
-                {modernTab === "workspace" && (
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-                    {/* Left Column (1/3) - Voice Setup */}
-                    <section className="lg:col-span-1 flex flex-col gap-6">
-                      {activeVoiceSampleId ? (
-                        <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border-2 border-indigo-500/30 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-md">
-                          <div className="flex items-center gap-3">
-                            <div className="bg-indigo-500/10 p-2 rounded-xl text-indigo-400">
-                              <Sparkles className="w-5 h-5" />
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-[10px] font-bold text-indigo-450 uppercase tracking-wide">
-                                Giọng mẫu hoạt động
-                              </span>
-                              <span className="text-xs font-mono font-bold text-slate-100 truncate max-w-[120px] sm:max-w-[180px]">
-                                {activeVoiceSampleId}
-                              </span>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => setActiveVoiceSampleId(null)}
-                            className="text-xs hover:text-slate-100 text-slate-300 border border-slate-700 bg-slate-900 hover:bg-slate-850 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer font-bold"
-                          >
-                            Hủy chọn
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="bg-slate-950 border-2 border-slate-700/80 rounded-2xl p-4 flex items-center gap-3 text-xs text-slate-300 shadow-md">
-                          <Layers className="w-5 h-5 text-indigo-400 shrink-0" />
-                          <span>Chưa chọn mẫu giọng. Vui lòng tải một mẫu hoặc thiết kế giọng để bắt đầu.</span>
-                        </div>
-                      )}
-
-                      <VoiceSampleUpload onUploadSuccess={handleVoiceSampleActive} layout="modern" />
-                      <VoiceDesignPanel 
-                        onAcceptSuccess={handleVoiceSampleActive} 
-                        onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
-                        layout="modern"
-                      />
-                    </section>
-
-                    {/* Right Column (2/3) - TTS workspace */}
-                    <section className="lg:col-span-2 flex flex-col gap-6">
-                      <TTSPanel 
-                        activeVoiceSampleId={activeVoiceSampleId} 
-                        onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
-                        layout="modern"
-                      />
-                    </section>
+                    </div>
+                    <button
+                      onClick={() => setActiveVoiceSampleId(null)}
+                      className="text-xs hover:text-slate-100 text-slate-300 border border-slate-800 bg-slate-900 hover:bg-slate-850 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer font-bold shrink-0"
+                    >
+                      Hủy chọn
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-4 flex items-center gap-3 text-xs text-slate-400 shadow-sm">
+                    <Layers className="w-5 h-5 text-indigo-400 shrink-0 animate-pulse" />
+                    <span>Chưa chọn mẫu giọng. Vui lòng tải một mẫu giọng hoặc thiết kế giọng nói để bắt đầu clone.</span>
                   </div>
                 )}
 
-                {modernTab === "library" && (
-                  <div className="w-full">
-                    <VoiceLibraryPanel 
-                      onUseVoice={(id) => { 
-                        setActiveVoiceSampleId(id); 
-                        setModernTab("workspace"); 
-                      }} 
-                      layout="modern" 
-                    />
-                  </div>
-                )}
+                <VoiceSampleUpload onUploadSuccess={handleVoiceSampleActive} layout="modern" />
+                <VoiceDesignPanel 
+                  onAcceptSuccess={handleVoiceSampleActive} 
+                  onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
+                  layout="modern"
+                />
+              </section>
+            </div>
+          )}
 
-                {modernTab === "history" && (
-                  <div className="w-full">
-                    <JobHistoryPanel refreshTrigger={refreshHistory} layout="modern" />
-                  </div>
-                )}
-              </>
-            )}
-          </>
-        )}
-      </main>
+          {activeTab === "library" && (
+            <div className="w-full animate-fadeIn">
+              <VoiceLibraryPanel 
+                onUseVoice={(id) => { 
+                  setActiveVoiceSampleId(id); 
+                  navigateToTab("workspace"); 
+                }} 
+                layout="modern" 
+              />
+            </div>
+          )}
 
-      {/* Footer */}
-      <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-500 font-semibold bg-slate-950/40">
-        OmniVoice On-Demand Gateway MVP &copy; {new Date().getFullYear()} &nbsp;•&nbsp; Built for High-Performance Audio Synthesis
-      </footer>
+          {activeTab === "history" && (
+            <div className="w-full animate-fadeIn">
+              <JobHistoryPanel refreshTrigger={refreshHistory} layout="modern" />
+            </div>
+          )}
+
+          {activeTab === "docs" && (
+            <div className="w-full animate-fadeIn">
+              <ApiDocsPage onBack={() => navigateToTab("workspace")} isLoggedIn={true} />
+            </div>
+          )}
+
+          {activeTab === "admin" && currentUser?.is_admin && (
+            <div className="w-full animate-fadeIn">
+              <AdminDashboard onBack={() => navigateToTab("workspace")} onSettingsChanged={fetchSettings} />
+            </div>
+          )}
+
+        </main>
+
+        {/* Footer */}
+        <footer className="border-t border-slate-900/60 py-6 text-center text-[10px] text-slate-600 font-semibold bg-slate-950/20 mt-auto">
+          OmniVoice On-Demand Gateway MVP &copy; {new Date().getFullYear()} &nbsp;•&nbsp; Built for High-Performance Audio Synthesis
+        </footer>
+      </div>
     </div>
   );
 }

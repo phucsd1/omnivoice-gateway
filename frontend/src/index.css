@@ -26,23 +26,23 @@
 
 .dark {
   /* Slate palette overrides - Dark Mode values (ElevenLabs warm charcoal/zinc style) */
-  --color-slate-950: #08080a; /* Page Background */
-  --color-slate-900: #101014; /* Card/Panel Background */
-  --color-slate-850: #16161c; /* Inputs / Hover background */
-  --color-slate-800: #1e1e24; /* Panel borders */
-  --color-slate-700: #272731; /* Secondary borders */
-  --color-slate-650: #52526b; /* Placeholders */
-  --color-slate-600: #71718a; /* Muted texts */
-  --color-slate-500: #71718a; /* Muted labels */
-  --color-slate-400: #a1a1c2; /* Secondary labels/titles */
-  --color-slate-350: #e4e4f6; /* Labels / secondary headings */
-  --color-slate-300: #e4e4f6; /* Headings */
-  --color-slate-200: #d1d1eb; /* Body text */
-  --color-slate-205: #d6d6eb; /* Slightly lighter body text */
-  --color-slate-100: #f4f4fa; /* Main text / headings */
+  --color-slate-950: #040406; /* Page Background */
+  --color-slate-900: #0a0a0e; /* Card/Panel Background */
+  --color-slate-850: #101016; /* Inputs / Hover background */
+  --color-slate-800: #161620; /* Panel borders */
+  --color-slate-700: #1e1e2b; /* Secondary borders */
+  --color-slate-650: #424255; /* Placeholders */
+  --color-slate-600: #62627a; /* Muted texts */
+  --color-slate-500: #62627a; /* Muted labels */
+  --color-slate-400: #9191b2; /* Secondary labels/titles */
+  --color-slate-350: #d4d4ea; /* Labels / secondary headings */
+  --color-slate-300: #e2e2f0; /* Headings */
+  --color-slate-200: #c2c2db; /* Body text */
+  --color-slate-205: #c8c8e0; /* Slightly lighter body text */
+  --color-slate-100: #f1f1f7; /* Main text / headings */
   
   --selection-bg: rgba(99, 102, 241, 0.25);
-  --shadow-color: rgba(0, 0, 0, 0.3);
+  --shadow-color: rgba(0, 0, 0, 0.4);
 }
 
 @layer base {
@@ -134,5 +134,63 @@ input[type="range"].seekbar:hover::-moz-range-thumb {
 
 .animate-fadeIn {
   animation: fadeIn 0.2s ease-out forwards;
+}
+
+/* AI Agent Status Orb Pulse Animations */
+@keyframes orb-glowing-green {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+@keyframes orb-glowing-blue {
+  0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+}
+@keyframes orb-glowing-red {
+  0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.5); }
+  70% { box-shadow: 0 0 0 6px rgba(244, 63, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+}
+
+.animate-orb-green {
+  animation: orb-glowing-green 2s infinite;
+}
+.animate-orb-blue {
+  animation: orb-glowing-blue 2s infinite;
+}
+.animate-orb-red {
+  animation: orb-glowing-red 1.5s infinite;
+}
+
+/* Audio Waveform Bar Animation */
+@keyframes wave-bounce-1 {
+  0%, 100% { height: 4px; }
+  50% { height: 16px; }
+}
+@keyframes wave-bounce-2 {
+  0%, 100% { height: 6px; }
+  50% { height: 22px; }
+}
+@keyframes wave-bounce-3 {
+  0%, 100% { height: 8px; }
+  50% { height: 12px; }
+}
+@keyframes wave-bounce-4 {
+  0%, 100% { height: 3px; }
+  50% { height: 18px; }
+}
+
+.animate-wave-bar-1 {
+  animation: wave-bounce-1 0.8s ease-in-out infinite;
+}
+.animate-wave-bar-2 {
+  animation: wave-bounce-2 1.1s ease-in-out infinite;
+}
+.animate-wave-bar-3 {
+  animation: wave-bounce-3 0.9s ease-in-out infinite;
+}
+.animate-wave-bar-4 {
+  animation: wave-bounce-4 1.3s ease-in-out infinite;
 }
 

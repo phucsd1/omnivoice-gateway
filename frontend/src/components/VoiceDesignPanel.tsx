@@ -203,21 +203,24 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-6 flex flex-col gap-6 shadow-xl transition-all duration-200">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-xl font-bold flex items-center gap-2 text-slate-100">
-          <Mic className="w-5.5 h-5.5 text-slate-350" />
-          <span>2. Thiết kế giọng nói (Voice Design Preview)</span>
+    <div className="bg-slate-900 border border-slate-800/50 rounded-3xl p-6 flex flex-col gap-6 shadow-xl transition-all duration-300 relative overflow-hidden">
+      {/* Ambient background glow */}
+      <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-xl pointer-events-none" />
+
+      <div className="flex flex-col gap-1 relative z-10">
+        <h2 className="text-sm font-extrabold tracking-widest text-slate-400 uppercase flex items-center gap-2">
+          <Mic className="w-4 h-4 text-purple-400" />
+          <span>Thiết kế giọng nói</span>
         </h2>
-        <p className="text-xs text-slate-450 font-medium">
-          Mô tả kiểu giọng nói bạn muốn thiết kế bằng tiếng Việt, nghe thử rồi chấp nhận để clone.
+        <p className="text-xs text-slate-500 font-medium mt-1">
+          Mô tả kiểu giọng nói bằng tiếng Việt để tạo bản nghe thử rồi lưu vào thư viện.
         </p>
       </div>
 
-      <form onSubmit={handleGenerate} className="flex flex-col gap-5">
+      <form onSubmit={handleGenerate} className="flex flex-col gap-5 relative z-10">
         {/* Voice request */}
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-bold text-slate-450 uppercase tracking-wider">
+          <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
             Mô tả giọng nói (Tiếng Việt)
           </label>
           <input
@@ -225,16 +228,16 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
             value={voiceRequest}
             onChange={(e) => setVoiceRequest(e.target.value)}
             placeholder="Ví dụ: giọng nữ trẻ trầm nhẹ nhàng tự nhiên..."
-            className="bg-slate-950/60 border border-slate-850/80 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-slate-700 transition-all font-semibold w-full"
+            className="bg-slate-950 border border-slate-850/40 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/30 transition-all font-semibold w-full"
           />
-          <span className="text-[10px] text-slate-500 font-medium leading-tight">
-            * Backend sẽ tự động phân tích: &quot;nữ/nam&quot;, &quot;trẻ&quot;, &quot;trầm/thấp&quot;, &quot;nhẹ nhàng/thì thầm&quot;...
+          <span className="text-[9px] text-slate-550 font-medium leading-tight">
+            * Hệ thống tự phân tích: &quot;nữ/nam&quot;, &quot;trẻ&quot;, &quot;trầm/thấp&quot;, &quot;nhẹ nhàng/thì thầm&quot;...
           </span>
         </div>
 
         {/* Preview text */}
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-bold text-slate-450 uppercase tracking-wider">
+          <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
             Nội dung nghe thử (Preview Text)
           </label>
           <textarea
@@ -242,7 +245,7 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
             onChange={(e) => setPreviewText(e.target.value)}
             placeholder="Nhập nội dung ngắn để nghe thử giọng nói này..."
             rows={2}
-            className="bg-slate-950/60 border border-slate-850/80 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-slate-700 transition-all font-semibold w-full resize-none"
+            className="bg-slate-950 border border-slate-850/40 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/30 transition-all font-semibold w-full resize-none"
           />
         </div>
 

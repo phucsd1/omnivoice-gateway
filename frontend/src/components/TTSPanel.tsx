@@ -247,29 +247,32 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-6 flex flex-col gap-6 shadow-xl transition-all duration-200">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-xl font-bold flex items-center gap-2 text-slate-100">
-          <AudioLines className="w-5.5 h-5.5 text-slate-350" />
+    <div className="bg-slate-900 border border-slate-800/50 rounded-3xl p-6 md:p-8 flex flex-col gap-6 shadow-xl transition-all duration-300 relative overflow-hidden">
+      {/* Visual background ambient gradient */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none" />
+
+      <div className="flex flex-col gap-1 relative z-10">
+        <h2 className="text-lg font-bold flex items-center gap-2 text-slate-100">
+          <AudioLines className="w-5 h-5 text-indigo-400" />
           <span>Chuyển đổi văn bản thành giọng nói</span>
         </h2>
-        <p className="text-xs text-slate-450 font-medium">
+        <p className="text-xs text-slate-500 font-medium">
           Tạo tệp giọng đọc chất lượng cao sử dụng giọng nói clone hoặc tự động.
         </p>
       </div>
 
-      <form onSubmit={handleGenerate} className="flex flex-col gap-5">
+      <form onSubmit={handleGenerate} className="flex flex-col gap-6 relative z-10">
         {/* Mode selector */}
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-bold text-slate-450 uppercase tracking-wider">Chế độ tạo giọng nói</label>
-          <div className={`grid ${layout === "modern" ? "grid-cols-2" : "grid-cols-3"} gap-1.5 bg-slate-950/80 p-1.5 rounded-2xl border border-slate-850/60`}>
+          <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">Chế độ tạo giọng nói</label>
+          <div className={`grid ${layout === "modern" ? "grid-cols-2" : "grid-cols-3"} gap-1 p-1 bg-slate-950/60 rounded-xl border border-slate-850/30`}>
               <button
                 type="button"
                 onClick={() => setMode("clone_voice")}
-                className={`py-2 px-3 text-center font-bold text-xs rounded-xl transition-all cursor-pointer ${
+                className={`py-2 px-3 text-center font-bold text-xs rounded-lg transition-all cursor-pointer ${
                   mode === "clone_voice"
-                    ? "bg-slate-900 border border-slate-800/80 text-slate-100 shadow-sm"
-                    : "text-slate-500 hover:text-slate-200"
+                    ? "bg-slate-900 border border-slate-800/50 text-slate-100 shadow-sm"
+                    : "text-slate-500 hover:text-slate-300"
                 }`}
               >
                 {layout === "modern" ? "Sử dụng giọng mẫu" : "Clone Voice"}
@@ -277,10 +280,10 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
               <button
                 type="button"
                 onClick={() => setMode("auto_voice")}
-                className={`py-2 px-3 text-center font-bold text-xs rounded-xl transition-all cursor-pointer ${
+                className={`py-2 px-3 text-center font-bold text-xs rounded-lg transition-all cursor-pointer ${
                   mode === "auto_voice"
-                    ? "bg-slate-900 border border-slate-800/80 text-slate-100 shadow-sm"
-                    : "text-slate-500 hover:text-slate-200"
+                    ? "bg-slate-900 border border-slate-800/50 text-slate-100 shadow-sm"
+                    : "text-slate-500 hover:text-slate-300"
                 }`}
               >
                 Auto Voice
@@ -289,10 +292,10 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
                 <button
                   type="button"
                   onClick={() => setMode("voice_design")}
-                  className={`py-2 px-3 text-center font-bold text-xs rounded-xl transition-all cursor-pointer ${
+                  className={`py-2 px-3 text-center font-bold text-xs rounded-lg transition-all cursor-pointer ${
                     mode === "voice_design"
-                      ? "bg-slate-900 border border-slate-800/80 text-slate-100 shadow-sm"
-                      : "text-slate-500 hover:text-slate-200"
+                      ? "bg-slate-900 border border-slate-800/50 text-slate-100 shadow-sm"
+                      : "text-slate-500 hover:text-slate-300"
                   }`}
                 >
                   Voice Design Direct
@@ -303,13 +306,13 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
 
         {/* Dynamic Mode Fields */}
         {mode === "clone_voice" && (
-          <div className="flex flex-col gap-3.5 p-4 bg-slate-950/40 border border-slate-850/80 rounded-2xl shadow-inner">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300">
-              <UserCheck className="w-4 h-4 text-slate-400" />
+          <div className="flex flex-col gap-4 p-4 bg-slate-950/30 border border-slate-850/40 rounded-2xl shadow-sm">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
+              <UserCheck className="w-4 h-4 text-indigo-400" />
               <span>Cấu hình Clone Voice</span>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold text-slate-450 uppercase tracking-wider">Chọn mẫu giọng từ Thư viện</label>
+              <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Chọn mẫu giọng từ Thư viện</label>
               <select
                 value={customVoiceSampleId}
                 onChange={(e) => {
@@ -322,7 +325,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
                     setRefText("");
                   }
                 }}
-                className="bg-slate-900/60 border border-slate-850/80 rounded-xl px-3 py-2.5 text-xs text-slate-250 focus:outline-none focus:border-slate-700 transition-all font-semibold cursor-pointer shadow-sm w-full"
+                className="bg-slate-900/40 border border-slate-850/40 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/30 transition-all font-semibold cursor-pointer shadow-sm w-full"
               >
                 <option value="">-- Chọn một mẫu giọng --</option>
                 <optgroup label="Giọng cá nhân (Private)">
@@ -347,13 +350,13 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
               )}
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold text-slate-450 uppercase tracking-wider">Văn bản giọng mẫu (ref_text) - Tùy chọn</label>
+              <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Văn bản giọng mẫu (ref_text) - Tùy chọn</label>
               <input
                 type="text"
                 value={refText}
                 onChange={(e) => setRefText(e.target.value)}
                 placeholder="Ví dụ: Nội dung chữ được nói trong file ghi âm để tăng độ chính xác..."
-                className="bg-slate-900/60 border border-slate-850/80 rounded-xl px-3 py-2.5 text-xs text-slate-205 focus:outline-none focus:border-slate-700 transition-all font-semibold w-full"
+                className="bg-slate-900/40 border border-slate-850/40 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/30 transition-all font-semibold w-full"
               />
               <span className="text-[9px] text-slate-500 font-medium leading-tight">
                 * Nếu để trống, worker GPU sẽ tự động chạy nhận dạng giọng nói (Whisper ASR) để trích xuất văn bản từ file âm thanh.
@@ -363,19 +366,19 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
         )}
 
         {mode === "voice_design" && (
-          <div className="flex flex-col gap-3.5 p-4 bg-slate-950/40 border border-slate-850/80 rounded-2xl shadow-inner">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300">
-              <Volume2 className="w-4 h-4 text-slate-400" />
+          <div className="flex flex-col gap-4 p-4 bg-slate-950/30 border border-slate-850/40 rounded-2xl shadow-sm">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
+              <Volume2 className="w-4 h-4 text-indigo-400" />
               <span>Tham số thiết kế trực tiếp (Instruct Tags)</span>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold text-slate-450 uppercase tracking-wider">Instruct Tags (Tiếng Anh)</label>
+              <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Instruct Tags (Tiếng Anh)</label>
               <input
                 type="text"
                 value={instruct}
                 onChange={(e) => setInstruct(e.target.value)}
                 placeholder="Ví dụ: female, young adult, natural, low pitch..."
-                className="bg-slate-900/60 border border-slate-850/80 rounded-xl px-3 py-2.5 text-xs text-slate-205 focus:outline-none focus:border-slate-700 transition-all font-semibold font-mono w-full"
+                className="bg-slate-900/40 border border-slate-850/40 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/30 transition-all font-semibold font-mono w-full"
               />
               <span className="text-[9px] text-slate-500 font-medium leading-tight">
                 * Các từ khóa: female, male, young adult, older adult, high pitch, low pitch, whisper...
@@ -385,16 +388,16 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
         )}
 
         {mode === "auto_voice" && (
-          <div className="flex items-center gap-2.5 p-3.5 bg-slate-950/40 border border-slate-850/80 rounded-2xl text-xs text-slate-400 font-medium shadow-inner">
-            <HelpCircle className="w-4 h-4 text-slate-400 flex-shrink-0" />
+          <div className="flex items-center gap-2.5 p-4 bg-slate-950/30 border border-slate-850/40 rounded-2xl text-xs text-slate-400 font-medium shadow-sm">
+            <HelpCircle className="w-4.5 h-4.5 text-indigo-400 flex-shrink-0" />
             <span>Chế độ Auto Voice sẽ để OmniVoice tự động lựa chọn giọng đọc ngẫu nhiên.</span>
           </div>
         )}
 
         {/* TTS script */}
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-bold text-slate-450 uppercase tracking-wider">Nội dung văn bản cần chuyển thành tiếng nói</label>
-          <div className="relative flex flex-col bg-slate-950 border border-slate-850/60 rounded-2xl p-4 focus-within:border-slate-700/80 transition-all shadow-inner">
+          <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Nội dung văn bản cần chuyển thành tiếng nói</label>
+          <div className="relative flex flex-col bg-slate-950 border border-slate-850/30 rounded-2xl p-4 md:p-5 focus-within:border-indigo-500/30 transition-all shadow-inner">
             <textarea
               ref={textareaRef}
               value={text}
@@ -404,7 +407,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
               className="w-full bg-transparent text-sm text-slate-100 placeholder:text-slate-650 focus:outline-none resize-none font-medium leading-relaxed"
               maxLength={5000}
             />
-            <div className="flex justify-between items-center mt-3 pt-2.5 border-t border-slate-900/60 select-none">
+            <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-900/60 select-none">
               <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">
                 Tiếng Việt (OmniVoice)
               </span>

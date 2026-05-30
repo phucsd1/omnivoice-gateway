@@ -7,7 +7,7 @@ interface VoiceSampleUploadProps {
   layout?: "classic" | "modern";
 }
 
-export const VoiceSampleUpload: React.FC<VoiceSampleUploadProps> = ({ onUploadSuccess, layout = "classic" }) => {
+export const VoiceSampleUpload: React.FC<VoiceSampleUploadProps> = ({ onUploadSuccess }) => {
   const [file, setFile] = useState<File | null>(null);
   const [refText, setRefText] = useState("");
   const [voiceName, setVoiceName] = useState("");
@@ -78,29 +78,30 @@ export const VoiceSampleUpload: React.FC<VoiceSampleUploadProps> = ({ onUploadSu
   };
 
   return (
-    <div className={`rounded-2xl p-6 flex flex-col gap-5 shadow-lg transition-all ${
-      layout === "modern" ? "bg-slate-950 border-2 border-slate-700/90" : "bg-slate-900 border border-slate-800"
-    }`}>
-      <div className="flex flex-col gap-1">
-        <h2 className={`text-lg font-bold flex items-center gap-2 ${layout === "modern" ? "text-slate-100 font-extrabold" : "text-slate-100"}`}>
-          <Upload className="w-5 h-5 text-indigo-400" />
-          <span>1. Tải lên mẫu giọng nói</span>
+    <div className="bg-slate-900 border border-slate-800/50 rounded-3xl p-6 flex flex-col gap-5 shadow-xl transition-all duration-300 relative overflow-hidden">
+      {/* Ambient background glow */}
+      <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-xl pointer-events-none" />
+
+      <div className="flex flex-col gap-1 relative z-10">
+        <h2 className="text-sm font-extrabold tracking-widest text-slate-400 uppercase flex items-center gap-2">
+          <Upload className="w-4 h-4 text-indigo-400" />
+          <span>Tải lên giọng nói</span>
         </h2>
-        <p className={`text-xs ${layout === "modern" ? "text-slate-300" : "text-slate-400"}`}>
-          Upload file âm thanh giọng nói của bạn để hệ thống clone giọng.
+        <p className="text-xs text-slate-550 font-medium mt-1">
+          Tải lên tệp âm thanh giọng nói của bạn để làm mẫu clone giọng.
         </p>
       </div>
 
-      <form onSubmit={handleUpload} className="flex flex-col gap-4">
+      <form onSubmit={handleUpload} className="flex flex-col gap-4 relative z-10">
         {/* Dropzone */}
         <div
           onDragOver={handleDragOver}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors flex flex-col items-center justify-center gap-2.5 ${
+          className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-colors flex flex-col items-center justify-center gap-2 ${
             file
               ? "border-emerald-500/50 bg-emerald-500/5"
-              : "border-slate-700 hover:border-slate-600 bg-slate-950/40 hover:bg-slate-950/60"
+              : "border-slate-800 hover:border-slate-700 bg-slate-950/40 hover:bg-slate-950/60"
           }`}
         >
           <input
@@ -112,24 +113,24 @@ export const VoiceSampleUpload: React.FC<VoiceSampleUploadProps> = ({ onUploadSu
           />
           {file ? (
             <>
-              <FileAudio className="w-10 h-10 text-emerald-400" />
-              <div className="flex flex-col gap-0.5">
-                <span className="text-sm font-semibold text-slate-200 truncate max-w-[250px]">
+              <FileAudio className="w-8 h-8 text-emerald-400" />
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <span className="text-xs font-semibold text-slate-200 truncate max-w-[200px]">
                   {file.name}
                 </span>
-                <span className="text-xs text-slate-450">
+                <span className="text-[10px] text-slate-500 font-bold">
                   {(file.size / (1024 * 1024)).toFixed(2)} MB
                 </span>
               </div>
             </>
           ) : (
             <>
-              <Upload className="w-10 h-10 text-slate-500" />
+              <Upload className="w-8 h-8 text-slate-600" />
               <div className="flex flex-col gap-1">
-                <span className="text-sm font-semibold text-slate-300">
+                <span className="text-xs font-bold text-slate-400">
                   Kéo thả file hoặc Click để duyệt
                 </span>
-                <span className="text-xs text-slate-500">
+                <span className="text-[9px] text-slate-600 font-semibold">
                   Hỗ trợ: WAV, MP3, FLAC (Khuyên dùng WAV mono 24kHz)
                 </span>
               </div>
@@ -139,10 +140,10 @@ export const VoiceSampleUpload: React.FC<VoiceSampleUploadProps> = ({ onUploadSu
 
         {/* Ref Text */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-slate-400">
+          <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
             Nội dung chữ nói (ref_text) - Không bắt buộc
           </label>
-          <div className="relative flex flex-col bg-slate-950 border border-slate-850/60 rounded-xl p-3 focus-within:border-slate-750 transition-all shadow-inner">
+          <div className="relative flex flex-col bg-slate-950 border border-slate-850/40 rounded-xl p-3 focus-within:border-indigo-500/30 transition-all shadow-inner">
             <textarea
               value={refText}
               onChange={(e) => setRefText(e.target.value)}
@@ -154,12 +155,12 @@ export const VoiceSampleUpload: React.FC<VoiceSampleUploadProps> = ({ onUploadSu
         </div>
 
         {/* Name and Custom ID fields */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-400">
-              Tên gợi nhớ (Không bắt buộc)
+            <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
+              Tên gợi nhớ (Tùy chọn)
             </label>
-            <div className="relative flex flex-col bg-slate-950 border border-slate-850/60 rounded-xl px-3 py-2.5 focus-within:border-slate-750 transition-all shadow-inner">
+            <div className="relative flex flex-col bg-slate-950 border border-slate-850/40 rounded-xl px-3 py-2.5 focus-within:border-indigo-500/30 transition-all shadow-inner">
               <input
                 type="text"
                 value={voiceName}
@@ -170,10 +171,10 @@ export const VoiceSampleUpload: React.FC<VoiceSampleUploadProps> = ({ onUploadSu
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-400">
-              Mã ID giọng nói (slug - Không bắt buộc)
+            <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
+              Mã ID giọng nói (slug - Tùy chọn)
             </label>
-            <div className="relative flex flex-col bg-slate-950 border border-slate-850/60 rounded-xl px-3 py-2.5 focus-within:border-slate-750 transition-all shadow-inner">
+            <div className="relative flex flex-col bg-slate-950 border border-slate-850/40 rounded-xl px-3 py-2.5 focus-within:border-indigo-500/30 transition-all shadow-inner">
               <input
                 type="text"
                 value={customId}

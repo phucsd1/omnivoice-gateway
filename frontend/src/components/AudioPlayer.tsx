@@ -142,6 +142,15 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
         <span className="text-[10px] font-mono font-bold text-slate-400 select-none shrink-0 tabular-nums min-w-[70px]">
           {formatTime(currentTime)} / {formatTime(duration)}
         </span>
+
+        {/* Waveform Bouncing Bars */}
+        <div className="flex items-end gap-0.5 h-4 w-7 px-1 shrink-0 select-none overflow-hidden bg-slate-950/40 rounded-md border border-slate-850/40 justify-center">
+          <div className={`w-[2px] bg-indigo-500 rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-1' : 'h-1.5'}`} />
+          <div className={`w-[2px] bg-indigo-400 rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-2' : 'h-3'}`} />
+          <div className={`w-[2px] bg-purple-500 rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-3' : 'h-2'}`} />
+          <div className={`w-[2px] bg-indigo-300 rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-4' : 'h-3.5'}`} />
+          <div className={`w-[2px] bg-purple-400 rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-2' : 'h-1'}`} />
+        </div>
       </div>
 
       {/* Progress Timeline Slider */}
