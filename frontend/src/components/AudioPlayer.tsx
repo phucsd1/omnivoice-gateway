@@ -14,7 +14,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
-  const [volume, setVolume] = useState(1);
+  const volume = 1;
   const [isMuted, setIsMuted] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1.0);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
@@ -39,7 +39,6 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
     audio.addEventListener("loadedmetadata", handleLoadedMetadata);
     audio.addEventListener("ended", handleEnded);
 
-    // Initial check in case it is already loaded
     if (audio.duration) {
       setDuration(audio.duration);
     }
@@ -85,12 +84,6 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
     setCurrentTime(newTime);
   };
 
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVol = parseFloat(e.target.value);
-    setVolume(newVol);
-    if (newVol > 0) setIsMuted(false);
-  };
-
   const toggleMute = () => {
     setIsMuted(!isMuted);
   };
@@ -115,135 +108,116 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
   };
 
   const speeds = [0.75, 1.0, 1.25, 1.5, 2.0];
-
   const percentage = duration ? (currentTime / duration) * 100 : 0;
-  const volPercentage = isMuted ? 0 : volume * 100;
 
   return (
-    <div className="bg-card border border-border rounded-xl px-3 py-2 flex items-center justify-between gap-3 shadow-sm relative w-full select-none transition-all duration-200 hover:border-border/60">
+    <div className="bg-card border border-border rounded-xl p-2 flex flex-col gap-1.5 shadow-sm relative w-full select-none transition-all duration-200 hover:border-border/60">
       <audio ref={audioRef} src={authenticatedUrl} />
       
-      {/* Controls Container */}
-      <div className="flex items-center gap-2.5 shrink-0">
-        {/* Play/Pause Button */}
-        <button
-          onClick={togglePlay}
-          className="w-8 h-8 rounded-full border border-border hover:border-border bg-card/60 hover:bg-muted text-foreground hover:text-foreground flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-sm"
-          title={isPlaying ? "Tạm dừng" : "Phát"}
-        >
-          {isPlaying ? (
-            <Pause className="w-3.5 h-3.5 fill-current" />
-          ) : (
-            <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
-          )}
-        </button>
+      {/* Top Row: Play, Time, Title (Left) & Speed, Mute, Download (Right) */}
+      <div className="flex items-center justify-between gap-2 w-full">
+        {/* Left Part */}
+        <div className="flex items-center gap-2 min-w-0 flex-grow">
+          <button
+            onClick={togglePlay}
+            className="w-6.5 h-6.5 rounded-full border border-border bg-card/60 hover:bg-muted text-foreground flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-sm"
+            title={isPlaying ? "Tạm dừng" : "Phát"}
+          >
+            {isPlaying ? (
+              <Pause className="w-2.5 h-2.5 fill-current" />
+            ) : (
+              <Play className="w-2.5 h-2.5 fill-current ml-0.5" />
+            )}
+          </button>
+          
+          <div className="flex flex-col min-w-0 leading-tight">
+            {title && (
+              <span className="text-[9px] font-extrabold text-foreground uppercase tracking-wider truncate max-w-[110px]" title={title}>
+                {title}
+              </span>
+            )}
+            <span className="text-[9px] font-mono font-bold text-muted-foreground tabular-nums">
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </span>
+          </div>
+        </div>
 
-        {/* Combined Time Readout */}
-        <span className="text-[10px] font-mono font-bold text-muted-foreground select-none shrink-0 tabular-nums min-w-[70px]">
-          {formatTime(currentTime)} / {formatTime(duration)}
-        </span>
+        {/* Right Part */}
+        <div className="flex items-center gap-1 shrink-0">
+          {/* Waveform Bouncing Bars (hidden on small layouts) */}
+          <div className="hidden sm:flex items-end gap-0.5 h-3.5 w-6 px-0.5 shrink-0 overflow-hidden bg-background/40 rounded border border-border/40 justify-center">
+            <div className={`w-[1.5px] bg-primary rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-1' : 'h-1'}`} />
+            <div className={`w-[1.5px] bg-primary rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-2' : 'h-2.5'}`} />
+            <div className={`w-[1.5px] bg-purple-500 rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-3' : 'h-1.5'}`} />
+          </div>
 
-        {/* Waveform Bouncing Bars */}
-        <div className="flex items-end gap-0.5 h-4 w-7 px-1 shrink-0 select-none overflow-hidden bg-background/40 rounded-md border border-border/40 justify-center">
-          <div className={`w-[2px] bg-primary rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-1' : 'h-1.5'}`} />
-          <div className={`w-[2px] bg-primary rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-2' : 'h-3'}`} />
-          <div className={`w-[2px] bg-purple-500 rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-3' : 'h-2'}`} />
-          <div className={`w-[2px] bg-primary/80 rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-4' : 'h-3.5'}`} />
-          <div className={`w-[2px] bg-purple-400 rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-2' : 'h-1'}`} />
+          {/* Speed Selector */}
+          <div className="relative flex items-center">
+            <button
+              onClick={() => setShowSpeedMenu(!showSpeedMenu)}
+              className="px-1 py-0.5 bg-background hover:bg-muted border border-border rounded text-[9px] font-bold text-muted-foreground transition-colors cursor-pointer select-none"
+            >
+              {playbackRate.toFixed(1)}x
+            </button>
+            
+            {showSpeedMenu && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowSpeedMenu(false)} />
+                <div className="absolute bottom-full right-0 mb-1.5 z-25 bg-card border border-border rounded-xl p-1 shadow-xl flex flex-col gap-0.5 min-w-[55px] animate-fadeIn">
+                  {speeds.map(s => (
+                    <button
+                      key={s}
+                      onClick={() => {
+                        setPlaybackRate(s);
+                        setShowSpeedMenu(false);
+                      }}
+                      className={`px-1.5 py-0.5 text-left rounded-lg text-[9px] font-bold transition-colors cursor-pointer w-full ${
+                        playbackRate === s
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {s.toFixed(1)}x
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Volume Mute */}
+          <button
+            onClick={toggleMute}
+            className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer p-0.5 shrink-0"
+            title={isMuted ? "Bật âm thanh" : "Tắt âm thanh"}
+          >
+            {isMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+          </button>
+
+          {/* Download */}
+          <button
+            onClick={handleDownload}
+            className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer p-0.5 shrink-0"
+            title="Tải xuống tệp WAV"
+          >
+            <Download className="w-3 h-3" />
+          </button>
         </div>
       </div>
 
-      {/* Progress Timeline Slider */}
-      <input
-        type="range"
-        min={0}
-        max={duration || 100}
-        value={currentTime}
-        onChange={handleSeekChange}
-        className="seekbar flex-grow"
-        style={{
-          background: `linear-gradient(to right, var(--color-slate-100) 0%, var(--color-slate-100) ${percentage}%, var(--color-slate-800) ${percentage}%, var(--color-slate-800) 100%)`
-        }}
-      />
-
-      {/* Right Side Options */}
-      <div className="flex items-center gap-3 shrink-0">
-        {/* Optional small title */}
-        {title && (
-          <span 
-            className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider truncate max-w-[80px] hidden lg:inline-block" 
-            title={title}
-          >
-            {title}
-          </span>
-        )}
-
-        {/* Speed Multiplier Button */}
-        <div className="relative shrink-0 flex items-center">
-          <button
-            onClick={() => setShowSpeedMenu(!showSpeedMenu)}
-            className="px-1.5 py-0.5 bg-background hover:bg-muted border border-border rounded text-[9px] font-bold text-muted-foreground hover:text-foreground transition-colors cursor-pointer select-none"
-          >
-            {playbackRate.toFixed(1)}x
-          </button>
-          
-          {showSpeedMenu && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setShowSpeedMenu(false)} />
-              <div className="absolute bottom-full right-0 mb-1.5 z-25 bg-card border border-border rounded-xl p-1 shadow-xl flex flex-col gap-0.5 min-w-[65px] animate-fadeIn">
-                {speeds.map(s => (
-                  <button
-                    key={s}
-                    onClick={() => {
-                      setPlaybackRate(s);
-                      setShowSpeedMenu(false);
-                    }}
-                    className={`px-2 py-0.5 text-left rounded-lg text-[9px] font-bold transition-colors cursor-pointer w-full ${
-                      playbackRate === s
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    {s.toFixed(2)}x
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Volume controls */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            onClick={toggleMute}
-            className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer p-0.5"
-            title={isMuted ? "Bật âm thanh" : "Tắt âm thanh"}
-          >
-            {isMuted || volume === 0 ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-          </button>
-          
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={isMuted ? 0 : volume}
-            onChange={handleVolumeChange}
-            className="seekbar w-10 hidden sm:inline-block h-1"
-            style={{
-              background: `linear-gradient(to right, var(--color-slate-350) 0%, var(--color-slate-350) ${volPercentage}%, var(--color-slate-800) ${volPercentage}%, var(--color-slate-800) 100%)`
-            }}
-          />
-        </div>
-
-        {/* Download Button */}
-        <button
-          onClick={handleDownload}
-          className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer p-0.5 shrink-0"
-          title="Tải xuống tệp WAV"
-        >
-          <Download className="w-3.5 h-3.5" />
-        </button>
+      {/* Bottom Row: Timeline Slider (Full-width) */}
+      <div className="w-full flex items-center">
+        <input
+          type="range"
+          min={0}
+          max={duration || 100}
+          value={currentTime}
+          onChange={handleSeekChange}
+          className="seekbar w-full"
+          style={{
+            background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${percentage}%, var(--slider-track) ${percentage}%, var(--slider-track) 100%)`
+          }}
+        />
       </div>
     </div>
   );

@@ -12,7 +12,7 @@ interface VoiceDesignPanelProps {
   layout?: "classic" | "modern";
 }
 
-export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSuccess, onJobCreatedOrUpdated }) => {
+export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSuccess, onJobCreatedOrUpdated, layout = "classic" }) => {
   const [voiceRequest, setVoiceRequest] = useState("Giọng nữ trẻ, trầm, nhẹ nhàng, tự nhiên");
   const [previewText, setPreviewText] = useState("Xin chào, đây là giọng nói thiết kế thử nghiệm của OmniVoice.");
   const [loading, setLoading] = useState(false);
@@ -203,24 +203,32 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
   };
 
   return (
-    <div className="bg-card border border-border rounded-3xl p-6 flex flex-col gap-6 shadow-xl transition-all duration-300 relative overflow-hidden">
+    <div className={`bg-card border border-border flex flex-col relative overflow-hidden transition-all duration-300 ${
+      layout === "modern"
+        ? "rounded-2xl p-4 gap-3.5 shadow-sm"
+        : "rounded-3xl p-6 gap-6 shadow-xl"
+    }`}>
       {/* Ambient background glow */}
-      <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-xl pointer-events-none" />
+      {layout !== "modern" && (
+        <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-xl pointer-events-none" />
+      )}
 
-      <div className="flex flex-col gap-1 relative z-10">
-        <h2 className="text-sm font-extrabold tracking-widest text-muted-foreground uppercase flex items-center gap-2">
-          <Mic className="w-4 h-4 text-purple-400" />
+      <div className="flex flex-col gap-0.5 relative z-10">
+        <h2 className="text-xs font-extrabold tracking-widest text-muted-foreground uppercase flex items-center gap-2">
+          <Mic className="w-3.5 h-3.5 text-purple-400" />
           <span>Thiết kế giọng nói</span>
         </h2>
-        <p className="text-xs text-muted-foreground font-medium mt-1">
-          Mô tả kiểu giọng nói bằng tiếng Việt để tạo bản nghe thử rồi lưu vào thư viện.
-        </p>
+        {layout !== "modern" && (
+          <p className="text-xs text-muted-foreground font-medium mt-1">
+            Mô tả kiểu giọng nói bằng tiếng Việt để tạo bản nghe thử rồi lưu vào thư viện.
+          </p>
+        )}
       </div>
 
-      <form onSubmit={handleGenerate} className="flex flex-col gap-5 relative z-10">
+      <form onSubmit={handleGenerate} className="flex flex-col gap-3.5 relative z-10">
         {/* Voice request */}
-        <div className="flex flex-col gap-2">
-          <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-wider">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
             Mô tả giọng nói (Tiếng Việt)
           </label>
           <input
@@ -228,33 +236,37 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
             value={voiceRequest}
             onChange={(e) => setVoiceRequest(e.target.value)}
             placeholder="Ví dụ: giọng nữ trẻ trầm nhẹ nhàng tự nhiên..."
-            className="bg-background border border-border/40 rounded-xl px-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-primary/30 transition-all font-semibold w-full"
+            className="bg-background border border-border/40 rounded-xl px-2.5 py-2 text-[11px] text-foreground focus:outline-none focus:border-primary/30 transition-all font-semibold w-full"
           />
-          <span className="text-[9px] text-muted-foreground font-medium leading-tight">
-            * Hệ thống tự phân tích: &quot;nữ/nam&quot;, &quot;trẻ&quot;, &quot;trầm/thấp&quot;, &quot;nhẹ nhàng/thì thầm&quot;...
-          </span>
+          {layout !== "modern" && (
+            <span className="text-[9px] text-muted-foreground font-medium leading-tight">
+              * Hệ thống tự phân tích: &quot;nữ/nam&quot;, &quot;trẻ&quot;, &quot;trầm/thấp&quot;, &quot;nhẹ nhàng/thì thầm&quot;...
+            </span>
+          )}
         </div>
 
         {/* Preview text */}
-        <div className="flex flex-col gap-2">
-          <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-wider">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
             Nội dung nghe thử (Preview Text)
           </label>
           <textarea
             value={previewText}
             onChange={(e) => setPreviewText(e.target.value)}
-            placeholder="Nhập nội dung ngắn để nghe thử giọng nói này..."
-            rows={2}
-            className="bg-background border border-border/40 rounded-xl px-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-primary/30 transition-all font-semibold w-full resize-none"
+            placeholder="Nhập nội dung ngắn để nghe thử giọng..."
+            rows={layout === "modern" ? 1.5 : 2}
+            className="bg-background border border-border/40 rounded-xl px-2.5 py-2 text-[11px] text-foreground focus:outline-none focus:border-primary/30 transition-all font-semibold w-full resize-none"
           />
         </div>
 
         {/* Advanced parameters: Speed and Steps */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 p-4 bg-background/40 border border-border/80 rounded-2xl shadow-inner">
-          <div className="flex flex-col gap-2">
-            <div className="flex justify-between items-center text-xs">
-              <label className="font-bold text-muted-foreground uppercase tracking-wider">Tốc độ nói: {speed.toFixed(1)}x</label>
-              <span className="text-[10px] text-muted-foreground font-bold font-mono select-none">0.5x - 2.0x</span>
+        <div className={`p-3 bg-background/40 border border-border/80 rounded-2xl shadow-inner ${
+          layout === "modern" ? "flex flex-col gap-3.5" : "grid grid-cols-1 md:grid-cols-2 gap-5"
+        }`}>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex justify-between items-center text-[10px]">
+              <label className="font-bold text-muted-foreground uppercase tracking-wider">Tốc độ: {speed.toFixed(1)}x</label>
+              <span className="text-[9px] text-muted-foreground font-bold font-mono select-none">0.5x - 2.0x</span>
             </div>
             <input
               type="range"
@@ -264,17 +276,13 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
               value={speed}
               onChange={(e) => setSpeed(parseFloat(e.target.value))}
               className="seekbar w-full"
-              style={{ background: 'var(--color-slate-800)' }}
             />
-            <span className="text-[10px] text-muted-foreground font-medium leading-tight">
-              Mặc định: 1.0
-            </span>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <div className="flex justify-between items-center text-xs">
+          <div className="flex flex-col gap-1.5">
+            <div className="flex justify-between items-center text-[10px]">
               <label className="font-bold text-muted-foreground uppercase tracking-wider">Độ chính xác (Steps): {numStep}</label>
-              <span className="text-[10px] text-muted-foreground font-bold font-mono select-none">10 - 64</span>
+              <span className="text-[9px] text-muted-foreground font-bold font-mono select-none">10 - 64</span>
             </div>
             <input
               type="range"
@@ -284,20 +292,16 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
               value={numStep}
               onChange={(e) => setNumStep(parseInt(e.target.value))}
               className="seekbar w-full"
-              style={{ background: 'var(--color-slate-800)' }}
             />
-            <span className="text-[10px] text-muted-foreground font-medium leading-tight">
-              Mặc định: 32 (16 bước để chạy nhanh hơn)
-            </span>
           </div>
         </div>
 
         {/* Toggle Advanced Settings */}
-        <div className="border-t border-border/80 pt-3">
+        <div className="border-t border-border/80 pt-2.5">
           <button
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground font-extrabold transition-colors cursor-pointer select-none"
+            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground font-extrabold transition-colors cursor-pointer select-none"
           >
             <span>{showAdvanced ? "Ẩn cấu hình nâng cao" : "Hiện cấu hình nâng cao (OmniVoice)"}</span>
           </button>
@@ -352,7 +356,6 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
                   value={guidanceScale}
                   onChange={(e) => setGuidanceScale(parseFloat(e.target.value))}
                   className="seekbar w-full"
-                  style={{ background: 'var(--color-slate-800)' }}
                 />
               </div>
 
@@ -366,7 +369,6 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
                   value={tShift}
                   onChange={(e) => setTShift(parseFloat(e.target.value))}
                   className="seekbar w-full"
-                  style={{ background: 'var(--color-slate-800)' }}
                 />
               </div>
 
@@ -380,7 +382,6 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
                   value={positionTemperature}
                   onChange={(e) => setPositionTemperature(parseFloat(e.target.value))}
                   className="seekbar w-full"
-                  style={{ background: 'var(--color-slate-800)' }}
                 />
               </div>
 
@@ -394,7 +395,6 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
                   value={classTemperature}
                   onChange={(e) => setClassTemperature(parseFloat(e.target.value))}
                   className="seekbar w-full"
-                  style={{ background: 'var(--color-slate-800)' }}
                 />
               </div>
 
@@ -408,7 +408,6 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
                   value={layerPenaltyFactor}
                   onChange={(e) => setLayerPenaltyFactor(parseFloat(e.target.value))}
                   className="seekbar w-full"
-                  style={{ background: 'var(--color-slate-800)' }}
                 />
               </div>
 
@@ -433,7 +432,6 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
                   value={audioChunkDuration}
                   onChange={(e) => setAudioChunkDuration(parseFloat(e.target.value))}
                   className="seekbar w-full"
-                  style={{ background: 'var(--color-slate-800)' }}
                 />
               </div>
 
@@ -447,7 +445,6 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
                   value={audioChunkThreshold}
                   onChange={(e) => setAudioChunkThreshold(parseFloat(e.target.value))}
                   className="seekbar w-full"
-                  style={{ background: 'var(--color-slate-800)' }}
                 />
               </div>
             </div>

@@ -171,7 +171,6 @@ function App() {
     orbLabel = "GPU Agent: Lỗi kết nối";
     orbDesc = "Kiểm tra thông số Kaggle";
   } else {
-    // Standard connected
     orbColorClass = "bg-success";
     orbPulseClass = "animate-orb-green";
     orbLabel = "GPU Agent: Sẵn sàng";
@@ -180,8 +179,7 @@ function App() {
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-card border-r border-border text-foreground select-none">
-      {/* Brand Logo & Name */}
-      <div className="p-6 border-b border-border flex items-center gap-3">
+      <div className="p-4 border-b border-border flex items-center gap-3 shrink-0">
         <div className="bg-gradient-to-tr from-indigo-500 to-purple-500 p-2 rounded-xl shadow-md shadow-indigo-500/10 shrink-0">
           <Radio className="w-5 h-5 text-white animate-pulse" />
         </div>
@@ -198,73 +196,117 @@ function App() {
         </div>
       </div>
 
-      {/* Navigation Links */}
-      <nav className="flex-grow p-4 flex flex-col gap-1.5 overflow-y-auto">
-        <button
-          onClick={() => navigateToTab("workspace")}
-          className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
-            activeTab === "workspace"
-              ? "bg-muted text-foreground shadow-sm border border-border/50"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-          }`}
-        >
-          <Sparkles className="w-4 h-4 shrink-0" />
-          <span>Không gian làm việc</span>
-        </button>
-
-        <button
-          onClick={() => navigateToTab("library")}
-          className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
-            activeTab === "library"
-              ? "bg-muted text-foreground shadow-sm border border-border/50"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-          }`}
-        >
-          <Volume2 className="w-4 h-4 shrink-0" />
-          <span>Thư viện giọng nói</span>
-        </button>
-
-        <button
-          onClick={() => navigateToTab("history")}
-          className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
-            activeTab === "history"
-              ? "bg-muted text-foreground shadow-sm border border-border/50"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-          }`}
-        >
-          <Layers className="w-4 h-4 shrink-0" />
-          <span>Lịch sử tác vụ</span>
-        </button>
-
-        <button
-          onClick={() => navigateToTab("docs")}
-          className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
-            activeTab === "docs"
-              ? "bg-muted text-foreground shadow-sm border border-border/50"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-          }`}
-        >
-          <BookOpen className="w-4 h-4 shrink-0" />
-          <span>Tài liệu API</span>
-        </button>
-
-        {currentUser?.is_admin && (
+      <nav className="flex-grow p-4 flex flex-col gap-4 overflow-y-auto">
+        <div className="flex flex-col gap-1 shrink-0">
           <button
-            onClick={() => navigateToTab("admin")}
+            onClick={() => navigateToTab("workspace")}
             className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
-              activeTab === "admin"
+              activeTab === "workspace"
                 ? "bg-muted text-foreground shadow-sm border border-border/50"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             }`}
           >
-            <Server className="w-4 h-4 shrink-0" />
-            <span>Cổng quản trị (Admin)</span>
+            <Sparkles className="w-4 h-4 shrink-0" />
+            <span>Không gian làm việc</span>
           </button>
-        )}
+
+          <button
+            onClick={() => navigateToTab("library")}
+            className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
+              activeTab === "library"
+                ? "bg-muted text-foreground shadow-sm border border-border/50"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+          >
+            <Volume2 className="w-4 h-4 shrink-0" />
+            <span>Thư viện giọng nói</span>
+          </button>
+
+          <button
+            onClick={() => navigateToTab("history")}
+            className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
+              activeTab === "history"
+                ? "bg-muted text-foreground shadow-sm border border-border/50"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+          >
+            <Layers className="w-4 h-4 shrink-0" />
+            <span>Lịch sử tác vụ</span>
+          </button>
+
+          <button
+            onClick={() => navigateToTab("docs")}
+            className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
+              activeTab === "docs"
+                ? "bg-muted text-foreground shadow-sm border border-border/50"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+          >
+            <BookOpen className="w-4 h-4 shrink-0" />
+            <span>Tài liệu API</span>
+          </button>
+
+          {currentUser?.is_admin && (
+            <button
+              onClick={() => navigateToTab("admin")}
+              className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
+                activeTab === "admin"
+                  ? "bg-muted text-foreground shadow-sm border border-border/50"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+            >
+              <Server className="w-4 h-4 shrink-0" />
+              <span>Cổng quản trị (Admin)</span>
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-4 pt-4 border-t border-border/60">
+          <div className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-widest px-1">
+            Thiết lập giọng Clone
+          </div>
+          
+          <div className="px-0.5">
+            {activeVoiceSampleId ? (
+              <div className="bg-gradient-to-tr from-indigo-950/20 to-purple-950/20 border border-primary/20 rounded-xl p-3 flex items-center justify-between gap-3 shadow-sm">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="bg-primary/10 p-1.5 rounded-lg text-primary shrink-0">
+                    <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[9px] font-bold text-primary uppercase tracking-wider">
+                      Mẫu hoạt động
+                    </span>
+                    <span className="text-[10px] font-mono font-bold text-foreground truncate max-w-[110px]" title={activeVoiceSampleId}>
+                      {activeVoiceSampleId}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setActiveVoiceSampleId(null)}
+                  className="text-[9px] hover:text-foreground text-foreground border border-border bg-card hover:bg-muted px-2 py-1 rounded-lg transition-colors cursor-pointer font-bold shrink-0"
+                >
+                  Hủy
+                </button>
+              </div>
+            ) : (
+              <div className="bg-card border border-border rounded-xl p-3 flex items-center gap-2.5 text-[10px] text-muted-foreground shadow-sm leading-normal">
+                <Layers className="w-4 h-4 text-primary shrink-0 animate-pulse" />
+                <span>Chưa chọn mẫu giọng. Vui lòng tải một mẫu giọng hoặc thiết kế giọng nói.</span>
+              </div>
+            )}
+          </div>
+
+          <VoiceSampleUpload onUploadSuccess={handleVoiceSampleActive} layout="modern" />
+          <VoiceDesignPanel 
+            onAcceptSuccess={handleVoiceSampleActive} 
+            onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
+            layout="modern"
+          />
+        </div>
       </nav>
 
-      {/* AI Agent Status Orb Box */}
-      <div className="p-4 border-t border-border bg-card/60 mx-4 my-2 rounded-2xl border border-border">
+      <div className="p-4 border-t border-border bg-card/60 mx-4 my-2 rounded-2xl border border-border shrink-0">
         <div className="flex items-center gap-3">
           <div className={`w-3.5 h-3.5 rounded-full shrink-0 relative ${orbColorClass} ${orbPulseClass}`} />
           <div className="flex flex-col min-w-0">
@@ -274,8 +316,7 @@ function App() {
         </div>
       </div>
 
-      {/* Footer Profile & Actions */}
-      <div className="p-4 border-t border-border flex flex-col gap-3">
+      <div className="p-4 border-t border-border flex flex-col gap-3 shrink-0">
         {currentUser && (
           <div className="flex items-center justify-between gap-2 bg-muted/30 border border-border px-3 py-2.5 rounded-xl">
             <div className="flex flex-col min-w-0">
@@ -330,7 +371,6 @@ function App() {
           </button>
         </div>
 
-        {/* Mini stats */}
         <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono px-1">
           <span>Gateway: {connectionStatus === "connected" ? "Online" : "Offline"}</span>
           <button 
@@ -347,25 +387,20 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex font-sans select-none overflow-x-hidden relative">
-      {/* Background glow animations */}
       <div className="absolute top-0 left-1/4 w-[400px] h-[400px] bg-primary/5 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-purple-500/5 rounded-full blur-[120px] pointer-events-none" />
 
-      {/* Desktop Sidebar (Permanent) */}
-      <aside className="hidden lg:block w-64 h-screen fixed top-0 left-0 shrink-0 z-40">
+      <aside className="hidden lg:block w-80 h-screen fixed top-0 left-0 shrink-0 z-40">
         {sidebarContent}
       </aside>
 
-      {/* Mobile Drawer Sidebar */}
       {sidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
-          {/* Backdrop overlay */}
           <div 
             onClick={() => setSidebarOpen(false)}
             className="fixed inset-0 bg-black/60 backdrop-blur-sm"
           />
-          {/* Drawer menu */}
-          <div className="relative w-64 max-w-xs h-full flex-col z-50 animate-fadeIn">
+          <div className="relative w-80 max-w-sm h-full flex-col z-50 animate-fadeIn">
             {sidebarContent}
             <button
               onClick={() => setSidebarOpen(false)}
@@ -377,9 +412,7 @@ function App() {
         </div>
       )}
 
-      {/* Main Container */}
-      <div className="flex-grow flex flex-col min-w-0 lg:pl-64 min-h-screen">
-        {/* Mobile Header Topbar */}
+      <div className="flex-grow flex flex-col min-w-0 lg:pl-80 min-h-screen">
         <header className="lg:hidden sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
@@ -404,10 +437,8 @@ function App() {
           </div>
         </header>
 
-        {/* Pages Content Area */}
         <main className="flex-grow p-4 md:p-6 lg:p-8 w-full max-w-7xl mx-auto flex flex-col gap-6 relative">
           
-          {/* Modals */}
           <SettingsPanel
             isOpen={showSettingsModal}
             onClose={() => setShowSettingsModal(false)}
@@ -420,57 +451,13 @@ function App() {
             onNavigateToDocs={() => navigateToTab("docs")}
           />
 
-          {/* Active view mapping */}
           {activeTab === "workspace" && (
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-              
-              {/* Left Column (2/3 width) - TTS Interface */}
-              <section className="xl:col-span-2 flex flex-col gap-6">
-                <TTSPanel 
-                  activeVoiceSampleId={activeVoiceSampleId} 
-                  onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
-                  layout="modern"
-                />
-              </section>
-
-              {/* Right Column (1/3 width) - Voice Configuration */}
-              <section className="xl:col-span-1 flex flex-col gap-6">
-                {activeVoiceSampleId ? (
-                  <div className="bg-gradient-to-tr from-indigo-950/20 to-purple-950/20 border border-primary/20 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-primary/10 p-2 rounded-xl text-primary">
-                        <Sparkles className="w-5 h-5 animate-pulse" />
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-[10px] font-bold text-primary uppercase tracking-wider">
-                          Mẫu giọng hoạt động
-                        </span>
-                        <span className="text-xs font-mono font-bold text-foreground truncate max-w-[150px] sm:max-w-[200px]">
-                          {activeVoiceSampleId}
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setActiveVoiceSampleId(null)}
-                      className="text-xs hover:text-foreground text-foreground border border-border bg-card hover:bg-muted px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer font-bold shrink-0"
-                    >
-                      Hủy chọn
-                    </button>
-                  </div>
-                ) : (
-                  <div className="bg-card border border-border rounded-2xl p-4 flex items-center gap-3 text-xs text-muted-foreground shadow-sm">
-                    <Layers className="w-5 h-5 text-primary shrink-0 animate-pulse" />
-                    <span>Chưa chọn mẫu giọng. Vui lòng tải một mẫu giọng hoặc thiết kế giọng nói để bắt đầu clone.</span>
-                  </div>
-                )}
-
-                <VoiceSampleUpload onUploadSuccess={handleVoiceSampleActive} layout="modern" />
-                <VoiceDesignPanel 
-                  onAcceptSuccess={handleVoiceSampleActive} 
-                  onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
-                  layout="modern"
-                />
-              </section>
+            <div className="w-full flex flex-col gap-6">
+              <TTSPanel 
+                activeVoiceSampleId={activeVoiceSampleId} 
+                onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
+                layout="modern"
+              />
             </div>
           )}
 
@@ -506,7 +493,6 @@ function App() {
 
         </main>
 
-        {/* Footer */}
         <footer className="border-t border-border/60 py-6 text-center text-[10px] text-muted-foreground font-semibold bg-background/20 mt-auto">
           OmniVoice On-Demand Gateway MVP &copy; {new Date().getFullYear()} &nbsp;•&nbsp; Built for High-Performance Audio Synthesis
         </footer>

@@ -506,7 +506,6 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
               value={speed}
               onChange={(e) => setSpeed(parseFloat(e.target.value))}
               className="seekbar w-full"
-              style={{ background: 'var(--color-slate-800)' }}
             />
             <span className="text-[10px] text-muted-foreground font-medium leading-tight">
               Mặc định: 1.0
@@ -526,7 +525,6 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
               value={numStep}
               onChange={(e) => setNumStep(parseInt(e.target.value))}
               className="seekbar w-full"
-              style={{ background: 'var(--color-slate-800)' }}
             />
             <span className="text-[10px] text-muted-foreground font-medium leading-tight">
               Mặc định: 32 (16 bước để chạy nhanh hơn)
@@ -594,7 +592,6 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
                   value={guidanceScale}
                   onChange={(e) => setGuidanceScale(parseFloat(e.target.value))}
                   className="seekbar w-full"
-                  style={{ background: 'var(--color-slate-800)' }}
                 />
               </div>
 
@@ -608,7 +605,6 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
                   value={tShift}
                   onChange={(e) => setTShift(parseFloat(e.target.value))}
                   className="seekbar w-full"
-                  style={{ background: 'var(--color-slate-800)' }}
                 />
               </div>
 
@@ -622,7 +618,6 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
                   value={positionTemperature}
                   onChange={(e) => setPositionTemperature(parseFloat(e.target.value))}
                   className="seekbar w-full"
-                  style={{ background: 'var(--color-slate-800)' }}
                 />
               </div>
 
@@ -636,7 +631,6 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
                   value={classTemperature}
                   onChange={(e) => setClassTemperature(parseFloat(e.target.value))}
                   className="seekbar w-full"
-                  style={{ background: 'var(--color-slate-800)' }}
                 />
               </div>
 
@@ -650,7 +644,6 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
                   value={layerPenaltyFactor}
                   onChange={(e) => setLayerPenaltyFactor(parseFloat(e.target.value))}
                   className="seekbar w-full"
-                  style={{ background: 'var(--color-slate-800)' }}
                 />
               </div>
 
@@ -675,7 +668,6 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
                   value={audioChunkDuration}
                   onChange={(e) => setAudioChunkDuration(parseFloat(e.target.value))}
                   className="seekbar w-full"
-                  style={{ background: 'var(--color-slate-800)' }}
                 />
               </div>
 
@@ -689,7 +681,6 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
                   value={audioChunkThreshold}
                   onChange={(e) => setAudioChunkThreshold(parseFloat(e.target.value))}
                   className="seekbar w-full"
-                  style={{ background: 'var(--color-slate-800)' }}
                 />
               </div>
             </div>
