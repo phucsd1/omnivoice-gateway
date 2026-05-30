@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Play, Pause, Volume2, UserCheck, HelpCircle, AudioLines, Heart, Lock, Globe, X } from "lucide-react";
+import { Play, Pause, Heart, Lock, Globe, X } from "lucide-react";
 import { api } from "../api/client";
 import type { JobStatusResponse, VoiceSampleResponse } from "../api/client";
 
@@ -72,8 +72,8 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
   const [duration, setDuration] = useState("");
   const [preprocessPrompt, setPreprocessPrompt] = useState(true);
   const [postprocessOutput, setPostprocessOutput] = useState(true);
-  const [audioChunkDuration, setAudioChunkDuration] = useState(15.0);
-  const [audioChunkThreshold, setAudioChunkThreshold] = useState(30.0);
+  const [audioChunkDuration] = useState(15.0);
+  const [audioChunkThreshold] = useState(30.0);
 
   const pollIntervalRef = useRef<number | null>(null);
   const timeoutRef = useRef<number | null>(null);
@@ -257,73 +257,45 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
     setLoading(false);
   };
 
-  return (
-    <div className="bg-card border border-border rounded-3xl p-6 md:p-8 flex flex-col gap-6 shadow-xl transition-all duration-300 relative overflow-hidden">
-      {/* Visual background ambient gradient */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
+  useEffect(() => {
+    const handleRegenerateEvent = () => {
+      const mockEvent = {
+        preventDefault: () => {}
+      } as React.FormEvent;
+      handleGenerate(mockEvent);
+    };
+    window.addEventListener("omnivoice:regenerate", handleRegenerateEvent);
+    return () => {
+      window.removeEventListener("omnivoice:regenerate", handleRegenerateEvent);
+    };
+  }, [text, customVoiceSampleId, instruct, refText, speed, numStep, denoise, guidanceScale, tShift, positionTemperature, classTemperature, layerPenaltyFactor, duration, preprocessPrompt, postprocessOutput, audioChunkDuration, audioChunkThreshold, mode]);
 
-      <div className="flex flex-col gap-1 relative z-10">
-        <h2 className="text-lg font-bold flex items-center gap-2 text-foreground">
-          <AudioLines className="w-5 h-5 text-primary" />
-          <span>Chuyển đổi văn bản thành giọng nói</span>
-        </h2>
+  return (
+    <div className="w-full flex flex-col gap-6">
+      {/* Header section */}
+      <div className="flex flex-col gap-1 select-none max-w-[960px] mx-auto w-full">
+        <h1 className="text-xl font-bold tracking-tight text-foreground">Text to Speech</h1>
         <p className="text-xs text-muted-foreground font-medium">
-          Tạo tệp giọng đọc chất lượng cao sử dụng giọng nói clone hoặc tự động.
+          Tạo giọng nói tự nhiên từ văn bản bằng OmniVoice.
         </p>
       </div>
 
-      <form onSubmit={handleGenerate} className="flex flex-col gap-6 relative z-10">
-        {/* Mode selector */}
-        <div className="flex flex-col gap-2">
-          <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-widest">Chế độ tạo giọng nói</label>
-          <div className={`grid ${layout === "modern" ? "grid-cols-2" : "grid-cols-3"} gap-1 p-1 bg-background/60 rounded-xl border border-border/30`}>
-              <button
-                type="button"
-                onClick={() => setMode("clone_voice")}
-                className={`py-2 px-3 text-center font-bold text-xs rounded-lg transition-all cursor-pointer ${
-                  mode === "clone_voice"
-                    ? "bg-card border border-border text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {layout === "modern" ? "Sử dụng giọng mẫu" : "Clone Voice"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode("auto_voice")}
-                className={`py-2 px-3 text-center font-bold text-xs rounded-lg transition-all cursor-pointer ${
-                  mode === "auto_voice"
-                    ? "bg-card border border-border text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Auto Voice
-              </button>
-              {layout !== "modern" && (
-                <button
-                  type="button"
-                  onClick={() => setMode("voice_design")}
-                  className={`py-2 px-3 text-center font-bold text-xs rounded-lg transition-all cursor-pointer ${
-                    mode === "voice_design"
-                      ? "bg-card border border-border text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Voice Design Direct
-                </button>
+      <div className="w-full max-w-[960px] mx-auto grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+        
+        {/* Left Column: Main Editor (8/12) */}
+        <div className="xl:col-span-8 flex flex-col gap-5">
+          {/* Selected Voice Card (compact) */}
+          <div className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-3 shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Mẫu giọng (Voice Sample)</span>
+              {activeVoiceSampleId && customVoiceSampleId === activeVoiceSampleId && (
+                <span className="text-[9px] text-success font-bold flex items-center gap-1">
+                  ✓ Giọng đã chọn
+                </span>
               )}
             </div>
-        </div>
-
-        {/* Dynamic Mode Fields */}
-        {mode === "clone_voice" && (
-          <div className="flex flex-col gap-4 p-4 bg-background/30 border border-border/40 rounded-2xl shadow-sm">
-            <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-              <UserCheck className="w-4 h-4 text-primary" />
-              <span>Cấu hình Clone Voice</span>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-wider">Chọn mẫu giọng từ Thư viện</label>
+            
+            {mode === "clone_voice" ? (
               <select
                 value={customVoiceSampleId}
                 onChange={(e) => {
@@ -336,7 +308,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
                     setRefText("");
                   }
                 }}
-                className="bg-card/40 border border-border/40 rounded-xl px-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-primary/30 transition-all font-semibold cursor-pointer shadow-sm w-full"
+                className="bg-secondary/50 border border-border/70 hover:border-border rounded-xl px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-semibold cursor-pointer shadow-sm w-full"
               >
                 <option value="">-- Chọn một mẫu giọng --</option>
                 <optgroup label="Giọng cá nhân (Private)">
@@ -354,160 +326,194 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
                   ))}
                 </optgroup>
               </select>
-              {activeVoiceSampleId && customVoiceSampleId === activeVoiceSampleId && (
-                <span className="text-[10px] text-success font-semibold mt-0.5">
-                  ✓ Đang kết nối với giọng mẫu được chọn hiện tại.
+            ) : mode === "auto_voice" ? (
+              <div className="bg-secondary/40 border border-border/60 rounded-xl px-4 py-2.5 text-xs text-muted-foreground font-medium select-none">
+                Auto Voice — Sử dụng giọng ngẫu nhiên
+              </div>
+            ) : (
+              <div className="bg-secondary/40 border border-border/60 rounded-xl px-4 py-2.5 text-xs text-muted-foreground font-medium select-none">
+                Voice Design Direct — Tạo giọng từ mô tả bên cột cài đặt
+              </div>
+            )}
+          </div>
+
+          {/* Large text area block */}
+          <form onSubmit={handleGenerate} className="flex flex-col gap-4">
+            <div className="relative flex flex-col bg-card border border-border focus-within:ring-2 focus-within:ring-primary/20 transition-all rounded-2xl p-4 shadow-sm">
+              <textarea
+                ref={textareaRef}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Nhập đoạn văn bản cần tạo thành tệp âm thanh..."
+                className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none resize-none font-medium leading-relaxed min-h-[280px] max-h-[420px]"
+                maxLength={5000}
+              />
+              <div className="flex justify-between items-center mt-3 pt-3 border-t border-border select-none text-[10px] text-muted-foreground font-bold">
+                <span>Tiếng Việt - OmniVoice</span>
+                <span className="font-mono">
+                  {text.length} / 5000 ký tự &nbsp;•&nbsp; {text.trim().split(/\s+/).filter(Boolean).length} từ
                 </span>
+              </div>
+            </div>
+
+            {errorMsg && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl text-xs font-semibold">
+                {errorMsg}
+              </div>
+            )}
+
+            {/* Generate CTA Button */}
+            <button
+              type="submit"
+              disabled={loading || !text}
+              className={`w-full h-11 rounded-xl font-bold text-xs transition-all duration-150 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer shadow-md ${
+                !loading && text
+                  ? "bg-gradient-to-r from-primary to-accent text-white border-none shadow-lg shadow-primary/10 hover:brightness-105"
+                  : "bg-secondary text-muted-foreground cursor-not-allowed"
+              }`}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white shrink-0" />
+                  <span>Đang xử lý TTS Job...</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>Tạo tệp giọng đọc (Generate)</span>
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Progress and status display */}
+          {jobId && jobStatus && (
+            <div className="mt-2 flex flex-col gap-4">
+              <JobStatusCard
+                jobId={jobStatus.job_id}
+                status={jobStatus.status}
+                message={jobStatus.message}
+                progress={jobStatus.progress}
+                errorMessage={jobStatus.error_message}
+              />
+
+              {jobStatus.status === "completed" && jobStatus.audio_url && (
+                <div className={`flex gap-3 items-center p-3.5 rounded-xl select-none border transition-all duration-300 ${
+                  currentPlayUrl === `${api.getApiBaseUrl()}${jobStatus.audio_url}`
+                    ? "border-primary bg-primary/[0.02]"
+                    : "border-border bg-card shadow-sm"
+                }`}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const audioUrl = `${api.getApiBaseUrl()}${jobStatus.audio_url}`;
+                      if (currentPlayUrl === audioUrl) {
+                        onTogglePlay();
+                      } else {
+                        onPlayAudio(audioUrl, "TTS Output");
+                      }
+                    }}
+                    className={`py-2 px-4 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer border shadow-sm shrink-0 ${
+                      currentPlayUrl === `${api.getApiBaseUrl()}${jobStatus.audio_url}` && globalPlayerPlaying
+                        ? "bg-primary text-white border-primary shadow-primary/10"
+                        : "border-border hover:border-primary/45 hover:bg-secondary text-foreground bg-card"
+                    }`}
+                  >
+                    {currentPlayUrl === `${api.getApiBaseUrl()}${jobStatus.audio_url}` && globalPlayerPlaying ? (
+                      <>
+                        <Pause className="w-3.5 h-3.5 fill-current" />
+                        <span>Tạm dừng</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                        <span>Nghe kết quả</span>
+                      </>
+                    )}
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={() => handleOpenSaveModal(jobStatus.job_id, text)}
+                    className="flex-grow py-2 px-4 bg-card hover:bg-secondary border border-border text-foreground rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
+                  >
+                    <Heart className="w-3.5 h-3.5 fill-current text-destructive shrink-0" />
+                    <span>Lưu vào Thư viện</span>
+                  </button>
+                </div>
               )}
             </div>
+          )}
+        </div>
+
+        {/* Right Column: Settings Panel (4/12) */}
+        <div className="xl:col-span-4 bg-card border border-border rounded-2xl p-5 flex flex-col gap-5 shadow-sm">
+          <div className="flex items-center gap-2 pb-2 border-b border-border select-none">
+            <span className="text-xs font-bold text-foreground">Cấu hình tham số</span>
+          </div>
+
+          {/* Voice Mode selection */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Voice Mode</label>
+            <select
+              value={mode}
+              onChange={(e) => setMode(e.target.value as any)}
+              className="bg-secondary/40 border border-border/70 rounded-xl px-3 py-2 text-xs font-semibold text-foreground focus:outline-none w-full cursor-pointer shadow-sm"
+            >
+              <option value="clone_voice">Sử dụng giọng mẫu</option>
+              <option value="auto_voice">Auto Voice</option>
+              <option value="voice_design">Voice Design Direct</option>
+            </select>
+          </div>
+
+          {/* Reference Text - only for clone mode */}
+          {mode === "clone_voice" && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-wider">Văn bản giọng mẫu (ref_text) - Tùy chọn</label>
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Reference Text (ref_text)</label>
               <input
                 type="text"
                 value={refText}
                 onChange={(e) => setRefText(e.target.value)}
-                placeholder="Ví dụ: Nội dung chữ được nói trong file ghi âm để tăng độ chính xác..."
-                className="bg-card/40 border border-border/40 rounded-xl px-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-primary/30 transition-all font-semibold w-full"
+                placeholder="Nội dung nói trong file mẫu..."
+                className="bg-secondary/40 border border-border/70 rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none w-full font-medium"
               />
-              <span className="text-[9px] text-muted-foreground font-medium leading-tight">
-                * Nếu để trống, worker GPU sẽ tự động chạy nhận dạng giọng nói (Whisper ASR) để trích xuất văn bản từ file âm thanh.
+              <span className="text-[9px] text-muted-foreground leading-snug">
+                * Nếu bỏ trống, Whisper ASR sẽ tự động nhận diện từ file mẫu.
               </span>
             </div>
-          </div>
-        )}
+          )}
 
-        {mode === "voice_design" && (
-          <div className="flex flex-col gap-4 p-4 bg-background/30 border border-border/40 rounded-2xl shadow-sm">
-            <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-              <Volume2 className="w-4 h-4 text-primary" />
-              <span>Tham số thiết kế trực tiếp (Instruct Tags)</span>
-            </div>
+          {/* Instruct tag for voice design */}
+          {mode === "voice_design" && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-wider">Instruct Tags (Tiếng Anh)</label>
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Instruct Tags (Tiếng Anh)</label>
               <input
                 type="text"
                 value={instruct}
                 onChange={(e) => setInstruct(e.target.value)}
-                placeholder="Ví dụ: female, young adult, natural, low pitch..."
-                className="bg-card/40 border border-border/40 rounded-xl px-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-primary/30 transition-all font-semibold font-mono w-full"
+                placeholder="female, young adult, natural, low pitch..."
+                className="bg-secondary/40 border border-border/70 rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none w-full font-mono font-medium"
               />
-              <span className="text-[9px] text-muted-foreground font-medium leading-tight">
-                * Các từ khóa: female, male, young adult, older adult, high pitch, low pitch, whisper...
-              </span>
             </div>
-          </div>
-        )}
+          )}
 
-        {mode === "auto_voice" && (
-          <div className="flex items-center gap-2.5 p-4 bg-background/30 border border-border/40 rounded-2xl text-xs text-muted-foreground font-medium shadow-sm">
-            <HelpCircle className="w-4.5 h-4.5 text-primary flex-shrink-0" />
-            <span>Chế độ Auto Voice sẽ để OmniVoice tự động lựa chọn giọng đọc ngẫu nhiên.</span>
-          </div>
-        )}
-
-        {/* TTS script */}
-        <div className="flex flex-col gap-2">
-          <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Nội dung văn bản cần chuyển thành tiếng nói</label>
-          <div className="relative flex flex-col bg-background border border-border/30 rounded-2xl p-4 md:p-5 focus-within:border-primary/30 transition-all shadow-inner">
-            <textarea
-              ref={textareaRef}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Nhập đoạn văn bản cần tạo thành tệp âm thanh..."
-              rows={5}
-              className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none resize-none font-medium leading-relaxed"
-              maxLength={5000}
-            />
-            <div className="flex justify-between items-center mt-3 pt-3 border-t border-border/60 select-none">
-              <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">
-                Tiếng Việt (OmniVoice)
-              </span>
-              <span className="text-[10px] font-mono font-bold text-muted-foreground select-none">
-                {text.length} / 5000 ký tự &nbsp;•&nbsp; {text.trim().split(/\s+/).filter(Boolean).length} từ
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Non-verbal symbols & pronunciation widget */}
-        <div className="flex flex-col gap-3.5 p-4 bg-background/40 border border-border/80 rounded-2xl shadow-inner">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
-              <Volume2 className="w-4 h-4 text-muted-foreground" />
-              <span>Biểu cảm &amp; Phát âm nâng cao (OmniVoice)</span>
-            </span>
-          </div>
-          
-          <div className="flex flex-wrap gap-1.5 mt-1">
-            <button
-              type="button"
-              onClick={() => insertTag("[laughter]")}
-              className="px-2.5 py-1.5 bg-card/60 hover:bg-muted border border-border/80 text-[10px] text-primary hover:text-primary/90 font-bold rounded-lg cursor-pointer transition-colors"
-              title="Chèn âm cười"
+          {/* Output Format (Placeholder) */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Đầu ra (Format)</label>
+            <select
+              disabled
+              className="bg-secondary/20 border border-border/50 rounded-xl px-3 py-2 text-xs font-semibold text-muted-foreground focus:outline-none w-full cursor-not-allowed shadow-none"
             >
-              😊 Cười [laughter]
-            </button>
-            <button
-              type="button"
-              onClick={() => insertTag("[sigh]")}
-              className="px-2.5 py-1.5 bg-card/60 hover:bg-muted border border-border/80 text-[10px] text-primary hover:text-primary/90 font-bold rounded-lg cursor-pointer transition-colors"
-              title="Chèn tiếng thở dài"
-            >
-              😮‍💨 Thở dài [sigh]
-            </button>
-            <button
-              type="button"
-              onClick={() => insertTag("[sniff]")}
-              className="px-2.5 py-1.5 bg-card/60 hover:bg-muted border border-border/80 text-[10px] text-primary hover:text-primary/90 font-bold rounded-lg cursor-pointer transition-colors"
-              title="Chèn tiếng sụt sịt"
-            >
-              👃 Sụt sịt [sniff]
-            </button>
-            <button
-              type="button"
-              onClick={() => insertTag("[question-en]")}
-              className="px-2.5 py-1.5 bg-card/60 hover:bg-muted border border-border/80 text-[10px] text-primary hover:text-primary/90 font-bold rounded-lg cursor-pointer transition-colors"
-              title="Chèn ngữ điệu nghi vấn tiếng Anh"
-            >
-              ❓ Hỏi (EN) [question-en]
-            </button>
-            <button
-              type="button"
-              onClick={() => insertTag("[surprise-ah]")}
-              className="px-2.5 py-1.5 bg-card/60 hover:bg-muted border border-border/80 text-[10px] text-primary hover:text-primary/90 font-bold rounded-lg cursor-pointer transition-colors"
-              title="Chèn tiếng ngạc nhiên 'Ah'"
-            >
-              😲 Ngạc nhiên [surprise-ah]
-            </button>
-            <button
-              type="button"
-              onClick={() => insertTag("[dissatisfaction-hnn]")}
-              className="px-2.5 py-1.5 bg-card/60 hover:bg-muted border border-border/80 text-[10px] text-primary hover:text-primary/90 font-bold rounded-lg cursor-pointer transition-colors"
-              title="Chèn tiếng bất bình 'Hnn'"
-            >
-              😒 Bất bình [dissatisfaction-hnn]
-            </button>
+              <option value="wav">WAV (Lossless 24kHz)</option>
+              <option value="mp3">MP3 (Coming Soon)</option>
+            </select>
           </div>
 
-          <div className="text-[10px] text-muted-foreground leading-normal border-t border-border/60 pt-2.5 mt-1 space-y-1 select-none">
-            <div>
-              💡 <strong>Sửa phát âm:</strong> 
-              <span className="ml-1 text-muted-foreground font-medium">Tiếng Anh: nhúng CMU Dictionary viết hoa trong ngoặc, ví dụ: </span>
-              <code className="bg-card/80 border border-border/60 px-1.5 py-0.5 rounded text-primary font-mono select-all font-semibold">[B EY1 S]</code>
-            </div>
-            <div>
-              <span className="ml-5 text-muted-foreground font-medium">Tiếng Trung: sử dụng Pinyin viết hoa kèm số thanh điệu, ví dụ: </span>
-              <code className="bg-card/80 border border-border/60 px-1.5 py-0.5 rounded text-primary font-mono select-all font-semibold">ZHE2</code>
-            </div>
-          </div>
-        </div>
-
-        {/* Advanced parameters: Speed and Steps */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 p-4 bg-background/40 border border-border/80 rounded-2xl shadow-inner">
-          <div className="flex flex-col gap-2">
-            <div className="flex justify-between items-center text-xs">
-              <label className="font-bold text-muted-foreground uppercase tracking-wider">Tốc độ nói: {speed.toFixed(1)}x</label>
-              <span className="text-[10px] text-muted-foreground font-bold font-mono select-none">0.5x - 2.0x</span>
+          {/* Basic parameters: Speed */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              <span>Tốc độ (Speed): {speed.toFixed(1)}x</span>
+              <span className="font-mono">0.5x - 2.0x</span>
             </div>
             <input
               type="range"
@@ -517,16 +523,17 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
               value={speed}
               onChange={(e) => setSpeed(parseFloat(e.target.value))}
               className="seekbar w-full"
+              style={{
+                background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${(speed - 0.5) / 1.5 * 100}%, var(--slider-track) ${(speed - 0.5) / 1.5 * 100}%, var(--slider-track) 100%)`
+              }}
             />
-            <span className="text-[10px] text-muted-foreground font-medium leading-tight">
-              Mặc định: 1.0
-            </span>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <div className="flex justify-between items-center text-xs">
-              <label className="font-bold text-muted-foreground uppercase tracking-wider">Độ chính xác (Steps): {numStep}</label>
-              <span className="text-[10px] text-muted-foreground font-bold font-mono select-none">10 - 64</span>
+          {/* Basic parameters: Steps */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              <span>Độ chính xác (Steps): {numStep}</span>
+              <span className="font-mono">10 - 64</span>
             </div>
             <input
               type="range"
@@ -536,255 +543,194 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
               value={numStep}
               onChange={(e) => setNumStep(parseInt(e.target.value))}
               className="seekbar w-full"
+              style={{
+                background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${(numStep - 10) / 54 * 100}%, var(--slider-track) ${(numStep - 10) / 54 * 100}%, var(--slider-track) 100%)`
+              }}
             />
-            <span className="text-[10px] text-muted-foreground font-medium leading-tight">
-              Mặc định: 32 (16 bước để chạy nhanh hơn)
-            </span>
           </div>
-        </div>
 
-        {/* Toggle Advanced Settings */}
-        <div className="border-t border-border/80 pt-3">
-          <button
-            type="button"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground font-extrabold transition-colors cursor-pointer select-none"
-          >
-            <span>{showAdvanced ? "Ẩn cấu hình nâng cao" : "Hiện cấu hình nâng cao (OmniVoice)"}</span>
-          </button>
-        </div>
-
-        {showAdvanced && (
-          <div className="flex flex-col gap-4 p-4 bg-background/40 border border-border/80 rounded-2xl shadow-inner">
-            {/* Toggles Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={denoise}
-                  onChange={(e) => setDenoise(e.target.checked)}
-                  className="rounded border-border/60 bg-card text-foreground focus:ring-slate-700 w-4 h-4 cursor-pointer"
-                />
-                <span>Denoise (Lọc nhiễu)</span>
-              </label>
-
-              <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={preprocessPrompt}
-                  onChange={(e) => setPreprocessPrompt(e.target.checked)}
-                  className="rounded border-border/60 bg-card text-foreground focus:ring-slate-700 w-4 h-4 cursor-pointer"
-                />
-                <span>Tiền xử lý tham chiếu</span>
-              </label>
-
-              <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={postprocessOutput}
-                  onChange={(e) => setPostprocessOutput(e.target.checked)}
-                  className="rounded border-border/60 bg-card text-foreground focus:ring-slate-700 w-4 h-4 cursor-pointer"
-                />
-                <span>Hậu xử lý đầu ra</span>
-              </label>
-            </div>
-
-            <div className="h-px bg-card/60 my-1" />
-
-            {/* Sliders and text fields grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4.5">
-              <div className="flex flex-col gap-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-bold text-muted-foreground">Guidance Scale: {guidanceScale.toFixed(1)}</span>
-                  <span className="text-[10px] text-muted-foreground font-bold font-mono">0.5 - 5.0</span>
-                </div>
-                <input
-                  type="range" min="0.5" max="5.0" step="0.1"
-                  value={guidanceScale}
-                  onChange={(e) => setGuidanceScale(parseFloat(e.target.value))}
-                  className="seekbar w-full"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-bold text-muted-foreground">Time-step Shift (t_shift): {tShift.toFixed(2)}</span>
-                  <span className="text-[10px] text-muted-foreground font-bold font-mono">0.01 - 0.50</span>
-                </div>
-                <input
-                  type="range" min="0.01" max="0.50" step="0.01"
-                  value={tShift}
-                  onChange={(e) => setTShift(parseFloat(e.target.value))}
-                  className="seekbar w-full"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-bold text-muted-foreground">Position Temperature: {positionTemperature.toFixed(1)}</span>
-                  <span className="text-[10px] text-muted-foreground font-bold font-mono">0.0 - 10.0</span>
-                </div>
-                <input
-                  type="range" min="0.0" max="10.0" step="0.5"
-                  value={positionTemperature}
-                  onChange={(e) => setPositionTemperature(parseFloat(e.target.value))}
-                  className="seekbar w-full"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-bold text-muted-foreground">Class Temperature: {classTemperature.toFixed(1)}</span>
-                  <span className="text-[10px] text-muted-foreground font-bold font-mono">0.0 - 5.0</span>
-                </div>
-                <input
-                  type="range" min="0.0" max="5.0" step="0.1"
-                  value={classTemperature}
-                  onChange={(e) => setClassTemperature(parseFloat(e.target.value))}
-                  className="seekbar w-full"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-bold text-muted-foreground">Layer Penalty Factor: {layerPenaltyFactor.toFixed(1)}</span>
-                  <span className="text-[10px] text-muted-foreground font-bold font-mono">0.0 - 10.0</span>
-                </div>
-                <input
-                  type="range" min="0.0" max="10.0" step="0.5"
-                  value={layerPenaltyFactor}
-                  onChange={(e) => setLayerPenaltyFactor(parseFloat(e.target.value))}
-                  className="seekbar w-full"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Thời lượng cố định (Duration - giây)</label>
-                <input
-                  type="number" step="0.1" min="0.1"
-                  value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
-                  placeholder="Mặc định: Tự động tính theo văn bản"
-                  className="bg-card/60 border border-border/80 rounded-xl px-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-border transition-all font-semibold"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-bold text-muted-foreground">Đoạn cắt (Chunk Duration): {audioChunkDuration.toFixed(0)}s</span>
-                  <span className="text-[10px] text-muted-foreground font-bold font-mono">5 - 60</span>
-                </div>
-                <input
-                  type="range" min="5" max="60" step="1"
-                  value={audioChunkDuration}
-                  onChange={(e) => setAudioChunkDuration(parseFloat(e.target.value))}
-                  className="seekbar w-full"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-bold text-muted-foreground">Ngưỡng cắt (Chunk Threshold): {audioChunkThreshold.toFixed(0)}s</span>
-                  <span className="text-[10px] text-muted-foreground font-bold font-mono">10 - 120</span>
-                </div>
-                <input
-                  type="range" min="10" max="120" step="5"
-                  value={audioChunkThreshold}
-                  onChange={(e) => setAudioChunkThreshold(parseFloat(e.target.value))}
-                  className="seekbar w-full"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {errorMsg && (
-          <div className="p-3.5 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl text-xs font-semibold">
-            {errorMsg}
-          </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={loading || !text}
-          className={`w-full py-3 px-6 rounded-full font-bold text-sm transition-all duration-150 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer shadow-md ${
-            !loading && text
-              ? "bg-gradient-to-r from-primary to-accent text-white border-none shadow-lg shadow-primary/15 hover:brightness-105"
-              : "bg-muted text-muted-foreground cursor-not-allowed"
-          }`}
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-              <span>Đang xử lý TTS Job...</span>
-            </>
-          ) : (
-            <>
-              <Play className="w-4 h-4 fill-current" />
-              <span>Tạo tệp giọng đọc</span>
-            </>
-          )}
-        </button>
-      </form>
-
-      {/* Progress display */}
-      {jobId && jobStatus && (
-        <div className="mt-2 flex flex-col gap-4">
-          <JobStatusCard
-            jobId={jobStatus.job_id}
-            status={jobStatus.status}
-            message={jobStatus.message}
-            progress={jobStatus.progress}
-            errorMessage={jobStatus.error_message}
-          />
-
-          {jobStatus.status === "completed" && jobStatus.audio_url && (
-            <div className={`flex gap-3 mt-1 items-center p-3 rounded-2xl shadow-inner select-none border transition-all duration-300 ${
-              currentPlayUrl === `${api.getApiBaseUrl()}${jobStatus.audio_url}`
-                ? "border-primary bg-primary/[0.02]"
-                : "border-border/80 bg-background/40"
-            }`}>
+          {/* Emotion tags pills */}
+          <div className="flex flex-col gap-2 pt-3 border-t border-border">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Biểu cảm nhanh (Emotion tags)</label>
+            <div className="flex flex-wrap gap-1">
               <button
                 type="button"
-                onClick={() => {
-                  const audioUrl = `${api.getApiBaseUrl()}${jobStatus.audio_url}`;
-                  if (currentPlayUrl === audioUrl) {
-                    onTogglePlay();
-                  } else {
-                    onPlayAudio(audioUrl, "TTS Output");
-                  }
-                }}
-                className={`py-2.5 px-5 rounded-full font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer border shadow-sm ${
-                  currentPlayUrl === `${api.getApiBaseUrl()}${jobStatus.audio_url}` && globalPlayerPlaying
-                    ? "bg-primary text-white border-primary shadow-primary/10"
-                    : "border-border hover:border-primary/40 hover:bg-muted text-foreground bg-card"
-                }`}
+                onClick={() => insertTag("[laughter]")}
+                className="px-2 py-1 bg-secondary/50 hover:bg-secondary border border-border text-[9px] text-foreground font-semibold rounded transition-colors cursor-pointer"
               >
-                {currentPlayUrl === `${api.getApiBaseUrl()}${jobStatus.audio_url}` && globalPlayerPlaying ? (
-                  <>
-                    <Pause className="w-3.5 h-3.5 fill-current" />
-                    <span>Tạm dừng</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
-                    <span>Nghe âm thanh kết quả</span>
-                  </>
-                )}
+                😊 Cười
               </button>
-              
               <button
                 type="button"
-                onClick={() => handleOpenSaveModal(jobStatus.job_id, text)}
-                className="flex-grow py-2.5 px-4 bg-card hover:bg-muted border border-border text-foreground rounded-full font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
+                onClick={() => insertTag("[sigh]")}
+                className="px-2 py-1 bg-secondary/50 hover:bg-secondary border border-border text-[9px] text-foreground font-semibold rounded transition-colors cursor-pointer"
               >
-                <Heart className="w-3.5 h-3.5 fill-slate-300 text-foreground" />
-                <span>Lưu vào Thư viện</span>
+                😮‍💨 Thở dài
+              </button>
+              <button
+                type="button"
+                onClick={() => insertTag("[sniff]")}
+                className="px-2 py-1 bg-secondary/50 hover:bg-secondary border border-border text-[9px] text-foreground font-semibold rounded transition-colors cursor-pointer"
+              >
+                👃 Sụt sịt
+              </button>
+              <button
+                type="button"
+                onClick={() => insertTag("[surprise-ah]")}
+                className="px-2 py-1 bg-secondary/50 hover:bg-secondary border border-border text-[9px] text-foreground font-semibold rounded transition-colors cursor-pointer"
+              >
+                😲 Ngạc nhiên
+              </button>
+              <button
+                type="button"
+                onClick={() => insertTag("[dissatisfaction-hnn]")}
+                className="px-2 py-1 bg-secondary/50 hover:bg-secondary border border-border text-[9px] text-foreground font-semibold rounded transition-colors cursor-pointer"
+              >
+                😒 Bất bình
+              </button>
+              <button
+                type="button"
+                onClick={() => insertTag("[question-en]")}
+                className="px-2 py-1 bg-secondary/50 hover:bg-secondary border border-border text-[9px] text-foreground font-semibold rounded transition-colors cursor-pointer"
+              >
+                ❓ Hỏi (EN)
               </button>
             </div>
-          )}
+          </div>
+
+          {/* Advanced accordion */}
+          <div className="border-t border-border pt-3">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="w-full flex items-center justify-between text-[10px] text-muted-foreground hover:text-foreground font-bold uppercase tracking-wider transition-colors cursor-pointer select-none"
+            >
+              <span>Tham số nâng cao (Advanced)</span>
+              <span>{showAdvanced ? "▲" : "▼"}</span>
+            </button>
+
+            {showAdvanced && (
+              <div className="flex flex-col gap-4 mt-4 animate-fadeIn">
+                <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={denoise}
+                    onChange={(e) => setDenoise(e.target.checked)}
+                    className="rounded border-border bg-card text-foreground focus:ring-slate-700 w-4 h-4 cursor-pointer"
+                  />
+                  <span>Denoise (Lọc nhiễu)</span>
+                </label>
+
+                <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={preprocessPrompt}
+                    onChange={(e) => setPreprocessPrompt(e.target.checked)}
+                    className="rounded border-border bg-card text-foreground focus:ring-slate-700 w-4 h-4 cursor-pointer"
+                  />
+                  <span>Tiền xử lý tham chiếu</span>
+                </label>
+
+                <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={postprocessOutput}
+                    onChange={(e) => setPostprocessOutput(e.target.checked)}
+                    className="rounded border-border bg-card text-foreground focus:ring-slate-700 w-4 h-4 cursor-pointer"
+                  />
+                  <span>Hậu xử lý đầu ra</span>
+                </label>
+
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase">
+                    <span>Guidance Scale: {guidanceScale.toFixed(1)}</span>
+                  </div>
+                  <input
+                    type="range" min="0.5" max="5.0" step="0.1"
+                    value={guidanceScale}
+                    onChange={(e) => setGuidanceScale(parseFloat(e.target.value))}
+                    className="seekbar w-full"
+                    style={{
+                      background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${(guidanceScale - 0.5) / 4.5 * 100}%, var(--slider-track) ${(guidanceScale - 0.5) / 4.5 * 100}%, var(--slider-track) 100%)`
+                    }}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase">
+                    <span>Time-step Shift (t_shift): {tShift.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range" min="0.01" max="0.50" step="0.01"
+                    value={tShift}
+                    onChange={(e) => setTShift(parseFloat(e.target.value))}
+                    className="seekbar w-full"
+                    style={{
+                      background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${(tShift - 0.01) / 0.49 * 100}%, var(--slider-track) ${(tShift - 0.01) / 0.49 * 100}%, var(--slider-track) 100%)`
+                    }}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase">
+                    <span>Position Temperature: {positionTemperature.toFixed(1)}</span>
+                  </div>
+                  <input
+                    type="range" min="0.0" max="10.0" step="0.5"
+                    value={positionTemperature}
+                    onChange={(e) => setPositionTemperature(parseFloat(e.target.value))}
+                    className="seekbar w-full"
+                    style={{
+                      background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${positionTemperature * 10}%, var(--slider-track) ${positionTemperature * 10}%, var(--slider-track) 100%)`
+                    }}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase">
+                    <span>Class Temperature: {classTemperature.toFixed(1)}</span>
+                  </div>
+                  <input
+                    type="range" min="0.0" max="5.0" step="0.1"
+                    value={classTemperature}
+                    onChange={(e) => setClassTemperature(parseFloat(e.target.value))}
+                    className="seekbar w-full"
+                    style={{
+                      background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${classTemperature * 20}%, var(--slider-track) ${classTemperature * 20}%, var(--slider-track) 100%)`
+                    }}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase">
+                    <span>Layer Penalty Factor: {layerPenaltyFactor.toFixed(1)}</span>
+                  </div>
+                  <input
+                    type="range" min="0.0" max="10.0" step="0.5"
+                    value={layerPenaltyFactor}
+                    onChange={(e) => setLayerPenaltyFactor(parseFloat(e.target.value))}
+                    className="seekbar w-full"
+                    style={{
+                      background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${layerPenaltyFactor * 10}%, var(--slider-track) ${layerPenaltyFactor * 10}%, var(--slider-track) 100%)`
+                    }}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Thời lượng cố định (Duration)</label>
+                  <input
+                    type="number" step="0.1" min="0.1"
+                    value={duration}
+                    onChange={(e) => setDuration(e.target.value)}
+                    placeholder="Mặc định: Tự động"
+                    className="bg-secondary/40 border border-border/70 rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none w-full"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Save Voice Modal Overlay */}
       {isSaveModalOpen && (
@@ -792,7 +738,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
           <div className="bg-card border border-border rounded-3xl p-6 w-full max-w-md flex flex-col gap-4 shadow-2xl relative">
             <button
               onClick={() => setIsSaveModalOpen(false)}
-              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors cursor-pointer animate-fadeIn"
             >
               <X className="w-5 h-5" />
             </button>
@@ -836,7 +782,6 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
                   className="bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:outline-none focus:border-primary font-mono font-semibold"
                 />
               </div>
-
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Văn bản tham khảo (Phát âm trong 8s đầu)</label>
