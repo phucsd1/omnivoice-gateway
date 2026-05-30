@@ -90,15 +90,15 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
   const getJobTypeLabel = (type?: string) => {
     switch (type) {
       case "clone_voice":
-        return { label: "Clone Voice", color: "text-indigo-700 dark:text-indigo-400 border-indigo-550/20 bg-indigo-500/5" };
+        return { label: "Clone Voice", color: "text-primary dark:text-primary border-primary/20 bg-primary/5" };
       case "auto_voice":
-        return { label: "Auto Voice", color: "text-sky-700 dark:text-sky-400 border-sky-550/20 bg-sky-500/5" };
+        return { label: "Auto Voice", color: "text-primary border-sky-550/20 bg-sky-500/5" };
       case "voice_design":
-        return { label: "Voice Design Direct", color: "text-purple-700 dark:text-purple-400 border-purple-550/20 bg-purple-500/5" };
+        return { label: "Voice Design Direct", color: "text-primary border-purple-550/20 bg-purple-500/5" };
       case "voice_design_preview":
-        return { label: "Voice Design Preview", color: "text-pink-700 dark:text-pink-400 border-pink-550/20 bg-pink-500/5" };
+        return { label: "Voice Design Preview", color: "text-primary border-pink-550/20 bg-pink-500/5" };
       default:
-        return { label: "TTS Job", color: "text-slate-650 dark:text-slate-400 border-slate-550/20 bg-slate-500/5" };
+        return { label: "TTS Job", color: "text-muted-foreground dark:text-muted-foreground border-border/20 bg-muted/5" };
     }
   };
 
@@ -119,21 +119,21 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
   };
 
   return (
-    <div className="bg-slate-900/90 border border-slate-800/80 backdrop-blur-md rounded-3xl p-6 flex flex-col gap-6 shadow-xl w-full transition-all duration-300">
-      <div className="flex items-center justify-between border-b border-slate-850 pb-4 select-none">
+    <div className="bg-card/90 border border-border backdrop-blur-md rounded-3xl p-6 flex flex-col gap-6 shadow-xl w-full transition-all duration-300">
+      <div className="flex items-center justify-between border-b border-border/60 pb-4 select-none">
         <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-slate-300" />
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+            <Clock className="w-5 h-5 text-foreground" />
             <span>Lịch sử các Tác vụ</span>
           </h2>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-muted-foreground">
             Xem danh sách các file âm thanh đã tạo trước đó để nghe lại, tải về hoặc lưu giọng.
           </p>
         </div>
         <button
           onClick={loadJobs}
           disabled={loading}
-          className="flex items-center gap-1.5 px-4 py-2 bg-slate-850 hover:bg-slate-800 text-slate-200 hover:text-slate-100 disabled:text-slate-500 border border-slate-800/80 rounded-full text-xs font-bold transition-all cursor-pointer shadow-sm select-none"
+          className="flex items-center gap-1.5 px-4 py-2 bg-muted hover:bg-muted text-foreground hover:text-foreground disabled:text-muted-foreground border border-border rounded-full text-xs font-bold transition-all cursor-pointer shadow-sm select-none"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           <span>Làm mới</span>
@@ -141,21 +141,21 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
       </div>
 
       {errorMsg && (
-        <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-450 text-xs font-semibold rounded-2xl flex items-center gap-2">
+        <div className="p-4 bg-destructive/10 border border-destructive/20 text-destructive text-xs font-semibold rounded-2xl flex items-center gap-2">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{errorMsg}</span>
         </div>
       )}
 
       {loading && jobs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-500">
-          <RefreshCw className="w-8 h-8 animate-spin text-indigo-400" />
-          <span className="text-xs font-bold text-slate-400">Đang tải lịch sử công việc...</span>
+        <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+          <RefreshCw className="w-8 h-8 animate-spin text-primary" />
+          <span className="text-xs font-bold text-muted-foreground">Đang tải lịch sử công việc...</span>
         </div>
       ) : jobs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-500 bg-slate-950/20 rounded-3xl border border-dashed border-slate-800/80">
-          <Layers className="w-8 h-8 text-slate-600" />
-          <span className="text-xs font-bold text-slate-400">Chưa có công việc nào được thực hiện.</span>
+        <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground bg-background/20 rounded-3xl border border-dashed border-border">
+          <Layers className="w-8 h-8 text-muted-foreground" />
+          <span className="text-xs font-bold text-muted-foreground">Chưa có công việc nào được thực hiện.</span>
         </div>
       ) : (
         <div className="flex flex-col gap-4.5 max-h-[650px] overflow-y-auto pr-1 scrollbar-thin">
@@ -174,19 +174,19 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
             return (
               <div 
                 key={job.job_id} 
-                className="bg-slate-850/30 border border-slate-800/60 rounded-3xl p-5 flex flex-col gap-4 hover:border-slate-700/40 hover:bg-slate-850/50 transition-all duration-300 shadow-sm"
+                className="bg-muted/30 border border-border rounded-3xl p-5 flex flex-col gap-4 hover:border-border/40 hover:bg-muted/50 transition-all duration-300 shadow-sm"
               >
                 {/* Job Header */}
-                <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-850/40 pb-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-border/60/40 pb-2.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={`text-[9px] font-bold px-2 py-0.5 border rounded-full uppercase tracking-wider ${color}`}>
                       {label}
                     </span>
-                    <span className="text-[10px] text-slate-400 font-semibold font-mono">
+                    <span className="text-[10px] text-muted-foreground font-semibold font-mono">
                       ID: {job.job_id.substring(0, 8)}...
                     </span>
-                    <span className="text-[10px] text-slate-400 font-semibold flex items-center gap-1 select-none">
-                      <Clock className="w-3 h-3 text-slate-500" />
+                    <span className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1 select-none">
+                      <Clock className="w-3 h-3 text-muted-foreground" />
                       {formatTime(job.created_at)}
                     </span>
                   </div>
@@ -194,20 +194,20 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
                   {/* Status Badges */}
                   <div>
                     {isCompleted && (
-                      <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full select-none">
+                      <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2.5 py-0.5 bg-success/10 border border-success/20 text-success rounded-full select-none">
                         <CheckCircle className="w-3 h-3" />
                         <span>Thành công</span>
                       </span>
                     )}
                     {isFailed && (
-                      <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2.5 py-0.5 bg-rose-500/10 border border-rose-500/20 text-rose-405 rounded-full select-none" title={job.error_message || ""}>
+                      <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2.5 py-0.5 bg-destructive/10 border border-destructive/20 text-destructive rounded-full select-none" title={job.error_message || ""}>
                         <AlertCircle className="w-3 h-3" />
                         <span>Thất bại</span>
                       </span>
                     )}
                     {isProcessing && (
-                      <span className="inline-flex items-center gap-1.5 text-[9px] font-bold px-2.5 py-0.5 bg-slate-800 border border-slate-750 text-slate-400 rounded-full animate-pulse select-none">
-                        <RefreshCw className="w-3 h-3 animate-spin text-slate-400" />
+                      <span className="inline-flex items-center gap-1.5 text-[9px] font-bold px-2.5 py-0.5 bg-muted border border-border text-muted-foreground rounded-full animate-pulse select-none">
+                        <RefreshCw className="w-3 h-3 animate-spin text-muted-foreground" />
                         <span>Đang chạy ({job.progress}%)</span>
                       </span>
                     )}
@@ -216,12 +216,12 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
 
                 {/* Job Text */}
                 {fullText && (
-                  <div className="text-xs text-slate-205 bg-slate-900 border border-slate-800/80 rounded-2xl p-3.5 leading-relaxed relative group shadow-inner">
+                  <div className="text-xs text-foreground bg-card border border-border rounded-2xl p-3.5 leading-relaxed relative group shadow-inner">
                     <span className="whitespace-pre-wrap font-medium">{displayedText}</span>
                     {isLongText && (
                       <button
                         onClick={() => toggleExpand(job.job_id)}
-                        className="text-[10px] text-slate-400 hover:text-slate-200 font-bold ml-1.5 focus:outline-none inline-flex items-center gap-0.5 cursor-pointer align-bottom select-none"
+                        className="text-[10px] text-muted-foreground hover:text-foreground font-bold ml-1.5 focus:outline-none inline-flex items-center gap-0.5 cursor-pointer align-bottom select-none"
                       >
                         {isExpanded ? (
                           <>
@@ -241,7 +241,7 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
 
                 {/* Job Output / Actions */}
                 {isCompleted && job.audio_url && (
-                  <div className="flex flex-col gap-2.5 bg-slate-900/20 p-2.5 rounded-2xl border border-slate-855/50 mt-1">
+                  <div className="flex flex-col gap-2.5 bg-card/20 p-2.5 rounded-2xl border border-border/50 mt-1">
                     <AudioPlayer
                       url={`${api.getApiBaseUrl()}${job.audio_url}`}
                       title="Kết quả Job"
@@ -249,16 +249,16 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
                     <button
                       type="button"
                       onClick={() => handleOpenSaveModal(job.job_id, fullText)}
-                      className="w-full py-2 px-4 bg-slate-900/60 hover:bg-slate-900 border border-slate-800/85 text-slate-200 hover:text-slate-100 rounded-full font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-[0.98] mt-1"
+                      className="w-full py-2 px-4 bg-card/60 hover:bg-card border border-border text-foreground hover:text-foreground rounded-full font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-[0.98] mt-1"
                     >
-                      <Heart className="w-3.5 h-3.5 fill-slate-450 text-slate-450" />
+                      <Heart className="w-3.5 h-3.5 fill-slate-450 text-muted-foreground" />
                       <span>Lưu giọng nói này vào Thư viện</span>
                     </button>
                   </div>
                 )}
 
                 {isFailed && job.error_message && (
-                  <div className="text-xs text-rose-400 bg-rose-500/5 border border-rose-500/10 p-3.5 rounded-2xl font-mono leading-relaxed font-semibold">
+                  <div className="text-xs text-destructive bg-destructive/5 border border-destructive/10 p-3.5 rounded-2xl font-mono leading-relaxed font-semibold">
                     <span className="font-bold">Lỗi chi tiết: </span>
                     {job.error_message}
                   </div>
@@ -271,66 +271,66 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
 
       {/* Save Voice Modal Overlay */}
       {isSaveModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800/80 rounded-[32px] p-6 w-full max-w-md flex flex-col gap-4.5 shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md animate-fadeIn">
+          <div className="bg-card border border-border rounded-[32px] p-6 w-full max-w-md flex flex-col gap-4.5 shadow-2xl relative">
             <button
               onClick={() => setIsSaveModalOpen(false)}
-              className="absolute top-5 right-5 text-slate-500 hover:text-slate-200 transition-colors cursor-pointer"
+              className="absolute top-5 right-5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
             
-            <div className="flex items-center gap-3 border-b border-slate-855 pb-3">
-              <div className="p-2.5 bg-emerald-500/10 rounded-2xl text-emerald-400">
+            <div className="flex items-center gap-3 border-b border-border/60 pb-3">
+              <div className="p-2.5 bg-success/10 rounded-2xl text-success">
                 <Heart className="w-5 h-5 fill-emerald-400" />
               </div>
               <div>
-                <h3 className="font-bold text-sm text-slate-100">Lưu giọng nói yêu thích</h3>
-                <p className="text-[10px] text-slate-400 font-semibold">Cắt 8 giây đầu và lưu làm mẫu clone giọng</p>
+                <h3 className="font-bold text-sm text-foreground">Lưu giọng nói yêu thích</h3>
+                <p className="text-[10px] text-muted-foreground font-semibold">Cắt 8 giây đầu và lưu làm mẫu clone giọng</p>
               </div>
             </div>
 
             {saveVoiceStatus && (
-              <div className={`p-3.5 rounded-2xl text-xs font-semibold border ${saveVoiceStatus.startsWith("Lỗi") ? "bg-rose-500/10 border-rose-500/20 text-rose-455" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"}`}>
+              <div className={`p-3.5 rounded-2xl text-xs font-semibold border ${saveVoiceStatus.startsWith("Lỗi") ? "bg-destructive/10 border-destructive/20 text-destructive" : "bg-success/10 border-success/20 text-success"}`}>
                 {saveVoiceStatus}
               </div>
             )}
 
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Tên giọng mẫu</label>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Tên giọng mẫu</label>
                 <input
                   type="text"
                   value={saveVoiceName}
                   onChange={(e) => setSaveVoiceName(e.target.value)}
                   placeholder="Ví dụ: Giọng nữ trầm ấm..."
-                  className="bg-slate-950 border border-slate-800/80 focus:border-indigo-500/50 rounded-2xl p-3 text-xs text-slate-205 focus:outline-none font-semibold transition-all duration-200"
+                  className="bg-background border border-border focus:border-primary/50 rounded-2xl p-3 text-xs text-foreground focus:outline-none font-semibold transition-all duration-200"
                   required
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-slate-455 uppercase tracking-wider">Văn bản tham khảo (Phát âm trong 8s đầu)</label>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Văn bản tham khảo (Phát âm trong 8s đầu)</label>
                 <textarea
                   value={saveVoiceRefText}
                   onChange={(e) => setSaveVoiceRefText(e.target.value)}
                   placeholder="Nhập phần chữ tương ứng với đoạn nói đầu tiên..."
                   rows={2}
-                  className="bg-slate-950 border border-slate-800/80 focus:border-indigo-500/50 rounded-2xl p-3 text-xs text-slate-205 focus:outline-none resize-none font-semibold transition-all duration-200"
+                  className="bg-background border border-border focus:border-primary/50 rounded-2xl p-3 text-xs text-foreground focus:outline-none resize-none font-semibold transition-all duration-200"
                   required
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-slate-455 uppercase tracking-wider">Chế độ chia sẻ</label>
-                <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-850">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Chế độ chia sẻ</label>
+                <div className="grid grid-cols-2 gap-2 bg-background p-1.5 rounded-2xl border border-border/60">
                   <button
                     type="button"
                     onClick={() => setSaveVoiceIsPublic(false)}
                     className={`py-2 px-1 text-center font-bold text-xs rounded-full transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                       !saveVoiceIsPublic
-                        ? "bg-slate-855 text-slate-100 border border-slate-800/80 shadow-sm"
-                        : "text-slate-550 hover:text-slate-350"
+                        ? "bg-muted text-foreground border border-border shadow-sm"
+                        : "text-muted-foreground hover:text-muted-foreground"
                     }`}
                   >
                     <Lock className="w-3.5 h-3.5" />
@@ -341,8 +341,8 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
                     onClick={() => setSaveVoiceIsPublic(true)}
                     className={`py-2 px-1 text-center font-bold text-xs rounded-full transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                       saveVoiceIsPublic
-                        ? "bg-slate-855 text-slate-100 border border-slate-800/80 shadow-sm"
-                        : "text-slate-550 hover:text-slate-355"
+                        ? "bg-muted text-foreground border border-border shadow-sm"
+                        : "text-muted-foreground hover:text-muted-foreground"
                     }`}
                   >
                     <Globe className="w-3.5 h-3.5" />
@@ -352,11 +352,11 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
               </div>
             </div>
 
-            <div className="flex gap-2 justify-end mt-2 pt-3 border-t border-slate-800">
+            <div className="flex gap-2 justify-end mt-2 pt-3 border-t border-border">
               <button
                 type="button"
                 onClick={() => setIsSaveModalOpen(false)}
-                className="px-5 py-2.5 bg-slate-855 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-300 rounded-lg cursor-pointer transition-colors"
+                className="px-5 py-2.5 bg-muted hover:bg-muted border border-border text-xs font-semibold text-foreground rounded-lg cursor-pointer transition-colors"
               >
                 Hủy
               </button>
@@ -364,7 +364,7 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
                 type="button"
                 onClick={handleSaveVoiceSubmit}
                 disabled={isSavingVoice || !saveVoiceName || !saveVoiceRefText}
-                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 disabled:bg-slate-800 disabled:text-slate-500 text-xs font-bold text-slate-950 rounded-lg cursor-pointer transition-colors shadow-sm border border-slate-200/10"
+                className="px-5 py-2.5 bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-xs font-bold text-primary-foreground rounded-lg cursor-pointer transition-colors shadow-sm border border-border/30"
               >
                 {isSavingVoice ? "Đang lưu..." : "Xác nhận Lưu"}
               </button>

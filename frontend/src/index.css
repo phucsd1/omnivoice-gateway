@@ -3,52 +3,88 @@
 /* Override Tailwind CSS v4's media-query dark mode with class selector dark */
 @custom-variant dark (&:where(.dark, .dark *));
 
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+}
+
 :root {
-  /* Slate palette overrides - Light Mode values (warm cream/stone style) */
-  --color-slate-950: #fcfbf9; /* Page Background */
-  --color-slate-900: #ffffff; /* Card/Panel Background */
-  --color-slate-850: #f4f3f0; /* Inputs / Hover background */
-  --color-slate-800: #e4e2dd; /* Panel borders */
-  --color-slate-700: #d4d2cc; /* Secondary borders */
-  --color-slate-650: #a8a6a1; /* Placeholders */
-  --color-slate-600: #787774; /* Muted texts */
-  --color-slate-500: #787774; /* Muted labels */
-  --color-slate-400: #575653; /* Secondary labels/titles */
-  --color-slate-350: #2c2b29; /* Labels / secondary headings */
-  --color-slate-300: #1c1b19; /* Headings */
-  --color-slate-200: #2c2b29; /* Body text */
-  --color-slate-205: #22211f; /* Slightly darker body text */
-  --color-slate-100: #1c1b19; /* Main text / headings */
-  
+  --background: #fafaf9;
+  --foreground: #18181b;
+  --card: #ffffff;
+  --card-foreground: #18181b;
+  --popover: #ffffff;
+  --popover-foreground: #18181b;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f4f3;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f3;
+  --muted-foreground: #5b5b5f;
+  --accent: #4f46e5;
+  --accent-foreground: #ffffff;
+  --destructive: #e11d48;
+  --destructive-foreground: #ffffff;
+  --border: #e7e7e6;
+  --input: #e7e7e6;
+  --ring: rgba(79, 70, 229, 0.3);
+  --success: #059669;
+  --warning: #d97706;
+
   --selection-bg: rgba(99, 102, 241, 0.1);
   --shadow-color: rgba(0, 0, 0, 0.02);
 }
 
 .dark {
-  /* Slate palette overrides - Dark Mode values (ElevenLabs warm charcoal/zinc style) */
-  --color-slate-950: #040406; /* Page Background */
-  --color-slate-900: #0a0a0e; /* Card/Panel Background */
-  --color-slate-850: #101016; /* Inputs / Hover background */
-  --color-slate-800: #161620; /* Panel borders */
-  --color-slate-700: #1e1e2b; /* Secondary borders */
-  --color-slate-650: #424255; /* Placeholders */
-  --color-slate-600: #62627a; /* Muted texts */
-  --color-slate-500: #62627a; /* Muted labels */
-  --color-slate-400: #9191b2; /* Secondary labels/titles */
-  --color-slate-350: #d4d4ea; /* Labels / secondary headings */
-  --color-slate-300: #e2e2f0; /* Headings */
-  --color-slate-200: #c2c2db; /* Body text */
-  --color-slate-205: #c8c8e0; /* Slightly lighter body text */
-  --color-slate-100: #f1f1f7; /* Main text / headings */
-  
+  --background: #08080a;
+  --foreground: #f8fafc;
+  --card: #0e0f14;
+  --card-foreground: #f8fafc;
+  --popover: #0e0f14;
+  --popover-foreground: #f8fafc;
+  --primary: #6366f1;
+  --primary-foreground: #ffffff;
+  --secondary: #161720;
+  --secondary-foreground: #f8fafc;
+  --muted: #161720;
+  --muted-foreground: #94a3b8;
+  --accent: #6366f1;
+  --accent-foreground: #ffffff;
+  --destructive: #f43f5e;
+  --destructive-foreground: #ffffff;
+  --border: #1e202c;
+  --input: #1e202c;
+  --ring: rgba(99, 102, 241, 0.3);
+  --success: #10b981;
+  --warning: #f59e0b;
+
   --selection-bg: rgba(99, 102, 241, 0.25);
   --shadow-color: rgba(0, 0, 0, 0.4);
 }
 
 @layer base {
   body {
-    background-color: var(--color-slate-950);
-    color: var(--color-slate-200);
+    background-color: var(--background);
+    color: var(--foreground);
     font-family: 'Be Vietnam Pro', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     @apply min-h-screen antialiased transition-colors duration-200;
   }
@@ -89,7 +125,7 @@ input[type="range"].seekbar::-webkit-slider-runnable-track {
 input[type="range"].seekbar::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  background-color: var(--color-slate-100);
+  background-color: var(--foreground);
   border-radius: 50%;
   height: 10px;
   width: 10px;
@@ -112,7 +148,7 @@ input[type="range"].seekbar::-moz-range-track {
 }
 
 input[type="range"].seekbar::-moz-range-thumb {
-  background-color: var(--color-slate-100);
+  background-color: var(--foreground);
   border: none;
   border-radius: 50%;
   height: 10px;

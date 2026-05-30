@@ -120,7 +120,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
   const volPercentage = isMuted ? 0 : volume * 100;
 
   return (
-    <div className="bg-slate-900 border border-slate-800/80 rounded-xl px-3 py-2 flex items-center justify-between gap-3 shadow-sm relative w-full select-none transition-all duration-200 hover:border-slate-700/60">
+    <div className="bg-card border border-border rounded-xl px-3 py-2 flex items-center justify-between gap-3 shadow-sm relative w-full select-none transition-all duration-200 hover:border-border/60">
       <audio ref={audioRef} src={authenticatedUrl} />
       
       {/* Controls Container */}
@@ -128,7 +128,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
         {/* Play/Pause Button */}
         <button
           onClick={togglePlay}
-          className="w-8 h-8 rounded-full border border-slate-800 hover:border-slate-600 bg-slate-900/60 hover:bg-slate-850 text-slate-300 hover:text-slate-100 flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-sm"
+          className="w-8 h-8 rounded-full border border-border hover:border-border bg-card/60 hover:bg-muted text-foreground hover:text-foreground flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-sm"
           title={isPlaying ? "Tạm dừng" : "Phát"}
         >
           {isPlaying ? (
@@ -139,16 +139,16 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
         </button>
 
         {/* Combined Time Readout */}
-        <span className="text-[10px] font-mono font-bold text-slate-400 select-none shrink-0 tabular-nums min-w-[70px]">
+        <span className="text-[10px] font-mono font-bold text-muted-foreground select-none shrink-0 tabular-nums min-w-[70px]">
           {formatTime(currentTime)} / {formatTime(duration)}
         </span>
 
         {/* Waveform Bouncing Bars */}
-        <div className="flex items-end gap-0.5 h-4 w-7 px-1 shrink-0 select-none overflow-hidden bg-slate-950/40 rounded-md border border-slate-850/40 justify-center">
-          <div className={`w-[2px] bg-indigo-500 rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-1' : 'h-1.5'}`} />
-          <div className={`w-[2px] bg-indigo-400 rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-2' : 'h-3'}`} />
+        <div className="flex items-end gap-0.5 h-4 w-7 px-1 shrink-0 select-none overflow-hidden bg-background/40 rounded-md border border-border/60/40 justify-center">
+          <div className={`w-[2px] bg-primary rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-1' : 'h-1.5'}`} />
+          <div className={`w-[2px] bg-primary rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-2' : 'h-3'}`} />
           <div className={`w-[2px] bg-purple-500 rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-3' : 'h-2'}`} />
-          <div className={`w-[2px] bg-indigo-300 rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-4' : 'h-3.5'}`} />
+          <div className={`w-[2px] bg-primary/80 rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-4' : 'h-3.5'}`} />
           <div className={`w-[2px] bg-purple-400 rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-2' : 'h-1'}`} />
         </div>
       </div>
@@ -171,7 +171,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
         {/* Optional small title */}
         {title && (
           <span 
-            className="text-[9px] font-bold text-slate-500 uppercase tracking-wider truncate max-w-[80px] hidden lg:inline-block" 
+            className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider truncate max-w-[80px] hidden lg:inline-block" 
             title={title}
           >
             {title}
@@ -182,7 +182,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
         <div className="relative shrink-0 flex items-center">
           <button
             onClick={() => setShowSpeedMenu(!showSpeedMenu)}
-            className="px-1.5 py-0.5 bg-slate-950 hover:bg-slate-850 border border-slate-800 rounded text-[9px] font-bold text-slate-400 hover:text-slate-100 transition-colors cursor-pointer select-none"
+            className="px-1.5 py-0.5 bg-background hover:bg-muted border border-border rounded text-[9px] font-bold text-muted-foreground hover:text-foreground transition-colors cursor-pointer select-none"
           >
             {playbackRate.toFixed(1)}x
           </button>
@@ -190,7 +190,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
           {showSpeedMenu && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowSpeedMenu(false)} />
-              <div className="absolute bottom-full right-0 mb-1.5 z-25 bg-slate-900 border border-slate-800 rounded-xl p-1 shadow-xl flex flex-col gap-0.5 min-w-[65px] animate-fadeIn">
+              <div className="absolute bottom-full right-0 mb-1.5 z-25 bg-card border border-border rounded-xl p-1 shadow-xl flex flex-col gap-0.5 min-w-[65px] animate-fadeIn">
                 {speeds.map(s => (
                   <button
                     key={s}
@@ -200,8 +200,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
                     }}
                     className={`px-2 py-0.5 text-left rounded-lg text-[9px] font-bold transition-colors cursor-pointer w-full ${
                       playbackRate === s
-                        ? "bg-slate-100 text-slate-950"
-                        : "text-slate-400 hover:text-slate-100 hover:bg-slate-850"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
                     }`}
                   >
                     {s.toFixed(2)}x
@@ -216,7 +216,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={toggleMute}
-            className="text-slate-400 hover:text-slate-100 transition-colors cursor-pointer p-0.5"
+            className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer p-0.5"
             title={isMuted ? "Bật âm thanh" : "Tắt âm thanh"}
           >
             {isMuted || volume === 0 ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
@@ -239,7 +239,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
         {/* Download Button */}
         <button
           onClick={handleDownload}
-          className="text-slate-400 hover:text-slate-100 transition-colors cursor-pointer p-0.5 shrink-0"
+          className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer p-0.5 shrink-0"
           title="Tải xuống tệp WAV"
         >
           <Download className="w-3.5 h-3.5" />

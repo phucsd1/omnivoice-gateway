@@ -172,22 +172,22 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6 relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6 relative overflow-hidden font-sans">
       {/* Dynamic blurred circles */}
-      <div className="absolute top-1/4 left-1/4 w-[350px] h-[350px] bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute top-1/4 left-1/4 w-[350px] h-[350px] bg-primary/10 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-[450px] h-[450px] bg-purple-600/10 rounded-full blur-[130px] pointer-events-none" />
 
-      <div className="w-full max-w-md bg-slate-900/70 backdrop-blur-md border border-slate-800/80 rounded-[32px] p-8 flex flex-col gap-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative z-10">
+      <div className="w-full max-w-md bg-card/70 backdrop-blur-md border border-border rounded-[32px] p-8 flex flex-col gap-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative z-10">
         
         {/* Header/Logo */}
         <div className="flex flex-col items-center gap-3 text-center select-none mb-1">
-          <div className="bg-slate-850 p-3 rounded-2xl border border-slate-800/80 shadow-md">
-            <Radio className="w-8 h-8 text-indigo-400" />
+          <div className="bg-muted p-3 rounded-2xl border border-border shadow-md">
+            <Radio className="w-8 h-8 text-primary" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-100 mt-1">
+          <h1 className="text-xl font-bold tracking-tight text-foreground mt-1">
             OmniVoice Gateway
           </h1>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-muted-foreground">
             Hệ thống quản lý và sinh giọng nói nhân bản AI
           </p>
         </div>
@@ -196,7 +196,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
         {!verificationMode ? (
           <>
             {/* Tab Selector */}
-            <div className="grid grid-cols-2 gap-1.5 bg-slate-955 p-1 rounded-full border border-slate-850">
+            <div className="grid grid-cols-2 gap-1.5 bg-background p-1 rounded-full border border-border/60">
               <button
                 type="button"
                 onClick={() => {
@@ -206,8 +206,8 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 }}
                 className={`py-2 px-1.5 font-bold text-xs rounded-full transition-all cursor-pointer flex items-center justify-center gap-2 ${
                   isLogin
-                    ? "bg-slate-850 text-slate-100 border border-slate-800 shadow-sm"
-                    : "text-slate-500 hover:text-slate-300"
+                    ? "bg-muted text-foreground border border-border shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <KeyRound className="w-3.5 h-3.5" />
@@ -222,8 +222,8 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 }}
                 className={`py-2 px-1.5 font-bold text-xs rounded-full transition-all cursor-pointer flex items-center justify-center gap-2 ${
                   !isLogin
-                    ? "bg-slate-850 text-slate-100 border border-slate-800 shadow-sm"
-                    : "text-slate-500 hover:text-slate-300"
+                    ? "bg-muted text-foreground border border-border shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <UserPlus className="w-3.5 h-3.5" />
@@ -233,14 +233,14 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
 
             {/* Status messages */}
             {errorMsg && (
-              <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-xs leading-relaxed flex items-start gap-2">
-                <ShieldAlert className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
+              <div className="p-3.5 bg-destructive/10 border border-destructive/20 text-destructive rounded-2xl text-xs leading-relaxed flex items-start gap-2">
+                <ShieldAlert className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
                 <span>{errorMsg}</span>
               </div>
             )}
             {successMsg && (
-              <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl text-xs leading-relaxed flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+              <div className="p-3.5 bg-success/10 border border-success/20 text-success rounded-2xl text-xs leading-relaxed flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
                 <span>{successMsg}</span>
               </div>
             )}
@@ -248,17 +248,17 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
             {/* Main Form */}
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-slate-455 uppercase tracking-wider pl-1.5">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-1.5">
                   Tên tài khoản
                 </label>
-                <div className="relative flex items-center bg-slate-950 border border-slate-850/80 rounded-full focus-within:border-indigo-500/50 transition-all shadow-inner px-4">
-                  <User className="w-4 h-4 text-slate-500 shrink-0" />
+                <div className="relative flex items-center bg-background border border-border/80 rounded-full focus-within:border-primary/50 transition-all shadow-inner px-4">
+                  <User className="w-4 h-4 text-muted-foreground shrink-0" />
                   <input
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Tên đăng nhập..."
-                    className="w-full bg-transparent text-xs text-slate-200 focus:outline-none placeholder:text-slate-600 font-semibold py-3.5 pl-3"
+                    className="w-full bg-transparent text-xs text-foreground focus:outline-none placeholder:text-muted-foreground font-semibold py-3.5 pl-3"
                     required
                   />
                 </div>
@@ -266,17 +266,17 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
 
               {!isLogin && (
                 <div className="flex flex-col gap-1.5 animate-fadeIn">
-                  <label className="text-[10px] font-bold text-slate-455 uppercase tracking-wider pl-1.5">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-1.5">
                     Địa chỉ Email (Bắt buộc)
                   </label>
-                  <div className="relative flex items-center bg-slate-950 border border-slate-850/80 rounded-full focus-within:border-indigo-500/50 transition-all shadow-inner px-4">
-                    <Mail className="w-4 h-4 text-slate-500 shrink-0" />
+                  <div className="relative flex items-center bg-background border border-border/80 rounded-full focus-within:border-primary/50 transition-all shadow-inner px-4">
+                    <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
                     <input
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="email@example.com"
-                      className="w-full bg-transparent text-xs text-slate-200 focus:outline-none placeholder:text-slate-600 font-semibold font-mono py-3.5 pl-3"
+                      className="w-full bg-transparent text-xs text-foreground focus:outline-none placeholder:text-muted-foreground font-semibold font-mono py-3.5 pl-3"
                       required
                     />
                   </div>
@@ -284,17 +284,17 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
               )}
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-slate-455 uppercase tracking-wider pl-1.5">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-1.5">
                   Mật khẩu
                 </label>
-                <div className="relative flex items-center bg-slate-950 border border-slate-850/80 rounded-full focus-within:border-indigo-500/50 transition-all shadow-inner px-4">
-                  <Lock className="w-4 h-4 text-slate-500 shrink-0" />
+                <div className="relative flex items-center bg-background border border-border/80 rounded-full focus-within:border-primary/50 transition-all shadow-inner px-4">
+                  <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
                   <input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Mật khẩu..."
-                    className="w-full bg-transparent text-xs text-slate-200 focus:outline-none placeholder:text-slate-600 font-semibold py-3.5 pl-3"
+                    className="w-full bg-transparent text-xs text-foreground focus:outline-none placeholder:text-muted-foreground font-semibold py-3.5 pl-3"
                     required
                   />
                 </div>
@@ -302,17 +302,17 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
 
               {!isLogin && (
                 <div className="flex flex-col gap-1.5 animate-fadeIn">
-                  <label className="text-[10px] font-bold text-slate-455 uppercase tracking-wider pl-1.5">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-1.5">
                     Xác nhận mật khẩu
                   </label>
-                  <div className="relative flex items-center bg-slate-950 border border-slate-850/80 rounded-full focus-within:border-indigo-500/50 transition-all shadow-inner px-4">
-                    <Lock className="w-4 h-4 text-slate-500 shrink-0" />
+                  <div className="relative flex items-center bg-background border border-border/80 rounded-full focus-within:border-primary/50 transition-all shadow-inner px-4">
+                    <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
                     <input
                       type="password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Nhập lại mật khẩu..."
-                      className="w-full bg-transparent text-xs text-slate-200 focus:outline-none placeholder:text-slate-600 font-semibold py-3.5 pl-3"
+                      className="w-full bg-transparent text-xs text-foreground focus:outline-none placeholder:text-muted-foreground font-semibold py-3.5 pl-3"
                       required
                     />
                   </div>
@@ -324,8 +324,8 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 disabled={loading}
                 className={`w-full py-3.5 rounded-full font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer mt-2 active:scale-[0.99] border ${
                   !loading
-                    ? "bg-slate-100 text-slate-950 hover:bg-slate-200 border-slate-200/10 shadow-sm"
-                    : "bg-slate-800 text-slate-500 border-transparent cursor-not-allowed"
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90 border-border/30 shadow-sm"
+                    : "bg-muted text-muted-foreground border-transparent cursor-not-allowed"
                 }`}
               >
                 {loading ? (
@@ -341,9 +341,9 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
 
             {/* Divider */}
             <div className="flex items-center gap-3 my-1">
-              <div className="flex-grow h-px bg-slate-800" />
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider select-none">Hoặc đăng nhập bằng</span>
-              <div className="flex-grow h-px bg-slate-800" />
+              <div className="flex-grow h-px bg-muted" />
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">Hoặc đăng nhập bằng</span>
+              <div className="flex-grow h-px bg-muted" />
             </div>
 
             {/* OAuth Buttons */}
@@ -351,15 +351,15 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
               <button
                 type="button"
                 onClick={() => openMockOAuth("google")}
-                className="py-3 bg-slate-950 hover:bg-slate-850 border border-slate-800 hover:border-slate-750 rounded-full text-xs font-semibold text-slate-250 hover:text-white flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                className="py-3 bg-background hover:bg-muted border border-border hover:border-border rounded-full text-xs font-semibold text-foreground hover:text-white flex items-center justify-center gap-2 transition-colors cursor-pointer"
               >
-                <GoogleIcon className="w-4 h-4 text-rose-505" />
+                <GoogleIcon className="w-4 h-4 text-destructive" />
                 <span>Google</span>
               </button>
               <button
                 type="button"
                 onClick={() => openMockOAuth("github")}
-                className="py-3 bg-slate-950 hover:bg-slate-850 border border-slate-800 hover:border-slate-750 rounded-full text-xs font-semibold text-slate-250 hover:text-white flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                className="py-3 bg-background hover:bg-muted border border-border hover:border-border rounded-full text-xs font-semibold text-foreground hover:text-white flex items-center justify-center gap-2 transition-colors cursor-pointer"
               >
                 <GithubIcon className="w-4 h-4" />
                 <span>GitHub</span>
@@ -367,9 +367,9 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
             </div>
 
             {/* API URL Info */}
-            <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-500 font-semibold select-none">
+            <div className="mt-4 pt-4 border-t border-border flex items-center justify-between text-[10px] text-muted-foreground font-semibold select-none">
               <span>API Gateway</span>
-              <span className="font-mono text-indigo-400 bg-slate-950 px-2.5 py-0.5 rounded-full select-all">
+              <span className="font-mono text-primary bg-background px-2.5 py-0.5 rounded-full select-all">
                 {apiBaseUrl}
               </span>
             </div>
@@ -384,37 +384,37 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 setErrorMsg(null);
                 setSuccessMsg(null);
               }}
-              className="text-xs text-slate-400 hover:text-slate-200 font-bold flex items-center gap-1 self-start cursor-pointer transition-colors"
+              className="text-xs text-muted-foreground hover:text-foreground font-bold flex items-center gap-1 self-start cursor-pointer transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Quay lại</span>
             </button>
 
             <div className="flex flex-col gap-1 text-center">
-              <h2 className="text-lg font-bold text-slate-100">Xác thực tài khoản</h2>
-              <p className="text-xs text-slate-400 leading-relaxed px-4">
-                Mã OTP gồm 6 chữ số đã được gửi tới email của tài khoản <strong className="text-slate-350 font-bold">@{verificationUsername}</strong>.
+              <h2 className="text-lg font-bold text-foreground">Xác thực tài khoản</h2>
+              <p className="text-xs text-muted-foreground leading-relaxed px-4">
+                Mã OTP gồm 6 chữ số đã được gửi tới email của tài khoản <strong className="text-muted-foreground font-bold">@{verificationUsername}</strong>.
               </p>
             </div>
 
             {/* Status messages */}
             {errorMsg && (
-              <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-455 rounded-2xl text-xs leading-relaxed flex items-start gap-2">
-                <ShieldAlert className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
+              <div className="p-3.5 bg-destructive/10 border border-destructive/20 text-destructive rounded-2xl text-xs leading-relaxed flex items-start gap-2">
+                <ShieldAlert className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
                 <span>{errorMsg}</span>
               </div>
             )}
             {successMsg && (
-              <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl text-xs leading-relaxed flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+              <div className="p-3.5 bg-success/10 border border-success/20 text-success rounded-2xl text-xs leading-relaxed flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
                 <span>{successMsg}</span>
               </div>
             )}
 
             {debugOtpCode && (
-              <div className="p-3.5 bg-slate-900 border border-slate-800 text-slate-200 rounded-2xl text-xs leading-relaxed flex flex-col gap-1">
-                <span className="font-bold uppercase tracking-wider text-[10px] text-slate-400">Chế độ kiểm thử (Debug OTP):</span>
-                <span>Dùng mã sau để xác thực nhanh: <strong className="text-white font-mono text-sm tracking-widest bg-slate-950 px-2 py-0.5 rounded ml-1">{debugOtpCode}</strong></span>
+              <div className="p-3.5 bg-card border border-border text-foreground rounded-2xl text-xs leading-relaxed flex flex-col gap-1">
+                <span className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Chế độ kiểm thử (Debug OTP):</span>
+                <span>Dùng mã sau để xác thực nhanh: <strong className="text-white font-mono text-sm tracking-widest bg-background px-2 py-0.5 rounded ml-1">{debugOtpCode}</strong></span>
               </div>
             )}
 
@@ -425,7 +425,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 value={otpCode}
                 onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
                 placeholder="000000"
-                className="w-full bg-slate-950 border border-slate-850 focus:border-indigo-500/50 rounded-2xl py-4 text-center text-2xl font-bold tracking-[0.75em] text-slate-100 focus:outline-none font-mono transition-colors"
+                className="w-full bg-background border border-border/60 focus:border-primary/50 rounded-2xl py-4 text-center text-2xl font-bold tracking-[0.75em] text-foreground focus:outline-none font-mono transition-colors"
                 required
               />
             </div>
@@ -436,8 +436,8 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 disabled={loading}
                 className={`w-full py-3.5 rounded-full font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] border ${
                   !loading
-                    ? "bg-slate-100 text-slate-950 hover:bg-slate-200 border-slate-200/10 shadow-sm"
-                    : "bg-slate-800 text-slate-500 border-transparent cursor-not-allowed"
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90 border-border/30 shadow-sm"
+                    : "bg-muted text-muted-foreground border-transparent cursor-not-allowed"
                 }`}
               >
                 {loading ? "Đang xác thực..." : "Xác nhận và kích hoạt"}
@@ -447,7 +447,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 type="button"
                 onClick={handleResendCode}
                 disabled={loading}
-                className="text-xs text-slate-400 hover:text-slate-200 font-bold underline text-center cursor-pointer transition-colors"
+                className="text-xs text-muted-foreground hover:text-foreground font-bold underline text-center cursor-pointer transition-colors"
               >
                 Gửi lại mã xác thực
               </button>
@@ -459,55 +459,55 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
 
       {/* Simulated OAuth Modal Popup */}
       {showOAuthModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-          <form onSubmit={handleMockOAuthSubmit} className="bg-slate-900 border border-slate-800/80 rounded-[32px] p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl relative">
-            <div className="flex items-center gap-3 border-b border-slate-855 pb-3">
-              <div className="p-2.5 bg-indigo-500/10 rounded-2xl text-indigo-400">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-fadeIn">
+          <form onSubmit={handleMockOAuthSubmit} className="bg-card border border-border rounded-[32px] p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl relative">
+            <div className="flex items-center gap-3 border-b border-border/60 pb-3">
+              <div className="p-2.5 bg-primary/10 rounded-2xl text-primary">
                 {oauthProvider === "google" ? <GoogleIcon className="w-5 h-5" /> : <GithubIcon className="w-5 h-5" />}
               </div>
               <div>
-                <h3 className="font-bold text-sm text-slate-100">Simulated {oauthProvider === "google" ? "Google" : "GitHub"} OAuth</h3>
-                <p className="text-[10px] text-slate-450">Bảng điều hướng giả lập xác thực OAuth2</p>
+                <h3 className="font-bold text-sm text-foreground">Simulated {oauthProvider === "google" ? "Google" : "GitHub"} OAuth</h3>
+                <p className="text-[10px] text-muted-foreground">Bảng điều hướng giả lập xác thực OAuth2</p>
               </div>
             </div>
 
             <div className="flex flex-col gap-3 my-1">
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-slate-455 uppercase pl-1">Tên tài khoản hiển thị</label>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase pl-1">Tên tài khoản hiển thị</label>
                 <input
                   type="text"
                   value={oauthMockName}
                   onChange={(e) => setOauthMockName(e.target.value)}
                   placeholder="Nhập tên..."
-                  className="bg-slate-950 border border-slate-800/80 focus:border-indigo-500/50 rounded-2xl p-3 text-xs text-slate-200 font-semibold focus:outline-none transition-all duration-200"
+                  className="bg-background border border-border focus:border-primary/50 rounded-2xl p-3 text-xs text-foreground font-semibold focus:outline-none transition-all duration-200"
                   required
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-slate-455 uppercase pl-1">Địa chỉ Email</label>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase pl-1">Địa chỉ Email</label>
                 <input
                   type="email"
                   value={oauthMockEmail}
                   onChange={(e) => setOauthMockEmail(e.target.value)}
                   placeholder="email@domain.com"
-                  className="bg-slate-950 border border-slate-800/80 focus:border-indigo-500/50 rounded-2xl p-3 text-xs text-slate-200 font-semibold focus:outline-none font-mono transition-all duration-200"
+                  className="bg-background border border-border focus:border-primary/50 rounded-2xl p-3 text-xs text-foreground font-semibold focus:outline-none font-mono transition-all duration-200"
                   required
                 />
               </div>
             </div>
 
-            <div className="flex gap-2 justify-end mt-2 pt-3 border-t border-slate-855">
+            <div className="flex gap-2 justify-end mt-2 pt-3 border-t border-border/60">
               <button
                 type="button"
                 onClick={() => setShowOAuthModal(false)}
-                className="px-5 py-2.5 bg-slate-855 border border-slate-800 text-xs font-bold text-slate-350 rounded-full cursor-pointer transition-colors"
+                className="px-5 py-2.5 bg-muted border border-border text-xs font-bold text-muted-foreground rounded-full cursor-pointer transition-colors"
               >
                 Hủy
               </button>
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-950 rounded-full cursor-pointer transition-colors border border-slate-200/10 shadow-sm"
+                className="px-5 py-2.5 bg-primary hover:bg-primary/90 text-xs font-bold text-primary-foreground rounded-full cursor-pointer transition-colors border border-border/30 shadow-sm"
               >
                 Xác nhận phê duyệt
               </button>

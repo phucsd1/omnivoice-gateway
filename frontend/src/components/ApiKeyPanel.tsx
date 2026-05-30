@@ -74,60 +74,60 @@ export const ApiKeyPanel: React.FC<ApiKeyPanelProps> = ({ isOpen, onClose, onNav
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-2xl w-full flex flex-col gap-4 shadow-2xl relative animate-fadeIn max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-card border border-border rounded-3xl p-6 max-w-2xl w-full flex flex-col gap-4 shadow-2xl relative animate-fadeIn max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}
-          className="absolute right-5 top-5 text-slate-400 hover:text-slate-100 cursor-pointer"
+          className="absolute right-5 top-5 text-muted-foreground hover:text-foreground cursor-pointer"
           title="Đóng"
         >
           <X className="w-4.5 h-4.5" />
         </button>
 
-        <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
-          <div className="bg-indigo-500/10 p-2 rounded-xl text-indigo-400">
+        <div className="flex items-center gap-3 border-b border-border pb-3">
+          <div className="bg-primary/10 p-2 rounded-xl text-primary">
             <KeyRound className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-bold text-slate-100 text-sm">Quản lý API Keys &amp; Tài liệu Tích hợp</h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">
+            <h3 className="font-bold text-foreground text-sm">Quản lý API Keys &amp; Tài liệu Tích hợp</h3>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
               Tạo tự động các khóa API và xem hướng dẫn chi tiết cách nhúng giọng nói nhân bản AI.
             </p>
           </div>
         </div>
 
         {/* API Keys Table & Generation Card */}
-        <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col gap-3.5 shadow-inner">
+        <div className="bg-background border border-border rounded-xl p-4 flex flex-col gap-3.5 shadow-inner">
           <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2 text-indigo-400">
+            <div className="flex items-center gap-2 text-primary">
               <ShieldCheck className="w-4.5 h-4.5" />
-              <h4 className="font-bold text-xs text-slate-200">Danh sách mã API Key của bạn</h4>
+              <h4 className="font-bold text-xs text-foreground">Danh sách mã API Key của bạn</h4>
             </div>
             <button
               type="button"
               onClick={handleCreateApiKey}
               disabled={creatingKey}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5"
+              className="bg-primary hover:bg-primary text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5"
             >
               <PlusIcon className="w-3.5 h-3.5" />
               <span>{creatingKey ? "Đang sinh khóa..." : "Tạo API Key mới"}</span>
             </button>
           </div>
           
-          <p className="text-[11px] text-slate-400 leading-relaxed -mt-1.5">
+          <p className="text-[11px] text-muted-foreground leading-relaxed -mt-1.5">
             API Key được cấp quyền truy cập đầy đủ các endpoint tạo âm thanh nhân bản. Vui lòng bảo mật các khóa này, không chia sẻ lên mã nguồn công khai.
           </p>
 
           <div className="overflow-x-auto">
             {loading && apiKeys.length === 0 ? (
-              <div className="text-center py-4 text-slate-500 text-xs flex items-center justify-center gap-2">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+              <div className="text-center py-4 text-muted-foreground text-xs flex items-center justify-center gap-2">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" />
                 <span>Đang tải các khóa...</span>
               </div>
             ) : apiKeys.length > 0 ? (
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-800 text-slate-400 text-[10px] uppercase font-semibold">
+                  <tr className="border-b border-border text-muted-foreground text-[10px] uppercase font-semibold">
                     <th className="py-2 px-1">Tên khóa</th>
                     <th className="py-2 px-1">Mã khóa API</th>
                     <th className="py-2 px-1">Ngày tạo</th>
@@ -137,9 +137,9 @@ export const ApiKeyPanel: React.FC<ApiKeyPanelProps> = ({ isOpen, onClose, onNav
                 </thead>
                 <tbody>
                   {apiKeys.map((k) => (
-                    <tr key={k.id} className="border-b border-slate-900/60 hover:bg-slate-900/20">
-                      <td className="py-2.5 px-1 font-bold text-slate-200 truncate max-w-[140px]">{k.name}</td>
-                      <td className="py-2.5 px-1 font-mono text-[11px] text-indigo-300">
+                    <tr key={k.id} className="border-b border-border/60 hover:bg-card/20">
+                      <td className="py-2.5 px-1 font-bold text-foreground truncate max-w-[140px]">{k.name}</td>
+                      <td className="py-2.5 px-1 font-mono text-[11px] text-primary/90">
                         <div className="flex items-center gap-1.5">
                           <span className="max-w-[180px] truncate block select-all" title={k.key}>
                             {visibleKeys[k.id] ? k.key : (k.key.length > 12 ? `${k.key.substring(0, 8)}••••${k.key.substring(k.key.length - 4)}` : k.key)}
@@ -147,17 +147,17 @@ export const ApiKeyPanel: React.FC<ApiKeyPanelProps> = ({ isOpen, onClose, onNav
                           <button
                             type="button"
                             onClick={() => setVisibleKeys({ ...visibleKeys, [k.id]: !visibleKeys[k.id] })}
-                            className="text-slate-500 hover:text-slate-200 cursor-pointer shrink-0"
+                            className="text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
                             title={visibleKeys[k.id] ? "Ẩn" : "Hiện"}
                           >
                             {visibleKeys[k.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                           </button>
                         </div>
                       </td>
-                      <td className="py-2.5 px-1 text-slate-400 text-[11px]">
+                      <td className="py-2.5 px-1 text-muted-foreground text-[11px]">
                         {new Date(k.created_at).toLocaleDateString("vi-VN")}
                       </td>
-                      <td className="py-2.5 px-1 text-slate-400 text-[11px]">
+                      <td className="py-2.5 px-1 text-muted-foreground text-[11px]">
                         {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString("vi-VN") : "Chưa hoạt động"}
                       </td>
                       <td className="py-2.5 px-1 text-right">
@@ -165,11 +165,11 @@ export const ApiKeyPanel: React.FC<ApiKeyPanelProps> = ({ isOpen, onClose, onNav
                           <button
                             type="button"
                             onClick={() => handleCopyKey(k.id, k.key)}
-                            className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded-lg cursor-pointer transition-colors"
+                            className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg cursor-pointer transition-colors"
                             title="Sao chép API Key"
                           >
                             {copiedKeyId === k.id ? (
-                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              <Check className="w-3.5 h-3.5 text-success" />
                             ) : (
                               <Copy className="w-3.5 h-3.5" />
                             )}
@@ -177,7 +177,7 @@ export const ApiKeyPanel: React.FC<ApiKeyPanelProps> = ({ isOpen, onClose, onNav
                           <button
                             type="button"
                             onClick={() => handleDeleteApiKey(k.id)}
-                            className="p-1.5 hover:bg-rose-950/20 text-slate-400 hover:text-rose-500 rounded-lg cursor-pointer transition-colors"
+                            className="p-1.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded-lg cursor-pointer transition-colors"
                             title="Thu hồi khóa"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -189,7 +189,7 @@ export const ApiKeyPanel: React.FC<ApiKeyPanelProps> = ({ isOpen, onClose, onNav
                 </tbody>
               </table>
             ) : (
-              <div className="text-center py-6 text-slate-500 text-[11px]">
+              <div className="text-center py-6 text-muted-foreground text-[11px]">
                 Bạn chưa có API Key nào. Bấm nút "Tạo API Key mới" ở góc phải để tạo tự động.
               </div>
             )}
@@ -197,17 +197,17 @@ export const ApiKeyPanel: React.FC<ApiKeyPanelProps> = ({ isOpen, onClose, onNav
         </div>
 
         {/* Integration Documentation Card Redirect */}
-        <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex items-center justify-between gap-4 animate-fadeIn">
+        <div className="bg-background border border-border rounded-xl p-4 flex items-center justify-between gap-4 animate-fadeIn">
           <div className="flex flex-col gap-1 min-w-0">
-            <span className="text-xs font-bold text-slate-200 truncate">Bạn muốn nhúng giọng nói AI vào hệ thống?</span>
-            <span className="text-[11px] text-slate-400">
+            <span className="text-xs font-bold text-foreground truncate">Bạn muốn nhúng giọng nói AI vào hệ thống?</span>
+            <span className="text-[11px] text-muted-foreground">
               Hãy xem tài liệu tích hợp chi tiết có kèm mã nguồn mẫu cURL, Python, NodeJS.
             </span>
           </div>
           <button
             type="button"
             onClick={onNavigateToDocs}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer transition-colors shrink-0 flex items-center gap-1 shadow-sm"
+            className="bg-primary hover:bg-primary text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer transition-colors shrink-0 flex items-center gap-1 shadow-sm"
           >
             <BookOpen className="w-3.5 h-3.5" />
             <span>Xem Tài liệu</span>

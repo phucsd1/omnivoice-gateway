@@ -151,48 +151,48 @@ function App() {
   }
 
   // AI Agent Orb configuration based on system health and Kaggle status
-  let orbColorClass = "bg-slate-600";
+  let orbColorClass = "bg-muted-foreground";
   let orbPulseClass = "";
   let orbLabel = "GPU Agent: Ngoại tuyến";
   let orbDesc = "Không có kết nối với máy chủ";
 
   if (connectionStatus === "disconnected") {
-    orbColorClass = "bg-rose-500";
+    orbColorClass = "bg-destructive";
     orbPulseClass = "animate-orb-red";
     orbLabel = "GPU Agent: Lỗi kết nối";
     orbDesc = "Gateway offline";
   } else if (kaggleStatus === "unconfigured") {
-    orbColorClass = "bg-slate-600";
+    orbColorClass = "bg-muted-foreground";
     orbLabel = "GPU Agent: Chưa thiết lập";
     orbDesc = "Cần cấu hình Kaggle";
   } else if (kaggleStatus === "error") {
-    orbColorClass = "bg-rose-500";
+    orbColorClass = "bg-destructive";
     orbPulseClass = "animate-orb-red";
     orbLabel = "GPU Agent: Lỗi kết nối";
     orbDesc = "Kiểm tra thông số Kaggle";
   } else {
     // Standard connected
-    orbColorClass = "bg-emerald-500";
+    orbColorClass = "bg-success";
     orbPulseClass = "animate-orb-green";
     orbLabel = "GPU Agent: Sẵn sàng";
     orbDesc = "Đang chờ tác vụ mới";
   }
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-slate-900 border-r border-slate-800 text-slate-100 select-none">
+    <div className="flex flex-col h-full bg-card border-r border-border text-foreground select-none">
       {/* Brand Logo & Name */}
-      <div className="p-6 border-b border-slate-800 flex items-center gap-3">
+      <div className="p-6 border-b border-border flex items-center gap-3">
         <div className="bg-gradient-to-tr from-indigo-500 to-purple-500 p-2 rounded-xl shadow-md shadow-indigo-500/10 shrink-0">
           <Radio className="w-5 h-5 text-white animate-pulse" />
         </div>
         <div className="flex flex-col min-w-0">
-          <h2 className="text-base font-bold tracking-tight text-slate-100 flex items-center gap-1.5 leading-none">
+          <h2 className="text-base font-bold tracking-tight text-foreground flex items-center gap-1.5 leading-none">
             <span>OmniVoice</span>
-            <span className="text-[9px] bg-indigo-500/20 text-indigo-300 font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+            <span className="text-[9px] bg-primary/20 text-primary/90 font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
               Gateway
             </span>
           </h2>
-          <span className="text-[10px] text-slate-500 font-semibold mt-1 truncate">
+          <span className="text-[10px] text-muted-foreground font-semibold mt-1 truncate">
             Lightning AI Dashboard
           </span>
         </div>
@@ -204,8 +204,8 @@ function App() {
           onClick={() => navigateToTab("workspace")}
           className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
             activeTab === "workspace"
-              ? "bg-slate-800 text-slate-100 shadow-sm border border-slate-700/50"
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-850/50"
+              ? "bg-muted text-foreground shadow-sm border border-border/50"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
           }`}
         >
           <Sparkles className="w-4 h-4 shrink-0" />
@@ -216,8 +216,8 @@ function App() {
           onClick={() => navigateToTab("library")}
           className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
             activeTab === "library"
-              ? "bg-slate-800 text-slate-100 shadow-sm border border-slate-700/50"
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-850/50"
+              ? "bg-muted text-foreground shadow-sm border border-border/50"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
           }`}
         >
           <Volume2 className="w-4 h-4 shrink-0" />
@@ -228,8 +228,8 @@ function App() {
           onClick={() => navigateToTab("history")}
           className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
             activeTab === "history"
-              ? "bg-slate-800 text-slate-100 shadow-sm border border-slate-700/50"
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-850/50"
+              ? "bg-muted text-foreground shadow-sm border border-border/50"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
           }`}
         >
           <Layers className="w-4 h-4 shrink-0" />
@@ -240,8 +240,8 @@ function App() {
           onClick={() => navigateToTab("docs")}
           className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
             activeTab === "docs"
-              ? "bg-slate-800 text-slate-100 shadow-sm border border-slate-700/50"
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-850/50"
+              ? "bg-muted text-foreground shadow-sm border border-border/50"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
           }`}
         >
           <BookOpen className="w-4 h-4 shrink-0" />
@@ -253,8 +253,8 @@ function App() {
             onClick={() => navigateToTab("admin")}
             className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
               activeTab === "admin"
-                ? "bg-slate-800 text-slate-100 shadow-sm border border-slate-700/50"
-                : "text-slate-400 hover:text-slate-200 hover:bg-slate-850/50"
+                ? "bg-muted text-foreground shadow-sm border border-border/50"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             }`}
           >
             <Server className="w-4 h-4 shrink-0" />
@@ -264,29 +264,29 @@ function App() {
       </nav>
 
       {/* AI Agent Status Orb Box */}
-      <div className="p-4 border-t border-slate-800 bg-slate-900/60 mx-4 my-2 rounded-2xl border border-slate-800">
+      <div className="p-4 border-t border-border bg-card/60 mx-4 my-2 rounded-2xl border border-border">
         <div className="flex items-center gap-3">
           <div className={`w-3.5 h-3.5 rounded-full shrink-0 relative ${orbColorClass} ${orbPulseClass}`} />
           <div className="flex flex-col min-w-0">
-            <span className="text-xs font-bold text-slate-200 truncate">{orbLabel}</span>
-            <span className="text-[10px] text-slate-500 font-semibold truncate mt-0.5">{orbDesc}</span>
+            <span className="text-xs font-bold text-foreground truncate">{orbLabel}</span>
+            <span className="text-[10px] text-muted-foreground font-semibold truncate mt-0.5">{orbDesc}</span>
           </div>
         </div>
       </div>
 
       {/* Footer Profile & Actions */}
-      <div className="p-4 border-t border-slate-800 flex flex-col gap-3">
+      <div className="p-4 border-t border-border flex flex-col gap-3">
         {currentUser && (
-          <div className="flex items-center justify-between gap-2 bg-slate-850/30 border border-slate-800/80 px-3 py-2.5 rounded-xl">
+          <div className="flex items-center justify-between gap-2 bg-muted/30 border border-border px-3 py-2.5 rounded-xl">
             <div className="flex flex-col min-w-0">
-              <span className="text-xs font-bold text-slate-250 truncate">@{currentUser.username}</span>
-              <span className="text-[9px] text-slate-550 font-bold uppercase tracking-wider mt-0.5">
+              <span className="text-xs font-bold text-foreground truncate">@{currentUser.username}</span>
+              <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider mt-0.5">
                 {currentUser.is_admin ? "Administrator" : "Standard User"}
               </span>
             </div>
             <button
               onClick={handleLogout}
-              className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer shrink-0"
+              className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer shrink-0"
               title="Đăng xuất"
             >
               <LogOut className="w-4 h-4" />
@@ -297,7 +297,7 @@ function App() {
         <div className="flex items-center justify-between gap-1.5">
           <button
             onClick={() => setShowSettingsModal(true)}
-            className="flex-grow py-2 bg-slate-850 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold text-slate-300 hover:text-slate-100 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+            className="flex-grow py-2 bg-muted hover:bg-muted border border-border rounded-xl text-[10px] font-bold text-foreground hover:text-foreground transition-colors cursor-pointer flex items-center justify-center gap-1.5"
             title="Cấu hình Kaggle"
           >
             <Server className="w-3.5 h-3.5" />
@@ -306,7 +306,7 @@ function App() {
 
           <button
             onClick={() => setShowApiKeyModal(true)}
-            className="flex-grow py-2 bg-slate-850 hover:bg-slate-800 border border-slate-800 rounded-xl text-[10px] font-bold text-slate-300 hover:text-slate-100 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+            className="flex-grow py-2 bg-muted hover:bg-muted border border-border rounded-xl text-[10px] font-bold text-foreground hover:text-foreground transition-colors cursor-pointer flex items-center justify-center gap-1.5"
             title="API Keys"
           >
             <KeyRound className="w-3.5 h-3.5" />
@@ -321,21 +321,21 @@ function App() {
                 return "system";
               });
             }}
-            className="px-2.5 py-2 bg-slate-850 hover:bg-slate-800 border border-slate-800 rounded-xl text-slate-300 hover:text-slate-100 transition-colors cursor-pointer shrink-0"
+            className="px-2.5 py-2 bg-muted hover:bg-muted border border-border rounded-xl text-foreground hover:text-foreground transition-colors cursor-pointer shrink-0"
             title={`Giao diện: ${theme === "system" ? "Tự động" : theme === "light" ? "Sáng" : "Tối"}`}
           >
             {theme === "system" && <Monitor className="w-3.5 h-3.5" />}
-            {theme === "light" && <Sun className="w-3.5 h-3.5 text-amber-500" />}
-            {theme === "dark" && <Moon className="w-3.5 h-3.5 text-indigo-400" />}
+            {theme === "light" && <Sun className="w-3.5 h-3.5 text-warning" />}
+            {theme === "dark" && <Moon className="w-3.5 h-3.5 text-primary" />}
           </button>
         </div>
 
         {/* Mini stats */}
-        <div className="flex items-center justify-between text-[10px] text-slate-600 font-mono px-1">
+        <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono px-1">
           <span>Gateway: {connectionStatus === "connected" ? "Online" : "Offline"}</span>
           <button 
             onClick={checkHealth}
-            className="hover:text-slate-400 cursor-pointer flex items-center gap-1"
+            className="hover:text-muted-foreground cursor-pointer flex items-center gap-1"
           >
             <RefreshCw className="w-2.5 h-2.5" />
             <span>Reload</span>
@@ -346,9 +346,9 @@ function App() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 flex font-sans select-none overflow-x-hidden relative">
+    <div className="min-h-screen bg-background text-foreground flex font-sans select-none overflow-x-hidden relative">
       {/* Background glow animations */}
-      <div className="absolute top-0 left-1/4 w-[400px] h-[400px] bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute top-0 left-1/4 w-[400px] h-[400px] bg-primary/5 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-purple-500/5 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Desktop Sidebar (Permanent) */}
@@ -369,7 +369,7 @@ function App() {
             {sidebarContent}
             <button
               onClick={() => setSidebarOpen(false)}
-              className="absolute top-4 -right-12 p-2 bg-slate-900 border border-slate-800 text-slate-300 rounded-xl"
+              className="absolute top-4 -right-12 p-2 bg-card border border-border text-foreground rounded-xl"
             >
               <X className="w-5 h-5" />
             </button>
@@ -380,11 +380,11 @@ function App() {
       {/* Main Container */}
       <div className="flex-grow flex flex-col min-w-0 lg:pl-64 min-h-screen">
         {/* Mobile Header Topbar */}
-        <header className="lg:hidden sticky top-0 z-30 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 flex items-center justify-between">
+        <header className="lg:hidden sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="p-2 hover:bg-slate-900 border border-slate-850 rounded-xl text-slate-300"
+              className="p-2 hover:bg-card border border-border/60 rounded-xl text-foreground"
             >
               <Menu className="w-5 h-5" />
             </button>
@@ -392,13 +392,13 @@ function App() {
               <div className="bg-gradient-to-tr from-indigo-500 to-purple-500 p-1.5 rounded-lg">
                 <Radio className="w-4 h-4 text-white" />
               </div>
-              <span className="text-sm font-bold tracking-tight text-slate-100">OmniVoice</span>
+              <span className="text-sm font-bold tracking-tight text-foreground">OmniVoice</span>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${connectionStatus === "connected" ? "bg-emerald-500" : "bg-rose-500"}`} />
-            <span className="text-[10px] font-mono text-slate-400 select-all truncate max-w-[120px]">
+            <span className={`w-2 h-2 rounded-full ${connectionStatus === "connected" ? "bg-success" : "bg-destructive"}`} />
+            <span className="text-[10px] font-mono text-muted-foreground select-all truncate max-w-[120px]">
               {apiBaseUrl}
             </span>
           </div>
@@ -436,30 +436,30 @@ function App() {
               {/* Right Column (1/3 width) - Voice Configuration */}
               <section className="xl:col-span-1 flex flex-col gap-6">
                 {activeVoiceSampleId ? (
-                  <div className="bg-gradient-to-tr from-indigo-950/20 to-purple-950/20 border border-indigo-500/20 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm">
+                  <div className="bg-gradient-to-tr from-indigo-950/20 to-purple-950/20 border border-primary/20 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm">
                     <div className="flex items-center gap-3">
-                      <div className="bg-indigo-500/10 p-2 rounded-xl text-indigo-400">
+                      <div className="bg-primary/10 p-2 rounded-xl text-primary">
                         <Sparkles className="w-5 h-5 animate-pulse" />
                       </div>
                       <div className="flex flex-col min-w-0">
-                        <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">
+                        <span className="text-[10px] font-bold text-primary uppercase tracking-wider">
                           Mẫu giọng hoạt động
                         </span>
-                        <span className="text-xs font-mono font-bold text-slate-200 truncate max-w-[150px] sm:max-w-[200px]">
+                        <span className="text-xs font-mono font-bold text-foreground truncate max-w-[150px] sm:max-w-[200px]">
                           {activeVoiceSampleId}
                         </span>
                       </div>
                     </div>
                     <button
                       onClick={() => setActiveVoiceSampleId(null)}
-                      className="text-xs hover:text-slate-100 text-slate-300 border border-slate-800 bg-slate-900 hover:bg-slate-850 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer font-bold shrink-0"
+                      className="text-xs hover:text-foreground text-foreground border border-border bg-card hover:bg-muted px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer font-bold shrink-0"
                     >
                       Hủy chọn
                     </button>
                   </div>
                 ) : (
-                  <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-4 flex items-center gap-3 text-xs text-slate-400 shadow-sm">
-                    <Layers className="w-5 h-5 text-indigo-400 shrink-0 animate-pulse" />
+                  <div className="bg-card border border-border rounded-2xl p-4 flex items-center gap-3 text-xs text-muted-foreground shadow-sm">
+                    <Layers className="w-5 h-5 text-primary shrink-0 animate-pulse" />
                     <span>Chưa chọn mẫu giọng. Vui lòng tải một mẫu giọng hoặc thiết kế giọng nói để bắt đầu clone.</span>
                   </div>
                 )}
@@ -507,7 +507,7 @@ function App() {
         </main>
 
         {/* Footer */}
-        <footer className="border-t border-slate-900/60 py-6 text-center text-[10px] text-slate-600 font-semibold bg-slate-950/20 mt-auto">
+        <footer className="border-t border-border/60 py-6 text-center text-[10px] text-muted-foreground font-semibold bg-background/20 mt-auto">
           OmniVoice On-Demand Gateway MVP &copy; {new Date().getFullYear()} &nbsp;•&nbsp; Built for High-Performance Audio Synthesis
         </footer>
       </div>
