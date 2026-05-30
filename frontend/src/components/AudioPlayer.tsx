@@ -1,12 +1,21 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Download, Play, Pause, Volume2, VolumeX } from "lucide-react";
+import { Download, Play, Pause, Volume1, Volume2, VolumeX, X, RotateCcw, RotateCw, Loader2, AlertCircle } from "lucide-react";
 
 interface AudioPlayerProps {
   url: string;
-  title?: string;
+  title: string;
+  isPlayingGlobal: boolean;
+  onPlayingGlobalChange: (playing: boolean) => void;
+  onClose: () => void;
 }
 
-export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
+export const AudioPlayer: React.FC<AudioPlayerProps> = ({
+  url,
+  title,
+  isPlayingGlobal,
+  onPlayingGlobalChange,
+  onClose,
+}) => {
   const token = localStorage.getItem("VITE_JWT_TOKEN");
   const authenticatedUrl = url ? `${url}${url.includes("?") ? "&" : "?"}token=${token || ""}` : "";
 
@@ -14,23 +23,72 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
-  const volume = 1;
+  const [volumeVal, setVolumeVal] = useState(0.8);
   const [isMuted, setIsMuted] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1.0);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+  
+  // Loading and Error States
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
+  // Auto load and play when url changes
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (url) {
+      setIsLoading(true);
+      setHasError(false);
+      audio.load();
+      audio.play()
+        .then(() => {
+          setIsPlaying(true);
+          onPlayingGlobalChange(true);
+        })
+        .catch(err => {
+          console.error("Audio autoplay error:", err);
+          // Play abort is normal when loading a new track fast
+        });
+    }
+  }, [authenticatedUrl]);
 
   // Sync state with HTML5 Audio Element
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
+    const handlePlay = () => {
+      setIsPlaying(true);
+      onPlayingGlobalChange(true);
+    };
+    const handlePause = () => {
+      setIsPlaying(false);
+      onPlayingGlobalChange(false);
+    };
     const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
-    const handleLoadedMetadata = () => setDuration(audio.duration);
+    const handleLoadedMetadata = () => {
+      setDuration(audio.duration);
+      setIsLoading(false);
+      setHasError(false);
+    };
     const handleEnded = () => {
       setIsPlaying(false);
+      onPlayingGlobalChange(false);
       setCurrentTime(0);
+    };
+    const handleWaiting = () => setIsLoading(true);
+    const handlePlaying = () => {
+      setIsLoading(false);
+      setHasError(false);
+    };
+    const handleCanPlay = () => {
+      setIsLoading(false);
+      setHasError(false);
+    };
+    const handleError = () => {
+      setIsLoading(false);
+      setHasError(true);
     };
 
     audio.addEventListener("play", handlePlay);
@@ -38,6 +96,10 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
     audio.addEventListener("timeupdate", handleTimeUpdate);
     audio.addEventListener("loadedmetadata", handleLoadedMetadata);
     audio.addEventListener("ended", handleEnded);
+    audio.addEventListener("waiting", handleWaiting);
+    audio.addEventListener("playing", handlePlaying);
+    audio.addEventListener("canplay", handleCanPlay);
+    audio.addEventListener("error", handleError);
 
     if (audio.duration) {
       setDuration(audio.duration);
@@ -49,15 +111,35 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
       audio.removeEventListener("timeupdate", handleTimeUpdate);
       audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
       audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("waiting", handleWaiting);
+      audio.removeEventListener("playing", handlePlaying);
+      audio.removeEventListener("canplay", handleCanPlay);
+      audio.removeEventListener("error", handleError);
     };
   }, [authenticatedUrl]);
+
+  // Sync HTML5 play state when parent changes isPlayingGlobal
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (isPlayingGlobal) {
+      if (audio.paused) {
+        audio.play().catch(err => console.error("Global play error:", err));
+      }
+    } else {
+      if (!audio.paused) {
+        audio.pause();
+      }
+    }
+  }, [isPlayingGlobal]);
 
   // Adjust volume/mute
   useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.volume = isMuted ? 0 : volume;
+      audioRef.current.volume = isMuted ? 0 : volumeVal;
     }
-  }, [volume, isMuted]);
+  }, [volumeVal, isMuted]);
 
   // Adjust playback speed
   useEffect(() => {
@@ -88,6 +170,14 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
     setIsMuted(!isMuted);
   };
 
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVal = parseFloat(e.target.value);
+    setVolumeVal(newVal);
+    if (newVal > 0 && isMuted) {
+      setIsMuted(false);
+    }
+  };
+
   const handleDownload = (e: React.MouseEvent) => {
     e.preventDefault();
     const link = document.createElement("a");
@@ -96,6 +186,20 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleRewind = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = Math.max(0, audio.currentTime - 10);
+    setCurrentTime(audio.currentTime);
+  };
+
+  const handleForward = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = Math.min(duration, audio.currentTime + 10);
+    setCurrentTime(audio.currentTime);
   };
 
   const formatTime = (time: number) => {
@@ -110,60 +214,136 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
   const speeds = [0.75, 1.0, 1.25, 1.5, 2.0];
   const percentage = duration ? (currentTime / duration) * 100 : 0;
 
+  // Choose correct volume icon
+  const renderVolumeIcon = () => {
+    if (isMuted || volumeVal === 0) {
+      return <VolumeX className="w-4 h-4" />;
+    }
+    if (volumeVal < 0.5) {
+      return <Volume1 className="w-4 h-4" />;
+    }
+    return <Volume2 className="w-4 h-4" />;
+  };
+
   return (
-    <div className="bg-card border border-border rounded-xl p-2 flex flex-col gap-1.5 shadow-sm relative w-full select-none transition-all duration-200 hover:border-border/60">
-      <audio ref={audioRef} src={authenticatedUrl} />
-      
-      {/* Top Row: Play, Time, Title (Left) & Speed, Mute, Download (Right) */}
-      <div className="flex items-center justify-between gap-2 w-full">
-        {/* Left Part */}
-        <div className="flex items-center gap-2 min-w-0 flex-grow">
-          <button
-            onClick={togglePlay}
-            className="w-6.5 h-6.5 rounded-full border border-border bg-card/60 hover:bg-muted text-foreground flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-sm"
-            title={isPlaying ? "Tạm dừng" : "Phát"}
-          >
-            {isPlaying ? (
-              <Pause className="w-2.5 h-2.5 fill-current" />
-            ) : (
-              <Play className="w-2.5 h-2.5 fill-current ml-0.5" />
-            )}
-          </button>
-          
+    <div className="relative overflow-hidden rounded-full border border-border/50 shadow-[0_20px_50px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.55)] select-none w-full hover:border-border transition-all duration-300 animate-player-in">
+      {/* Liquid Animated Blobs Background */}
+      <div className="absolute inset-0 -z-10 overflow-hidden rounded-full pointer-events-none">
+        {/* Glass Layer */}
+        <div className="absolute inset-0 bg-card/65 backdrop-blur-2xl transition-colors duration-300 dark:bg-[#151922]/75" />
+        
+        {/* Fluid blobs */}
+        <div className={`absolute -inset-10 opacity-70 transition-opacity duration-1000 ${isPlaying ? 'opacity-90' : 'opacity-40'}`}>
+          <div className="absolute top-1/4 left-1/4 w-32 h-32 rounded-full bg-primary/20 blur-[20px] animate-liquid-1" />
+          <div className="absolute bottom-1/4 right-1/4 w-36 h-36 rounded-full bg-accent/25 blur-[25px] animate-liquid-2" />
+          <div className="absolute top-1/3 right-1/3 w-28 h-28 rounded-full bg-pink-500/10 blur-[22px] animate-liquid-3" />
+        </div>
+      </div>
+
+      <div className="px-5 py-3 flex items-center justify-between gap-4 relative z-10">
+        <audio ref={audioRef} src={authenticatedUrl} />
+
+        {/* Left: SkipBack, Play, SkipForward & Metadata & Equalizer */}
+        <div className="flex items-center gap-3.5 min-w-0">
+          {/* Controls button group */}
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Rewind 10s */}
+            <button
+              onClick={handleRewind}
+              className="p-2 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-all cursor-pointer hidden xs:flex items-center justify-center shrink-0"
+              title="Tua lại 10 giây"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Play/Pause/Loader */}
+            <button
+              onClick={togglePlay}
+              className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-accent hover:from-primary-hover hover:to-accent text-white flex items-center justify-center cursor-pointer shrink-0 shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 duration-300 btn-squishy"
+              title={isPlaying ? "Tạm dừng" : "Phát"}
+              disabled={hasError}
+            >
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+              ) : isPlaying ? (
+                <Pause className="w-4 h-4 fill-current text-white" />
+              ) : (
+                <Play className="w-4 h-4 fill-current text-white ml-0.5" />
+              )}
+            </button>
+
+            {/* Forward 10s */}
+            <button
+              onClick={handleForward}
+              className="p-2 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-all cursor-pointer hidden xs:flex items-center justify-center shrink-0"
+              title="Tua tới 10 giây"
+            >
+              <RotateCw className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Sound Metadata */}
           <div className="flex flex-col min-w-0 leading-tight">
-            {title && (
-              <span className="text-[9px] font-extrabold text-foreground uppercase tracking-wider truncate max-w-[110px]" title={title}>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-foreground truncate max-w-[100px] sm:max-w-[130px] md:max-w-[180px]" title={title}>
                 {title}
               </span>
+              
+              {/* Mini Liquid Equalizer */}
+              {!hasError && (
+                <div className="flex items-end gap-0.5 h-3 shrink-0 select-none" title={isPlaying ? "Đang phát" : "Tạm dừng"}>
+                  <span className={`w-[2px] bg-primary rounded-full transition-all duration-300 ${isPlaying ? 'h-3 animate-wave-bar-1' : 'h-[3px]'}`} />
+                  <span className={`w-[2px] bg-accent rounded-full transition-all duration-300 ${isPlaying ? 'h-4.5 animate-wave-bar-2' : 'h-[3px]'}`} />
+                  <span className={`w-[2px] bg-primary rounded-full transition-all duration-300 ${isPlaying ? 'h-2.5 animate-wave-bar-3' : 'h-[3px]'}`} />
+                  <span className={`w-[2px] bg-accent rounded-full transition-all duration-300 ${isPlaying ? 'h-4 animate-wave-bar-4' : 'h-[3px]'}`} />
+                </div>
+              )}
+            </div>
+            
+            {hasError ? (
+              <span className="text-[9px] text-destructive font-bold flex items-center gap-0.5">
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>Lỗi phát âm thanh</span>
+              </span>
+            ) : (
+              <span className="text-[10px] font-mono font-medium text-muted-foreground mt-0.5 tabular-nums select-none">
+                {formatTime(currentTime)} / {formatTime(duration)}
+              </span>
             )}
-            <span className="text-[9px] font-mono font-bold text-muted-foreground tabular-nums">
-              {formatTime(currentTime)} / {formatTime(duration)}
-            </span>
           </div>
         </div>
 
-        {/* Right Part */}
-        <div className="flex items-center gap-1 shrink-0">
-          {/* Waveform Bouncing Bars (hidden on small layouts) */}
-          <div className="hidden sm:flex items-end gap-0.5 h-3.5 w-6 px-0.5 shrink-0 overflow-hidden bg-background/40 rounded border border-border/40 justify-center">
-            <div className={`w-[1.5px] bg-primary rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-1' : 'h-1'}`} />
-            <div className={`w-[1.5px] bg-primary rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-2' : 'h-2.5'}`} />
-            <div className={`w-[1.5px] bg-purple-500 rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-3' : 'h-1.5'}`} />
-          </div>
+        {/* Center: Fluid Seekbar Slider */}
+        <div className="flex-grow max-w-[340px] hidden sm:flex items-center">
+          <input
+            type="range"
+            min={0}
+            max={duration || 100}
+            value={currentTime}
+            onChange={handleSeekChange}
+            className="seekbar w-full"
+            disabled={hasError}
+            style={{
+              background: `linear-gradient(to right, var(--primary) 0%, var(--accent) ${percentage}%, var(--slider-track) ${percentage}%, var(--slider-track) 100%)`
+            }}
+          />
+        </div>
 
-          {/* Speed Selector */}
+        {/* Right: Tools & Dismiss */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Playback Speed Selector */}
           <div className="relative flex items-center">
             <button
               onClick={() => setShowSpeedMenu(!showSpeedMenu)}
-              className="px-1 py-0.5 bg-background hover:bg-muted border border-border rounded text-[9px] font-bold text-muted-foreground transition-colors cursor-pointer select-none"
+              className="px-2.5 py-1.5 bg-background/50 hover:bg-muted border border-border/80 hover:border-border rounded-lg text-[10px] font-bold text-muted-foreground hover:text-foreground transition-all cursor-pointer select-none"
             >
-              {playbackRate.toFixed(1)}x
+              {playbackRate.toFixed(2)}x
             </button>
             
             {showSpeedMenu && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowSpeedMenu(false)} />
-                <div className="absolute bottom-full right-0 mb-1.5 z-25 bg-card border border-border rounded-xl p-1 shadow-xl flex flex-col gap-0.5 min-w-[55px] animate-fadeIn">
+                <div className="absolute bottom-full right-0 mb-2.5 z-25 bg-card/95 border border-border/80 rounded-2xl p-1.5 shadow-2xl flex flex-col gap-0.5 min-w-[75px] animate-speed-menu backdrop-blur-md">
                   {speeds.map(s => (
                     <button
                       key={s}
@@ -171,13 +351,13 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
                         setPlaybackRate(s);
                         setShowSpeedMenu(false);
                       }}
-                      className={`px-1.5 py-0.5 text-left rounded-lg text-[9px] font-bold transition-colors cursor-pointer w-full ${
+                      className={`px-3 py-1.5 text-left rounded-xl text-[10px] font-bold transition-all cursor-pointer w-full ${
                         playbackRate === s
-                          ? "bg-primary text-primary-foreground"
+                          ? "bg-gradient-to-tr from-primary to-accent text-white"
                           : "text-muted-foreground hover:text-foreground hover:bg-muted"
                       }`}
                     >
-                      {s.toFixed(1)}x
+                      {s.toFixed(2)}x
                     </button>
                   ))}
                 </div>
@@ -185,39 +365,51 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
             )}
           </div>
 
-          {/* Volume Mute */}
-          <button
-            onClick={toggleMute}
-            className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer p-0.5 shrink-0"
-            title={isMuted ? "Bật âm thanh" : "Tắt âm thanh"}
-          >
-            {isMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
-          </button>
+          {/* Volume Control Group (Speaker + Hover Slider) */}
+          <div className="flex items-center gap-1.5 group/volume relative py-1">
+            <button
+              onClick={toggleMute}
+              className="text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent hover:border-border/60 rounded-full p-2 transition-all cursor-pointer shrink-0"
+              title={isMuted ? "Bật âm thanh" : "Tắt âm thanh"}
+            >
+              {renderVolumeIcon()}
+            </button>
+            
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={isMuted ? 0 : volumeVal}
+              onChange={handleVolumeChange}
+              className="w-0 opacity-0 group-hover/volume:w-16 group-hover/volume:opacity-100 focus:w-16 focus:opacity-100 transition-all duration-300 h-1 bg-slider-track/50 rounded-full appearance-none cursor-pointer range-xs accent-primary pointer-events-none group-hover/volume:pointer-events-auto focus:pointer-events-auto"
+              style={{
+                background: `linear-gradient(to right, var(--primary) 0%, var(--accent) ${(isMuted ? 0 : volumeVal) * 100}%, var(--slider-track) ${(isMuted ? 0 : volumeVal) * 100}%, var(--slider-track) 100%)`
+              }}
+            />
+          </div>
 
-          {/* Download */}
+          {/* Download Button */}
           <button
             onClick={handleDownload}
-            className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer p-0.5 shrink-0"
+            className="text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent hover:border-border/60 rounded-full p-2 transition-all cursor-pointer shrink-0"
             title="Tải xuống tệp WAV"
           >
-            <Download className="w-3 h-3" />
+            <Download className="w-4 h-4" />
+          </button>
+
+          {/* Divider */}
+          <div className="h-5 w-[1px] bg-border/80 mx-0.5 shrink-0" />
+
+          {/* Dismiss Player Button */}
+          <button
+            onClick={onClose}
+            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full p-2 transition-all cursor-pointer shrink-0"
+            title="Đóng trình phát"
+          >
+            <X className="w-4 h-4" />
           </button>
         </div>
-      </div>
-
-      {/* Bottom Row: Timeline Slider (Full-width) */}
-      <div className="w-full flex items-center">
-        <input
-          type="range"
-          min={0}
-          max={duration || 100}
-          value={currentTime}
-          onChange={handleSeekChange}
-          className="seekbar w-full"
-          style={{
-            background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${percentage}%, var(--slider-track) ${percentage}%, var(--slider-track) 100%)`
-          }}
-        />
       </div>
     </div>
   );

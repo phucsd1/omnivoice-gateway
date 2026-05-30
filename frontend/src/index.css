@@ -236,3 +236,63 @@ input[type="range"].seekbar:hover::-moz-range-thumb {
   animation: wave-bounce-4 1.3s ease-in-out infinite;
 }
 
+/* Apple Liquid Design Animations */
+@keyframes liquid-drift-1 {
+  0% { transform: translate(0px, 0px) scale(1) rotate(0deg); }
+  33% { transform: translate(25px, -15px) scale(1.15) rotate(120deg); }
+  66% { transform: translate(-15px, 10px) scale(0.9) rotate(240deg); }
+  100% { transform: translate(0px, 0px) scale(1) rotate(360deg); }
+}
+
+@keyframes liquid-drift-2 {
+  0% { transform: translate(0px, 0px) scale(1) rotate(0deg); }
+  50% { transform: translate(-20px, 20px) scale(1.2) rotate(-180deg); }
+  100% { transform: translate(0px, 0px) scale(1) rotate(-360deg); }
+}
+
+@keyframes liquid-drift-3 {
+  0% { transform: translate(0px, 0px) scale(1) rotate(0deg); }
+  50% { transform: translate(20px, -20px) scale(0.85) rotate(180deg); }
+  100% { transform: translate(0px, 0px) scale(1) rotate(360deg); }
+}
+
+.animate-liquid-1 {
+  animation: liquid-drift-1 16s infinite ease-in-out;
+}
+.animate-liquid-2 {
+  animation: liquid-drift-2 22s infinite ease-in-out;
+}
+.animate-liquid-3 {
+  animation: liquid-drift-3 19s infinite ease-in-out;
+}
+
+@keyframes liquid-player-entrance {
+  0% { transform: translateY(30px) scale(0.96); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.animate-player-in {
+  animation: liquid-player-entrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes speed-menu-in {
+  0% { transform: scale(0.9) translateY(8px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.animate-speed-menu {
+  animation: speed-menu-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Squishy Button Tap Effect */
+.btn-squishy {
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s, box-shadow 0.2s;
+}
+.btn-squishy:hover {
+  transform: scale(1.06);
+}
+.btn-squishy:active {
+  transform: scale(0.92);
+}
+
+

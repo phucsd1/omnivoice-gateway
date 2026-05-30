@@ -1,18 +1,29 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Play, Volume2, UserCheck, HelpCircle, AudioLines, Heart, Lock, Globe, X } from "lucide-react";
+import { Play, Pause, Volume2, UserCheck, HelpCircle, AudioLines, Heart, Lock, Globe, X } from "lucide-react";
 import { api } from "../api/client";
 import type { JobStatusResponse, VoiceSampleResponse } from "../api/client";
 
 import { JobStatusCard } from "./JobStatusCard";
-import { AudioPlayer } from "./AudioPlayer";
 
 interface TTSPanelProps {
   activeVoiceSampleId: string | null;
   onJobCreatedOrUpdated?: () => void;
   layout?: "classic" | "modern";
+  currentPlayUrl: string | null;
+  globalPlayerPlaying: boolean;
+  onPlayAudio: (url: string, title: string) => void;
+  onTogglePlay: () => void;
 }
 
-export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCreatedOrUpdated, layout = "classic" }) => {
+export const TTSPanel: React.FC<TTSPanelProps> = ({
+  activeVoiceSampleId,
+  onJobCreatedOrUpdated,
+  layout = "classic",
+  currentPlayUrl,
+  globalPlayerPlaying,
+  onPlayAudio,
+  onTogglePlay,
+}) => {
   const [mode, setMode] = useState<"clone_voice" | "auto_voice" | "voice_design">("clone_voice");
   const [text, setText] = useState("Học sinh hôm nay được nghỉ học do thời tiết xấu. Xin nhắc lại, học sinh được nghỉ học.");
   const [customVoiceSampleId, setCustomVoiceSampleId] = useState("");
@@ -728,18 +739,47 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({ activeVoiceSampleId, onJobCr
           />
 
           {jobStatus.status === "completed" && jobStatus.audio_url && (
-            <div className="flex flex-col gap-2 mt-1">
-              <AudioPlayer
-                url={`${api.getApiBaseUrl()}${jobStatus.audio_url}`}
-                title="TTS Output"
-              />
+            <div className={`flex gap-3 mt-1 items-center p-3 rounded-2xl shadow-inner select-none border transition-all duration-300 ${
+              currentPlayUrl === `${api.getApiBaseUrl()}${jobStatus.audio_url}`
+                ? "border-primary bg-primary/[0.02]"
+                : "border-border/80 bg-background/40"
+            }`}>
+              <button
+                type="button"
+                onClick={() => {
+                  const audioUrl = `${api.getApiBaseUrl()}${jobStatus.audio_url}`;
+                  if (currentPlayUrl === audioUrl) {
+                    onTogglePlay();
+                  } else {
+                    onPlayAudio(audioUrl, "TTS Output");
+                  }
+                }}
+                className={`py-2.5 px-5 rounded-full font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer border shadow-sm ${
+                  currentPlayUrl === `${api.getApiBaseUrl()}${jobStatus.audio_url}` && globalPlayerPlaying
+                    ? "bg-primary text-white border-primary shadow-primary/10"
+                    : "border-border hover:border-primary/40 hover:bg-muted text-foreground bg-card"
+                }`}
+              >
+                {currentPlayUrl === `${api.getApiBaseUrl()}${jobStatus.audio_url}` && globalPlayerPlaying ? (
+                  <>
+                    <Pause className="w-3.5 h-3.5 fill-current" />
+                    <span>Tạm dừng</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                    <span>Nghe âm thanh kết quả</span>
+                  </>
+                )}
+              </button>
+              
               <button
                 type="button"
                 onClick={() => handleOpenSaveModal(jobStatus.job_id, text)}
-                className="w-full py-2.5 px-4 bg-background hover:bg-card border border-border/80 text-foreground rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm mt-1"
+                className="flex-grow py-2.5 px-4 bg-card hover:bg-muted border border-border text-foreground rounded-full font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
               >
                 <Heart className="w-3.5 h-3.5 fill-slate-300 text-foreground" />
-                <span>Lưu giọng nói này vào Thư viện</span>
+                <span>Lưu vào Thư viện</span>
               </button>
             </div>
           )}

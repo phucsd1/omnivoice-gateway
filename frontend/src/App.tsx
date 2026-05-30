@@ -12,11 +12,14 @@ import { LoginRegister } from "./components/LoginRegister";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { JobHistoryPanel } from "./components/JobHistoryPanel";
 import { VoiceLibraryPanel } from "./components/VoiceLibraryPanel";
+import { AudioPlayer } from "./components/AudioPlayer";
 
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem("VITE_JWT_TOKEN"));
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"workspace" | "voice-lab" | "library" | "history" | "docs" | "admin" >("workspace");
+  const [activeTab, setActiveTab] = useState<"workspace" | "voice-lab" | "library" | "history" | "docs" | "admin" >(() => {
+    return window.location.hash === "#/docs" ? "docs" : "workspace";
+  });
   
   const [theme, setTheme] = useState<"light" | "dark" | "system">(() => {
     return (localStorage.getItem("theme") as "light" | "dark" | "system") || "dark";
@@ -81,6 +84,19 @@ function App() {
   const [refreshHistory, setRefreshHistory] = useState(0);
   const handleJobCreatedOrUpdated = () => {
     setRefreshHistory(prev => prev + 1);
+  };
+  const [currentPlayUrl, setCurrentPlayUrl] = useState<string | null>(null);
+  const [currentPlayTitle, setCurrentPlayTitle] = useState<string>("");
+  const [globalPlayerPlaying, setGlobalPlayerPlaying] = useState<boolean>(false);
+
+  const handlePlayAudio = (url: string, title: string) => {
+    setCurrentPlayUrl(url);
+    setCurrentPlayTitle(title);
+    setGlobalPlayerPlaying(true);
+  };
+
+  const handleTogglePlay = () => {
+    setGlobalPlayerPlaying(prev => !prev);
   };
   const [connectionStatus, setConnectionStatus] = useState<"checking" | "connected" | "disconnected">("checking");
   const [apiBaseUrl, setApiBaseUrl] = useState("");
@@ -147,6 +163,17 @@ function App() {
   };
 
   if (!token) {
+    if (activeTab === "docs") {
+      return (
+        <ApiDocsPage
+          onBack={() => {
+            window.location.hash = "#/";
+            setActiveTab("workspace");
+          }}
+          isLoggedIn={false}
+        />
+      );
+    }
     return <LoginRegister onLoginSuccess={(t) => setToken(t)} />;
   }
 
@@ -462,6 +489,10 @@ function App() {
                 activeVoiceSampleId={activeVoiceSampleId} 
                 onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
                 layout="modern"
+                currentPlayUrl={currentPlayUrl}
+                globalPlayerPlaying={globalPlayerPlaying}
+                onPlayAudio={handlePlayAudio}
+                onTogglePlay={handleTogglePlay}
               />
             </div>
           )}
@@ -473,6 +504,10 @@ function App() {
                 onAcceptSuccess={handleVoiceSampleActive} 
                 onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
                 layout="classic"
+                currentPlayUrl={currentPlayUrl}
+                globalPlayerPlaying={globalPlayerPlaying}
+                onPlayAudio={handlePlayAudio}
+                onTogglePlay={handleTogglePlay}
               />
             </div>
           )}
@@ -485,13 +520,24 @@ function App() {
                   navigateToTab("workspace"); 
                 }} 
                 layout="modern" 
+                currentPlayUrl={currentPlayUrl}
+                globalPlayerPlaying={globalPlayerPlaying}
+                onPlayAudio={handlePlayAudio}
+                onTogglePlay={handleTogglePlay}
               />
             </div>
           )}
 
           {activeTab === "history" && (
             <div className="w-full animate-fadeIn">
-              <JobHistoryPanel refreshTrigger={refreshHistory} layout="modern" />
+              <JobHistoryPanel 
+                refreshTrigger={refreshHistory} 
+                layout="modern" 
+                currentPlayUrl={currentPlayUrl}
+                globalPlayerPlaying={globalPlayerPlaying}
+                onPlayAudio={handlePlayAudio}
+                onTogglePlay={handleTogglePlay}
+              />
             </div>
           )}
 
@@ -509,10 +555,25 @@ function App() {
 
         </main>
 
-        <footer className="border-t border-border/60 py-6 text-center text-[10px] text-muted-foreground font-semibold bg-background/20 mt-auto">
+        <footer className="border-t border-border/60 py-6 text-center text-[10px] text-muted-foreground font-semibold bg-background/20 mt-auto pb-24 md:pb-12">
           OmniVoice On-Demand Gateway MVP &copy; {new Date().getFullYear()} &nbsp;•&nbsp; Built for High-Performance Audio Synthesis
         </footer>
       </div>
+
+      {currentPlayUrl && (
+        <div className="fixed bottom-6 left-4 right-4 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-full md:max-w-2xl z-50">
+          <AudioPlayer
+            url={currentPlayUrl}
+            title={currentPlayTitle}
+            isPlayingGlobal={globalPlayerPlaying}
+            onPlayingGlobalChange={setGlobalPlayerPlaying}
+            onClose={() => {
+              setCurrentPlayUrl(null);
+              setGlobalPlayerPlaying(false);
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

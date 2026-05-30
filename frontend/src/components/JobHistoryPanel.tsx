@@ -1,14 +1,23 @@
 import React, { useState, useEffect } from "react";
-import { Clock, RefreshCw, Layers, Heart, Lock, Globe, X, ChevronDown, ChevronUp, AlertCircle, CheckCircle } from "lucide-react";
+import { Clock, RefreshCw, Layers, Heart, Lock, Globe, X, ChevronDown, ChevronUp, AlertCircle, CheckCircle, Play, Pause } from "lucide-react";
 import { api, type JobStatusResponse } from "../api/client";
-import { AudioPlayer } from "./AudioPlayer";
 
 interface JobHistoryPanelProps {
   refreshTrigger: number;
   layout?: "classic" | "modern";
+  currentPlayUrl: string | null;
+  globalPlayerPlaying: boolean;
+  onPlayAudio: (url: string, title: string) => void;
+  onTogglePlay: () => void;
 }
 
-export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger }) => {
+export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
+  refreshTrigger,
+  currentPlayUrl,
+  globalPlayerPlaying,
+  onPlayAudio,
+  onTogglePlay,
+}) => {
   const [jobs, setJobs] = useState<JobStatusResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -171,11 +180,16 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
               ? `${fullText.substring(0, 120)}...` 
               : fullText;
 
-            return (
-              <div 
-                key={job.job_id} 
-                className="bg-muted/30 border border-border rounded-3xl p-5 flex flex-col gap-4 hover:border-border/40 hover:bg-muted/50 transition-all duration-300 shadow-sm"
-              >
+             const audioUrl = job.audio_url ? `${api.getApiBaseUrl()}${job.audio_url}` : "";
+             return (
+               <div 
+                 key={job.job_id} 
+                 className={`bg-muted/30 border rounded-3xl p-5 flex flex-col gap-4 transition-all duration-300 shadow-sm ${
+                   currentPlayUrl && currentPlayUrl === audioUrl
+                     ? "border-primary bg-primary/[0.02] shadow-md shadow-primary/5"
+                     : "border-border hover:border-border/40 hover:bg-muted/50"
+                 }`}
+               >
                 {/* Job Header */}
                 <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-border/40 pb-2.5">
                   <div className="flex flex-wrap items-center gap-2">
@@ -241,18 +255,36 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
 
                 {/* Job Output / Actions */}
                 {isCompleted && job.audio_url && (
-                  <div className="flex flex-col gap-2.5 bg-card/20 p-2.5 rounded-2xl border border-border/50 mt-1">
-                    <AudioPlayer
-                      url={`${api.getApiBaseUrl()}${job.audio_url}`}
-                      title="Kết quả Job"
-                    />
+                  <div className="flex gap-2 bg-card/20 p-2 rounded-2xl border border-border/50 mt-1 items-center select-none">
+                    <button
+                      onClick={() => {
+                        const audioUrl = `${api.getApiBaseUrl()}${job.audio_url}`;
+                        if (currentPlayUrl === audioUrl) {
+                          onTogglePlay();
+                        } else {
+                          onPlayAudio(audioUrl, `Job ${job.job_id.substring(0, 8)}`);
+                        }
+                      }}
+                      className={`p-2.5 border rounded-full transition-all cursor-pointer flex items-center justify-center shrink-0 ${
+                        currentPlayUrl === `${api.getApiBaseUrl()}${job.audio_url}` && globalPlayerPlaying
+                          ? "bg-primary text-white border-primary shadow-lg shadow-primary/20"
+                          : "border-border hover:border-primary/40 hover:bg-muted text-foreground"
+                      }`}
+                      title={currentPlayUrl === `${api.getApiBaseUrl()}${job.audio_url}` && globalPlayerPlaying ? "Tạm dừng" : "Nghe kết quả"}
+                    >
+                      {currentPlayUrl === `${api.getApiBaseUrl()}${job.audio_url}` && globalPlayerPlaying ? (
+                        <Pause className="w-4 h-4 fill-current" />
+                      ) : (
+                        <Play className="w-4 h-4 fill-current ml-0.5" />
+                      )}
+                    </button>
                     <button
                       type="button"
                       onClick={() => handleOpenSaveModal(job.job_id, fullText)}
-                      className="w-full py-2 px-4 bg-card/60 hover:bg-card border border-border text-foreground hover:text-foreground rounded-full font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-[0.98] mt-1"
+                      className="flex-grow py-2.5 px-4 bg-card/60 hover:bg-card border border-border text-foreground hover:text-foreground rounded-full font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
                     >
                       <Heart className="w-3.5 h-3.5 fill-slate-450 text-muted-foreground" />
-                      <span>Lưu giọng nói này vào Thư viện</span>
+                      <span>Lưu giọng vào Thư viện</span>
                     </button>
                   </div>
                 )}

@@ -1,15 +1,24 @@
 import React, { useState, useEffect } from "react";
-import { Volume2, Lock, Globe, Trash2, Copy, Check, Search, Sparkles } from "lucide-react";
+import { Volume2, Lock, Globe, Trash2, Copy, Check, Search, Sparkles, Play, Pause } from "lucide-react";
 import { api } from "../api/client";
 import type { VoiceSampleResponse } from "../api/client";
-import { AudioPlayer } from "./AudioPlayer";
 
 interface VoiceLibraryPanelProps {
   onUseVoice: (voiceId: string) => void;
   layout?: "classic" | "modern";
+  currentPlayUrl: string | null;
+  globalPlayerPlaying: boolean;
+  onPlayAudio: (url: string, title: string) => void;
+  onTogglePlay: () => void;
 }
 
-export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({ onUseVoice }) => {
+export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({
+  onUseVoice,
+  currentPlayUrl,
+  globalPlayerPlaying,
+  onPlayAudio,
+  onTogglePlay,
+}) => {
   const [voices, setVoices] = useState<VoiceSampleResponse[]>([]);
   const [filter, setFilter] = useState<"all" | "private" | "public">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -144,7 +153,11 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({ onUseVoice
             return (
               <div
                 key={voice.id}
-                className="bg-muted/30 border border-border rounded-3xl p-5 flex flex-col justify-between gap-4 hover:border-border/40 hover:bg-muted/50 transition-all duration-300 shadow-sm group relative"
+                className={`bg-muted/30 border rounded-3xl p-5 flex flex-col justify-between gap-4 transition-all duration-300 shadow-sm group relative ${
+                  currentPlayUrl === audioUrl
+                    ? "border-primary bg-primary/[0.02] shadow-md shadow-primary/5"
+                    : "border-border hover:border-border/40 hover:bg-muted/50"
+                }`}
               >
                 {/* Delete Confirm Overlay */}
                 {deleteConfirmId === voice.id && (
@@ -232,9 +245,29 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({ onUseVoice
 
                 {/* Bottom Actions */}
                 <div className="flex flex-col gap-3 pt-3 border-t border-border">
-                  <AudioPlayer url={audioUrl} title={voice.name || voice.id} />
-                  
                   <div className="flex gap-2 mt-1">
+                    <button
+                      onClick={() => {
+                        if (currentPlayUrl === audioUrl) {
+                          onTogglePlay();
+                        } else {
+                          onPlayAudio(audioUrl, voice.name || voice.id);
+                        }
+                      }}
+                      className={`p-2 border rounded-full transition-all cursor-pointer flex items-center justify-center shrink-0 ${
+                        currentPlayUrl === audioUrl && globalPlayerPlaying
+                          ? "bg-primary text-white border-primary shadow-lg shadow-primary/20"
+                          : "border-border hover:border-primary/40 hover:bg-muted text-foreground"
+                      }`}
+                      title={currentPlayUrl === audioUrl && globalPlayerPlaying ? "Tạm dừng" : "Nghe thử"}
+                    >
+                      {currentPlayUrl === audioUrl && globalPlayerPlaying ? (
+                        <Pause className="w-3.5 h-3.5 fill-current" />
+                      ) : (
+                        <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                      )}
+                    </button>
+
                     <button
                       onClick={() => onUseVoice(voice.id)}
                       className="flex-grow py-2 px-3.5 bg-gradient-to-r from-primary to-accent text-white hover:brightness-105 font-bold text-xs rounded-full transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-primary/10 active:scale-[0.98]"
@@ -247,7 +280,7 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({ onUseVoice
                     {!voice.is_public && (
                       <button
                         onClick={() => setDeleteConfirmId(voice.id)}
-                        className="p-2 border border-border hover:border-destructive/35 hover:bg-destructive/5 text-muted-foreground hover:text-destructive rounded-full transition-all cursor-pointer"
+                        className="p-2 border border-border hover:border-destructive/35 hover:bg-destructive/5 text-muted-foreground hover:text-destructive rounded-full transition-all cursor-pointer shrink-0"
                         title="Xóa khỏi thư viện"
                       >
                         <Trash2 className="w-3.5 h-3.5" />

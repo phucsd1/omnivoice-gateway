@@ -1,18 +1,29 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Mic, Wand2, Check, Heart, Lock, Globe, X } from "lucide-react";
+import { Mic, Wand2, Check, Heart, Lock, Globe, X, Play, Pause } from "lucide-react";
 import { api } from "../api/client";
 import type { JobStatusResponse } from "../api/client";
 
 import { JobStatusCard } from "./JobStatusCard";
-import { AudioPlayer } from "./AudioPlayer";
 
 interface VoiceDesignPanelProps {
   onAcceptSuccess: (voiceSampleId: string) => void;
   onJobCreatedOrUpdated?: () => void;
   layout?: "classic" | "modern";
+  currentPlayUrl: string | null;
+  globalPlayerPlaying: boolean;
+  onPlayAudio: (url: string, title: string) => void;
+  onTogglePlay: () => void;
 }
 
-export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSuccess, onJobCreatedOrUpdated, layout = "classic" }) => {
+export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({
+  onAcceptSuccess,
+  onJobCreatedOrUpdated,
+  layout = "classic",
+  currentPlayUrl,
+  globalPlayerPlaying,
+  onPlayAudio,
+  onTogglePlay,
+}) => {
   const [voiceRequest, setVoiceRequest] = useState("Giọng nữ trẻ, trầm, nhẹ nhàng, tự nhiên");
   const [previewText, setPreviewText] = useState("Xin chào, đây là giọng nói thiết kế thử nghiệm của OmniVoice.");
   const [loading, setLoading] = useState(false);
@@ -499,36 +510,65 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
           />
 
           {jobStatus.status === "completed" && jobStatus.audio_url && (
-            <div className="flex flex-col gap-3 mt-1">
-              <AudioPlayer
-                url={`${api.getApiBaseUrl()}${jobStatus.audio_url}`}
-                title="Bản thiết nghe thử"
-              />
+            <div className={`flex flex-col gap-3 mt-1 p-3 rounded-2xl shadow-inner select-none border transition-all duration-300 ${
+              currentPlayUrl === `${api.getApiBaseUrl()}${jobStatus.audio_url}`
+                ? "border-primary bg-primary/[0.02]"
+                : "border-border/80 bg-background/40"
+            }`}>
+              <button
+                type="button"
+                onClick={() => {
+                  const audioUrl = `${api.getApiBaseUrl()}${jobStatus.audio_url}`;
+                  if (currentPlayUrl === audioUrl) {
+                    onTogglePlay();
+                  } else {
+                    onPlayAudio(audioUrl, "Bản thiết nghe thử");
+                  }
+                }}
+                className={`w-full py-2.5 px-5 rounded-full font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer border shadow-sm ${
+                  currentPlayUrl === `${api.getApiBaseUrl()}${jobStatus.audio_url}` && globalPlayerPlaying
+                    ? "bg-primary text-white border-primary shadow-primary/10"
+                    : "border-border hover:border-primary/40 hover:bg-muted text-foreground bg-card"
+                }`}
+              >
+                {currentPlayUrl === `${api.getApiBaseUrl()}${jobStatus.audio_url}` && globalPlayerPlaying ? (
+                  <>
+                    <Pause className="w-3.5 h-3.5 fill-current" />
+                    <span>Tạm dừng</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                    <span>Nghe bản thiết kế</span>
+                  </>
+                )}
+              </button>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <button
                   onClick={handleAccept}
                   disabled={accepting}
-                  className="w-full bg-background hover:bg-card border border-border/60 text-foreground font-bold text-xs py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                  className="w-full bg-card hover:bg-muted border border-border text-foreground font-bold text-xs py-2.5 px-4 rounded-full transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-[0.98]"
                 >
                   {accepting ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Đang lưu mẫu...</span>
+                      <span>Đang lưu...</span>
                     </>
                   ) : (
                     <>
                       <Check className="w-3.5 h-3.5" />
-                      <span>Dùng làm mẫu clone gốc (Full)</span>
+                      <span>Dùng làm mẫu clone gốc</span>
                     </>
                   )}
                 </button>
                 <button
                   type="button"
                   onClick={() => handleOpenSaveModal(previewText)}
-                  className="w-full bg-background hover:bg-card border border-border/60 text-foreground font-bold text-xs py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                  className="w-full bg-card hover:bg-muted border border-border text-foreground font-bold text-xs py-2.5 px-4 rounded-full transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-[0.98]"
                 >
                   <Heart className="w-3.5 h-3.5 fill-slate-400 text-muted-foreground" />
-                  <span>Lưu giọng yêu thích (Cắt 8s)</span>
+                  <span>Lưu giọng yêu thích</span>
                 </button>
               </div>
             </div>

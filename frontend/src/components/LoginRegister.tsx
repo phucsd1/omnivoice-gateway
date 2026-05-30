@@ -366,6 +366,17 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
               </button>
             </div>
 
+            {/* Public Docs Link */}
+            <div className="flex justify-center mt-2">
+              <a
+                href="#/docs"
+                className="text-[11px] font-bold text-primary hover:text-primary-hover hover:underline flex items-center gap-1.5 transition-all"
+              >
+                <span>Xem tài liệu API công khai</span>
+                <ArrowRight className="w-3 h-3" />
+              </a>
+            </div>
+
             {/* API URL Info */}
             <div className="mt-4 pt-4 border-t border-border flex items-center justify-between text-[10px] text-muted-foreground font-semibold select-none">
               <span>API Gateway</span>
