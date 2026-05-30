@@ -1,3 +1,13 @@
+---
+title: OmniVoice Gateway
+emoji: 🎙️
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # OmniVoice On-Demand Gateway
 
 OmniVoice On-Demand Gateway is an MVP system that connects a CPU-bound web application and FastAPI gateway running on Lightning AI with a GPU-bound OmniVoice TTS model running on Kaggle.
