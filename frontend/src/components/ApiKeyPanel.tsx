@@ -107,7 +107,7 @@ export const ApiKeyPanel: React.FC<ApiKeyPanelProps> = ({ isOpen, onClose, onNav
               type="button"
               onClick={handleCreateApiKey}
               disabled={creatingKey}
-              className="bg-primary hover:bg-primary text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5"
+              className="bg-gradient-to-r from-primary to-accent hover:brightness-105 text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer transition-colors shadow-md shadow-primary/10 disabled:opacity-50 flex items-center gap-1.5"
             >
               <PlusIcon className="w-3.5 h-3.5" />
               <span>{creatingKey ? "Đang sinh khóa..." : "Tạo API Key mới"}</span>
@@ -207,7 +207,7 @@ export const ApiKeyPanel: React.FC<ApiKeyPanelProps> = ({ isOpen, onClose, onNav
           <button
             type="button"
             onClick={onNavigateToDocs}
-            className="bg-primary hover:bg-primary text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer transition-colors shrink-0 flex items-center gap-1 shadow-sm"
+            className="bg-gradient-to-r from-primary to-accent hover:brightness-105 text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer transition-colors shrink-0 flex items-center gap-1 shadow-md shadow-primary/10"
           >
             <BookOpen className="w-3.5 h-3.5" />
             <span>Xem Tài liệu</span>

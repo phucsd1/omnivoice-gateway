@@ -144,7 +144,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, title }) => {
         </span>
 
         {/* Waveform Bouncing Bars */}
-        <div className="flex items-end gap-0.5 h-4 w-7 px-1 shrink-0 select-none overflow-hidden bg-background/40 rounded-md border border-border/60/40 justify-center">
+        <div className="flex items-end gap-0.5 h-4 w-7 px-1 shrink-0 select-none overflow-hidden bg-background/40 rounded-md border border-border/40 justify-center">
           <div className={`w-[2px] bg-primary rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-1' : 'h-1.5'}`} />
           <div className={`w-[2px] bg-primary rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-2' : 'h-3'}`} />
           <div className={`w-[2px] bg-purple-500 rounded-full transition-all duration-300 ${isPlaying ? 'animate-wave-bar-3' : 'h-2'}`} />

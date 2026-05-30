@@ -324,7 +324,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 disabled={loading}
                 className={`w-full py-3.5 rounded-full font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer mt-2 active:scale-[0.99] border ${
                   !loading
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90 border-border/30 shadow-sm"
+                    ? "bg-gradient-to-r from-primary to-accent text-white border-none shadow-lg shadow-primary/15 hover:brightness-105"
                     : "bg-muted text-muted-foreground border-transparent cursor-not-allowed"
                 }`}
               >
@@ -436,7 +436,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 disabled={loading}
                 className={`w-full py-3.5 rounded-full font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] border ${
                   !loading
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90 border-border/30 shadow-sm"
+                    ? "bg-gradient-to-r from-primary to-accent text-white border-none shadow-lg shadow-primary/15 hover:brightness-105"
                     : "bg-muted text-muted-foreground border-transparent cursor-not-allowed"
                 }`}
               >
@@ -507,7 +507,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
               </button>
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-primary hover:bg-primary/90 text-xs font-bold text-primary-foreground rounded-full cursor-pointer transition-colors border border-border/30 shadow-sm"
+                className="px-5 py-2.5 bg-gradient-to-r from-primary to-accent text-white hover:brightness-105 text-xs font-bold rounded-full cursor-pointer transition-colors border-none shadow-md shadow-primary/10"
               >
                 Xác nhận phê duyệt
               </button>

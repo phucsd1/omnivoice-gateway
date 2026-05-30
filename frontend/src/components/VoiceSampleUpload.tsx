@@ -143,7 +143,7 @@ export const VoiceSampleUpload: React.FC<VoiceSampleUploadProps> = ({ onUploadSu
           <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-wider">
             Nội dung chữ nói (ref_text) - Không bắt buộc
           </label>
-          <div className="relative flex flex-col bg-background border border-border/60/40 rounded-xl p-3 focus-within:border-primary/30 transition-all shadow-inner">
+          <div className="relative flex flex-col bg-background border border-border/40 rounded-xl p-3 focus-within:border-primary/30 transition-all shadow-inner">
             <textarea
               value={refText}
               onChange={(e) => setRefText(e.target.value)}
@@ -160,7 +160,7 @@ export const VoiceSampleUpload: React.FC<VoiceSampleUploadProps> = ({ onUploadSu
             <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-wider">
               Tên gợi nhớ (Tùy chọn)
             </label>
-            <div className="relative flex flex-col bg-background border border-border/60/40 rounded-xl px-3 py-2.5 focus-within:border-primary/30 transition-all shadow-inner">
+            <div className="relative flex flex-col bg-background border border-border/40 rounded-xl px-3 py-2.5 focus-within:border-primary/30 transition-all shadow-inner">
               <input
                 type="text"
                 value={voiceName}
@@ -174,7 +174,7 @@ export const VoiceSampleUpload: React.FC<VoiceSampleUploadProps> = ({ onUploadSu
             <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-wider">
               Mã ID giọng nói (slug - Tùy chọn)
             </label>
-            <div className="relative flex flex-col bg-background border border-border/60/40 rounded-xl px-3 py-2.5 focus-within:border-primary/30 transition-all shadow-inner">
+            <div className="relative flex flex-col bg-background border border-border/40 rounded-xl px-3 py-2.5 focus-within:border-primary/30 transition-all shadow-inner">
               <input
                 type="text"
                 value={customId}
@@ -209,7 +209,7 @@ export const VoiceSampleUpload: React.FC<VoiceSampleUploadProps> = ({ onUploadSu
           disabled={!file || isUploading}
           className={`w-full py-3 px-6 rounded-full font-bold text-sm transition-all duration-150 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer shadow-md border ${
             file && !isUploading
-              ? "bg-primary text-primary-foreground hover:bg-primary/90 border-border/30"
+              ? "bg-gradient-to-r from-primary to-accent text-white border-none shadow-lg shadow-primary/15 hover:brightness-105"
               : "bg-muted text-muted-foreground border-transparent cursor-not-allowed"
           }`}
         >

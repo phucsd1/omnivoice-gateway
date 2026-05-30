@@ -321,7 +321,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
           {activeTab === "users" && (
             <button
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-1.5 bg-primary hover:bg-primary text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 bg-gradient-to-r from-primary to-accent hover:brightness-105 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors cursor-pointer shadow-md shadow-primary/10"
             >
               <UserPlus className="w-4 h-4" />
               <span>Tạo tài khoản</span>
@@ -347,7 +347,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
             setStatusMsg(null);
           }}
           className={`px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
-            activeTab === "users" ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
+            activeTab === "users" ? "bg-gradient-to-r from-primary to-accent text-white shadow-sm border-none" : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <Users className="w-4 h-4" />
@@ -359,7 +359,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
             setStatusMsg(null);
           }}
           className={`px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
-            activeTab === "settings" ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
+            activeTab === "settings" ? "bg-gradient-to-r from-primary to-accent text-white shadow-sm border-none" : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <Settings className="w-4 h-4" />
@@ -371,7 +371,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
             setStatusMsg(null);
           }}
           className={`px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
-            activeTab === "stats" ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
+            activeTab === "stats" ? "bg-gradient-to-r from-primary to-accent text-white shadow-sm border-none" : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <BarChart3 className="w-4 h-4" />
@@ -383,7 +383,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
             setStatusMsg(null);
           }}
           className={`px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
-            activeTab === "logs" ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
+            activeTab === "logs" ? "bg-gradient-to-r from-primary to-accent text-white shadow-sm border-none" : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <Activity className="w-4 h-4" />
@@ -456,7 +456,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
                             <button
                               onClick={() => handleApproveUserQuick(user.id, user.username)}
                               disabled={actionLoading !== null}
-                              className="text-[9px] bg-primary hover:bg-primary font-bold px-2 py-0.5 rounded text-white cursor-pointer transition-colors"
+                              className="text-[9px] bg-gradient-to-r from-primary to-accent hover:brightness-105 font-bold px-2 py-0.5 rounded text-white cursor-pointer transition-colors shadow-sm"
                             >
                               Duyệt
                             </button>
@@ -685,7 +685,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
             <div className="md:col-span-2 flex justify-end gap-3 mt-4">
               <button
                 type="submit"
-                className="flex items-center gap-1.5 bg-primary hover:bg-primary text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 bg-gradient-to-r from-primary to-accent hover:brightness-105 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md transition-colors cursor-pointer shadow-primary/10"
               >
                 <Save className="w-4 h-4" />
                 <span>Lưu cấu hình hệ thống</span>
@@ -900,7 +900,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
 
               <button
                 type="submit"
-                className="w-full bg-primary hover:bg-primary text-white font-bold text-xs py-2.5 rounded-lg cursor-pointer mt-3 shadow-md shadow-primary/10"
+                className="w-full bg-gradient-to-r from-primary to-accent hover:brightness-105 text-white font-bold text-xs py-2.5 rounded-lg cursor-pointer mt-3 shadow-md shadow-primary/15"
               >
                 Tạo người dùng
               </button>
@@ -1002,7 +1002,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
 
               <button
                 type="submit"
-                className="w-full bg-primary hover:bg-primary text-white font-bold text-xs py-2.5 rounded-lg cursor-pointer mt-3 shadow-md"
+                className="w-full bg-gradient-to-r from-primary to-accent hover:brightness-105 text-white font-bold text-xs py-2.5 rounded-lg cursor-pointer mt-3 shadow-md shadow-primary/15"
               >
                 Cập nhật thông tin
               </button>
@@ -1039,7 +1039,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
               />
               <button
                 type="submit"
-                className="bg-primary hover:bg-primary text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer flex items-center gap-1"
+                className="bg-gradient-to-r from-primary to-accent hover:brightness-105 text-white font-bold text-xs px-4 py-2 rounded-lg cursor-pointer flex items-center gap-1 shadow-md shadow-primary/10"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Tạo Key</span>

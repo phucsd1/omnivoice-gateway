@@ -237,7 +237,7 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({ onUseVoice
                   <div className="flex gap-2 mt-1">
                     <button
                       onClick={() => onUseVoice(voice.id)}
-                      className="flex-grow py-2 px-3.5 bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-xs rounded-full transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98]"
+                      className="flex-grow py-2 px-3.5 bg-gradient-to-r from-primary to-accent text-white hover:brightness-105 font-bold text-xs rounded-full transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-primary/10 active:scale-[0.98]"
                     >
                       <Sparkles className="w-3.5 h-3.5 fill-current" />
                       <span>Sử dụng giọng này</span>

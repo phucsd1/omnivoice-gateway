@@ -2,12 +2,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 from app.config import settings
 
-# For SQLite, we need connect_args={"check_same_thread": False, "timeout": 30}
+# For SQLite, we need connect_args={"check_same_thread": False, "timeout": 30, "uri": True}
 connect_args = {}
 if settings.DATABASE_URL.startswith("sqlite"):
     connect_args = {
         "check_same_thread": False,
-        "timeout": 30
+        "timeout": 30,
+        "uri": True
     }
 
 engine = create_engine(
@@ -21,11 +22,22 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 def migrate_database(db_url: str):
-    if not db_url.startswith("sqlite:///"):
+    if not db_url.startswith("sqlite"):
         return
     
     import os
-    db_path = db_url.replace("sqlite:///", "")
+    # Clean up prefix and query params to get raw file path
+    db_path = db_url
+    if db_path.startswith("sqlite:///"):
+        db_path = db_path[10:]
+    elif db_path.startswith("sqlite://"):
+        db_path = db_path[9:]
+    elif db_path.startswith("sqlite:"):
+        db_path = db_path[7:]
+        
+    if "?" in db_path:
+        db_path = db_path.split("?")[0]
+        
     if not os.path.exists(db_path):
         return
     

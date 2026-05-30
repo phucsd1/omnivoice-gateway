@@ -228,7 +228,7 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
             value={voiceRequest}
             onChange={(e) => setVoiceRequest(e.target.value)}
             placeholder="Ví dụ: giọng nữ trẻ trầm nhẹ nhàng tự nhiên..."
-            className="bg-background border border-border/60/40 rounded-xl px-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-primary/30 transition-all font-semibold w-full"
+            className="bg-background border border-border/40 rounded-xl px-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-primary/30 transition-all font-semibold w-full"
           />
           <span className="text-[9px] text-muted-foreground font-medium leading-tight">
             * Hệ thống tự phân tích: &quot;nữ/nam&quot;, &quot;trẻ&quot;, &quot;trầm/thấp&quot;, &quot;nhẹ nhàng/thì thầm&quot;...
@@ -245,7 +245,7 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
             onChange={(e) => setPreviewText(e.target.value)}
             placeholder="Nhập nội dung ngắn để nghe thử giọng nói này..."
             rows={2}
-            className="bg-background border border-border/60/40 rounded-xl px-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-primary/30 transition-all font-semibold w-full resize-none"
+            className="bg-background border border-border/40 rounded-xl px-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-primary/30 transition-all font-semibold w-full resize-none"
           />
         </div>
 
@@ -472,7 +472,7 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
           disabled={loading || !voiceRequest || !previewText}
           className={`w-full py-3 px-6 rounded-full font-bold text-sm transition-all duration-155 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer shadow-md ${
             !loading && voiceRequest && previewText
-              ? "bg-primary text-primary-foreground hover:bg-primary/90 border border-border/30"
+              ? "bg-gradient-to-r from-primary to-accent text-white border-none shadow-lg shadow-primary/15 hover:brightness-105"
               : "bg-muted text-muted-foreground cursor-not-allowed"
           }`}
         >
@@ -646,7 +646,7 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({ onAcceptSucc
                 type="button"
                 onClick={handleSaveVoiceSubmit}
                 disabled={isSavingVoice || !saveVoiceName || !saveVoiceRefText}
-                className="px-4 py-2 bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-xs font-bold text-primary-foreground rounded-lg cursor-pointer transition-colors border border-border/30 shadow-sm"
+                className="px-4 py-2 bg-gradient-to-r from-primary to-accent hover:brightness-105 disabled:bg-muted disabled:text-muted-foreground text-xs font-bold text-white rounded-lg cursor-pointer transition-colors border-none shadow-md shadow-primary/10"
               >
                 {isSavingVoice ? "Đang lưu..." : "Xác nhận Lưu"}
               </button>

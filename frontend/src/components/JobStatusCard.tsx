@@ -132,7 +132,7 @@ export const JobStatusCard: React.FC<JobStatusCardProps> = ({
                 ? "bg-destructive"
                 : status === "completed"
                 ? "bg-success"
-                : "bg-primary"
+                : "bg-gradient-to-r from-primary to-accent"
             }`}
             style={{ width: `${progress}%` }}
           />

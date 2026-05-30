@@ -177,7 +177,7 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
                 className="bg-muted/30 border border-border rounded-3xl p-5 flex flex-col gap-4 hover:border-border/40 hover:bg-muted/50 transition-all duration-300 shadow-sm"
               >
                 {/* Job Header */}
-                <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-border/60/40 pb-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-border/40 pb-2.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={`text-[9px] font-bold px-2 py-0.5 border rounded-full uppercase tracking-wider ${color}`}>
                       {label}
@@ -364,7 +364,7 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({ refreshTrigger
                 type="button"
                 onClick={handleSaveVoiceSubmit}
                 disabled={isSavingVoice || !saveVoiceName || !saveVoiceRefText}
-                className="px-5 py-2.5 bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-xs font-bold text-primary-foreground rounded-lg cursor-pointer transition-colors shadow-sm border border-border/30"
+                className="px-5 py-2.5 bg-gradient-to-r from-primary to-accent hover:brightness-105 disabled:bg-muted disabled:text-muted-foreground text-xs font-bold text-white rounded-lg cursor-pointer transition-colors shadow-md shadow-primary/10 border-none"
               >
                 {isSavingVoice ? "Đang lưu..." : "Xác nhận Lưu"}
               </button>
