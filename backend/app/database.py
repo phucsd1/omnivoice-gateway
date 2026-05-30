@@ -55,7 +55,9 @@ def migrate_database(db_url: str):
             "preprocess_prompt": "BOOLEAN DEFAULT 1",
             "postprocess_output": "BOOLEAN DEFAULT 1",
             "audio_chunk_duration": "FLOAT DEFAULT 15.0",
-            "audio_chunk_threshold": "FLOAT DEFAULT 30.0"
+            "audio_chunk_threshold": "FLOAT DEFAULT 30.0",
+            "batch_id": "VARCHAR(50)",
+            "compat_id": "VARCHAR(100)"
         }
         
         for col, col_type in new_cols.items():

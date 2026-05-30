@@ -63,15 +63,18 @@ def get_next_job(worker_id: str, request: Request, db: Session = Depends(get_db)
     if not job:
         return WorkerNextJobResponse(job=None, message="No pending job")
 
-    # Construct public ref audio URL if there is a sample ID associated
+    # Construct public ref audio URL if there is a sample ID or path associated
     ref_audio_url = None
+    base_url = settings.PUBLIC_API_BASE_URL
+    if not base_url:
+        proto = request.headers.get("x-forwarded-proto", str(request.base_url).split("://")[0])
+        host = request.headers.get("x-forwarded-host", str(request.base_url).split("://")[-1].rstrip("/"))
+        base_url = f"{proto}://{host}"
+
     if job.voice_sample_id:
-        base_url = settings.PUBLIC_API_BASE_URL
-        if not base_url:
-            proto = request.headers.get("x-forwarded-proto", str(request.base_url).split("://")[0])
-            host = request.headers.get("x-forwarded-host", str(request.base_url).split("://")[-1].rstrip("/"))
-            base_url = f"{proto}://{host}"
         ref_audio_url = f"{base_url}/v1/internal/files/voice-samples/{job.voice_sample_id}"
+    elif job.ref_audio_path:
+        ref_audio_url = f"{base_url}/v1/internal/jobs/{job.id}/ref-audio"
 
     output_kind = "preview" if job.job_type == "voice_design_preview" else "tts"
 
@@ -197,4 +200,26 @@ def download_voice_sample_file(voice_sample_id: str, db: Session = Depends(get_d
         sample.file_path,
         media_type="audio/wav",
         filename=f"ref_{voice_sample_id}.wav"
+    )
+
+@router.get("/jobs/{job_id}/ref-audio")
+def download_job_ref_audio(job_id: str, db: Session = Depends(get_db)):
+    """Serves the temporary reference WAV file to the worker for voice cloning reference."""
+    job = db.query(TTSJob).filter(TTSJob.id == job_id).first()
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Không tìm thấy Job với ID: {job_id}"
+        )
+        
+    if not job.ref_audio_path or not os.path.exists(job.ref_audio_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tệp âm thanh tham chiếu không tồn tại trên máy chủ."
+        )
+        
+    return FileResponse(
+        job.ref_audio_path,
+        media_type="audio/wav",
+        filename=f"ref_{job_id}.wav"
     )

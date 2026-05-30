@@ -109,6 +109,8 @@ class TTSJob(Base):
     audio_chunk_duration = Column(Float, nullable=True, default=15.0)
     audio_chunk_threshold = Column(Float, nullable=True, default=30.0)
     error_message = Column(Text, nullable=True)
+    batch_id = Column(String(50), index=True, nullable=True)
+    compat_id = Column(String(100), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
