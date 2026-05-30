@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Sparkles, Radio, RefreshCw, Layers, LogOut, Server, KeyRound, BookOpen, Sun, Moon, Monitor, Volume2, Menu, X } from "lucide-react";
+import { Sparkles, Radio, RefreshCw, Layers, LogOut, Server, KeyRound, BookOpen, Sun, Moon, Monitor, Volume2, Menu, X, Mic } from "lucide-react";
 import { api } from "./api/client";
 
 import { VoiceSampleUpload } from "./components/VoiceSampleUpload";
@@ -16,7 +16,7 @@ import { VoiceLibraryPanel } from "./components/VoiceLibraryPanel";
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem("VITE_JWT_TOKEN"));
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"workspace" | "library" | "history" | "docs" | "admin" >("workspace");
+  const [activeTab, setActiveTab] = useState<"workspace" | "voice-lab" | "library" | "history" | "docs" | "admin" >("workspace");
   
   const [theme, setTheme] = useState<"light" | "dark" | "system">(() => {
     return (localStorage.getItem("theme") as "light" | "dark" | "system") || "dark";
@@ -66,7 +66,7 @@ function App() {
     };
   }, []);
 
-  const navigateToTab = (tab: "workspace" | "library" | "history" | "docs" | "admin") => {
+  const navigateToTab = (tab: "workspace" | "voice-lab" | "library" | "history" | "docs" | "admin") => {
     setActiveTab(tab);
     setSidebarOpen(false);
     if (tab === "docs") {
@@ -211,6 +211,18 @@ function App() {
           </button>
 
           <button
+            onClick={() => navigateToTab("voice-lab")}
+            className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
+              activeTab === "voice-lab"
+                ? "bg-muted text-foreground shadow-sm border border-border/50"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+          >
+            <Mic className="w-4 h-4 shrink-0" />
+            <span>Thiết kế &amp; Tải lên giọng</span>
+          </button>
+
+          <button
             onClick={() => navigateToTab("library")}
             className={`w-full px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
               activeTab === "library"
@@ -263,7 +275,7 @@ function App() {
 
         <div className="flex flex-col gap-4 pt-4 border-t border-border/60">
           <div className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-widest px-1">
-            Thiết lập giọng Clone
+            Mẫu Clone Hoạt động
           </div>
           
           <div className="px-0.5">
@@ -284,7 +296,7 @@ function App() {
                 </div>
                 <button
                   onClick={() => setActiveVoiceSampleId(null)}
-                  className="text-[9px] hover:text-foreground text-foreground border border-border bg-card hover:bg-muted px-2 py-1 rounded-lg transition-colors cursor-pointer font-bold shrink-0"
+                  className="text-[9px] hover:text-foreground text-foreground border border-border bg-card hover:bg-muted px-2.5 py-1 rounded-lg transition-colors cursor-pointer font-bold shrink-0"
                 >
                   Hủy
                 </button>
@@ -292,17 +304,10 @@ function App() {
             ) : (
               <div className="bg-card border border-border rounded-xl p-3 flex items-center gap-2.5 text-[10px] text-muted-foreground shadow-sm leading-normal">
                 <Layers className="w-4 h-4 text-primary shrink-0 animate-pulse" />
-                <span>Chưa chọn mẫu giọng. Vui lòng tải một mẫu giọng hoặc thiết kế giọng nói.</span>
+                <span>Chưa chọn mẫu giọng. Hãy tải lên hoặc thiết kế giọng nói.</span>
               </div>
             )}
           </div>
-
-          <VoiceSampleUpload onUploadSuccess={handleVoiceSampleActive} layout="modern" />
-          <VoiceDesignPanel 
-            onAcceptSuccess={handleVoiceSampleActive} 
-            onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
-            layout="modern"
-          />
         </div>
       </nav>
 
@@ -457,6 +462,17 @@ function App() {
                 activeVoiceSampleId={activeVoiceSampleId} 
                 onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
                 layout="modern"
+              />
+            </div>
+          )}
+
+          {activeTab === "voice-lab" && (
+            <div className="w-full grid grid-cols-1 xl:grid-cols-2 gap-6 animate-fadeIn items-start">
+              <VoiceSampleUpload onUploadSuccess={handleVoiceSampleActive} layout="classic" />
+              <VoiceDesignPanel 
+                onAcceptSuccess={handleVoiceSampleActive} 
+                onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
+                layout="classic"
               />
             </div>
           )}
