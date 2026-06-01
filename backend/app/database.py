@@ -93,6 +93,20 @@ def migrate_database(db_url: str):
                     cursor.execute(f"ALTER TABLE voice_samples ADD COLUMN {col} {col_type}")
                     print(f"[Migration] Added column {col} to voice_samples table in {db_path}")
                     
+        # Check and migrate worker_sessions table
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='worker_sessions'")
+        if cursor.fetchone():
+            cursor.execute("PRAGMA table_info(worker_sessions)")
+            ws_columns = [row[1] for row in cursor.fetchall()]
+            
+            ws_new_cols = {
+                "user_id": "VARCHAR(50)"
+            }
+            for col, col_type in ws_new_cols.items():
+                if col not in ws_columns:
+                    cursor.execute(f"ALTER TABLE worker_sessions ADD COLUMN {col} {col_type}")
+                    print(f"[Migration] Added column {col} to worker_sessions table in {db_path}")
+                    
         conn.commit()
     except Exception as e:
         print(f"[Migration Error] Failed to migrate database {db_path}: {e}")
