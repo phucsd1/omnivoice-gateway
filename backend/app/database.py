@@ -1,6 +1,29 @@
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.event import listens_for
 from app.config import settings
+
+# Cleanup stale SQLite WAL/SHM lock files on start to prevent disk I/O errors on network drives
+if settings.DATABASE_URL.startswith("sqlite"):
+    db_path = settings.DATABASE_URL
+    if db_path.startswith("sqlite:///"):
+        db_path = db_path[10:]
+    elif db_path.startswith("sqlite://"):
+        db_path = db_path[9:]
+    elif db_path.startswith("sqlite:"):
+        db_path = db_path[7:]
+    if "?" in db_path:
+        db_path = db_path.split("?")[0]
+        
+    for suffix in ["-shm", "-wal"]:
+        lock_file = db_path + suffix
+        if os.path.exists(lock_file):
+            try:
+                os.remove(lock_file)
+                print(f"[Database] Removed stale lock file: {lock_file}")
+            except Exception as e:
+                print(f"[Database Error] Failed to remove lock file {lock_file}: {e}")
 
 # For SQLite, we need connect_args={"check_same_thread": False, "timeout": 30, "uri": True}
 connect_args = {}
@@ -16,6 +39,19 @@ engine = create_engine(
     connect_args=connect_args,
     echo=False
 )
+
+# Apply performance and lock-avoidance pragmas to SQLite connections
+@listens_for(engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    if settings.DATABASE_URL.startswith("sqlite"):
+        try:
+            cursor = dbapi_connection.cursor()
+            # Force DELETE journal mode to avoid .shm / .wal lock files on NFS
+            cursor.execute("PRAGMA journal_mode=DELETE")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.close()
+        except Exception as e:
+            print(f"[Database Pragma] Failed to set SQLite pragmas: {e}")
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
