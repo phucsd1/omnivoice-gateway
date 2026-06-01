@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Terminal, FileCode, Check, Play, Copy, ArrowLeft, KeyRound, BookOpen, Cpu, Code, Volume2 } from "lucide-react";
+import { Terminal, FileCode, Check, Play, Copy, ArrowLeft, KeyRound, BookOpen, Cpu, Code, Volume2, Sparkles } from "lucide-react";
 import { api, getApiBaseUrl } from "../api/client";
 import type { ApiKeyResponse } from "../api/client";
 
@@ -44,7 +44,8 @@ curl -X POST "${baseUrl}/v1/tts/jobs" \\
     "ref_text": "Mẫu văn bản của giọng ghi âm gốc",
     "text": "[laughter] Xin chào, đây là giọng đọc nhân bản kèm tiếng cười.",
     "speed": 1.0,
-    "num_step": 32
+    "num_step": 32,
+    "with_alignment": true
   }'
 
 # Phản hồi sẽ trả về {"job_id": "job_xxxx", "status": "queued"}
@@ -52,6 +53,9 @@ curl -X POST "${baseUrl}/v1/tts/jobs" \\
 # 2. Kiểm tra tiến độ và trạng thái của Job (gọi lặp mỗi 3-5s)
 curl -X GET "${baseUrl}/v1/jobs/YOUR_JOB_ID" \\
   -H "Authorization: Bearer ${activeKey}"
+
+# Khi status đạt "completed", nếu "with_alignment" là true, phản hồi sẽ trả về thêm trường:
+# "alignment": [{"word": "Xin", "start": 0.1, "end": 0.4}, {"word": "chào", "start": 0.4, "end": 0.8}, ...]
 
 # 3. Tải tệp âm thanh WAV (khi status đạt "completed")
 curl -o output.wav -X GET "${baseUrl}/v1/tts/jobs/YOUR_JOB_ID/audio" \\
@@ -68,14 +72,15 @@ headers = {
     "Content-Type": "application/json"
 }
 
-# 1. Gửi văn bản sinh giọng nói (Clone voice với tiếng cười nhúng sẵn)
+# 1. Gửi văn bản sinh giọng nói (kèm yêu cầu đồng bộ từ ngữ)
 payload = {
     "mode": "clone_voice",
     "voice_sample_id": "vs_xxxx",
     "ref_text": "Mẫu văn bản của giọng ghi âm gốc",
     "text": "[laughter] Xin chào, đây là mã tích hợp mẫu bằng ngôn ngữ Python.",
     "speed": 1.0,
-    "num_step": 32
+    "num_step": 32,
+    "with_alignment": True
 }
 
 print("Đang gửi yêu cầu TTS...")
@@ -95,6 +100,10 @@ while True:
     
     if status == "completed":
         print("Xử lý âm thanh hoàn tất!")
+        if "alignment" in job_data and job_data["alignment"]:
+            print("\\nDữ liệu đồng bộ từ ngữ (timestamps):")
+            for item in job_data["alignment"]:
+                print(f"  [{item['start']:.2f}s - {item['end']:.2f}s] {item['word']}")
         break
     elif status == "failed":
         raise Exception(f"Job thất bại: {job_data['error_message']}")
@@ -123,7 +132,7 @@ const headers = {
 
 async function generateSpeech() {
   try {
-    // 1. Tạo Job (Clone voice với tiếng cười nhúng sẵn)
+    // 1. Tạo Job (kèm yêu cầu đồng bộ từ ngữ)
     console.log("Đang tạo Job sinh giọng nói...");
     const res = await fetch(\`\${API_URL}/v1/tts/jobs\`, {
       method: 'POST',
@@ -134,7 +143,8 @@ async function generateSpeech() {
         ref_text: 'Mẫu văn bản của giọng ghi âm gốc',
         text: '[laughter] Xin chào, đây là mã nguồn nhúng bằng Node.js.',
         speed: 1.0,
-        num_step: 32
+        num_step: 32,
+        with_alignment: true
       })
     });
     
@@ -151,6 +161,9 @@ async function generateSpeech() {
       console.log(\`Trạng thái: \${jobData.status} (\${jobData.progress}%)\`);
       
       if (jobData.status === 'completed') {
+        if (jobData.alignment) {
+          console.log("\\nDữ liệu đồng bộ từ ngữ (timestamps):", jobData.alignment);
+        }
         break;
       } else if (jobData.status === 'failed') {
         throw new Error(\`TTS Job thất bại: \${jobData.error_message}\`);
@@ -403,6 +416,14 @@ generateSpeech();`
                   Ngưỡng độ dài văn bản kích hoạt cơ chế chia nhỏ (giây). Mặc định là <code className="text-foreground bg-muted border border-border px-1.5 py-0.5 rounded font-mono font-semibold">30.0</code>.
                 </p>
               </div>
+
+              <div>
+                <span className="font-mono text-primary/90 font-bold">with_alignment</span>
+                <span className="text-muted-foreground text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Lấy mốc thời gian của từng từ (phục vụ làm phụ đề). Kiểu boolean (<code className="text-foreground bg-muted border border-border px-1.5 py-0.5 rounded font-mono font-semibold">true</code> / <code className="text-foreground bg-muted border border-border px-1.5 py-0.5 rounded font-mono font-semibold">false</code>). Mặc định là <code className="text-foreground bg-muted border border-border px-1.5 py-0.5 rounded font-mono font-semibold">false</code>. Khi đặt bằng <code className="text-foreground bg-muted border border-border px-1.5 py-0.5 rounded font-mono font-semibold">true</code>, API sinh hoặc kiểm tra trạng thái sẽ xuất dữ liệu mốc thời gian dạng danh sách JSON trong trường <code className="text-primary/90 font-mono">alignment</code>.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -471,6 +492,35 @@ generateSpeech();`
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Word-Level Alignment Documentation */}
+          <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-3 shadow-xl">
+            <div className="flex items-center gap-2 border-b border-border pb-2">
+              <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+              <h3 className="font-bold text-xs text-foreground uppercase tracking-wider">
+                Đồng bộ thời gian từ ngữ (Word-Level Alignment / Subtitles)
+              </h3>
+            </div>
+            
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Tính năng <code className="text-foreground bg-muted border border-border px-1.5 py-0.5 rounded font-mono font-semibold">with_alignment</code> cho phép lấy chính xác mốc thời gian bắt đầu và kết thúc của từng từ được phát âm trong tệp âm thanh sinh ra, hỗ trợ làm phụ đề chạy chữ karaoke hoặc đồng bộ hoạt họa (avatar lip-sync).
+            </p>
+
+            <div className="bg-background border border-border p-4 rounded-xl flex flex-col gap-2">
+              <span className="text-[11px] font-bold text-foreground">Định dạng dữ liệu trả về trong trường <code className="text-primary/90 font-mono">alignment</code>:</span>
+              <pre className="font-mono text-[10px] text-primary/90 leading-normal overflow-x-auto whitespace-pre select-text">
+{`[
+  { "word": "Xin", "start": 0.12, "end": 0.45 },
+  { "word": "chào", "start": 0.45, "end": 0.78 },
+  { "word": "các", "start": 0.78, "end": 0.98 },
+  { "word": "bạn", "start": 0.98, "end": 1.25 }
+]`}
+              </pre>
+            </div>
+            <p className="text-[11px] text-muted-foreground italic leading-normal">
+              * Lưu ý: Mốc thời gian được tính bằng giây (seconds) tương đối so với điểm bắt đầu của file âm thanh.
+            </p>
           </div>
 
           {/* Fine-grained Control Documentation */}
