@@ -20,10 +20,14 @@ def get_kaggle_logs(db: Session = Depends(get_db)):
     import subprocess
     import tempfile
     from app.services.kaggle_orchestrator import KaggleOrchestrator
+    from app.models import User
     
-    username, key, kernel_ref, _ = KaggleOrchestrator.get_credentials(db)
+    admin_user = db.query(User).filter(User.username == "admin").first()
+    admin_user_id = admin_user.id if admin_user else None
+    
+    username, key, kernel_ref, _ = KaggleOrchestrator.get_credentials(db, user_id=admin_user_id)
     if not username or not key:
-        return {"error": "Kaggle credentials not configured in backend settings."}
+        return {"error": f"Kaggle credentials not configured in backend settings for admin_user_id={admin_user_id}."}
         
     env = os.environ.copy()
     env["KAGGLE_USERNAME"] = username
