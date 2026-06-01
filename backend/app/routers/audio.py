@@ -34,6 +34,7 @@ class SpeechRequest(BaseModel):
     postprocess_output: Optional[bool] = True
     audio_chunk_duration: Optional[float] = 15.0
     audio_chunk_threshold: Optional[float] = 30.0
+    with_alignment: Optional[bool] = False
 
 @router.post("/speech")
 async def text_to_speech(
@@ -106,7 +107,8 @@ async def text_to_speech(
             preprocess_prompt=payload.preprocess_prompt,
             postprocess_output=payload.postprocess_output,
             audio_chunk_duration=payload.audio_chunk_duration,
-            audio_chunk_threshold=payload.audio_chunk_threshold
+            audio_chunk_threshold=payload.audio_chunk_threshold,
+            with_alignment=payload.with_alignment
         )
     except ValueError as e:
         raise HTTPException(
@@ -124,10 +126,29 @@ async def text_to_speech(
         # Fast-track job for testing to avoid background worker poll block
         from app.services.audio_service import AudioService
         from app.services.mock_worker import MockWorker
+        import json
         AudioService.ensure_directories()
         out_path = os.path.abspath(os.path.join(settings.outputs_dir, f"{job.id}.wav"))
         MockWorker._generate_sine_wav(out_path)
-        JobService.complete_job_output(db, job.id, out_path)
+        
+        alignment_str = None
+        if payload.with_alignment:
+            words = (payload.input or "").split()
+            if words:
+                word_dur = 3.0 / len(words)
+                alignment_list = []
+                curr_time = 0.0
+                for w in words:
+                    clean_w = w.strip(".,!?\"'")
+                    alignment_list.append({
+                        "word": clean_w,
+                        "start": round(curr_time, 3),
+                        "end": round(curr_time + word_dur, 3)
+                    })
+                    curr_time += word_dur
+                alignment_str = json.dumps(alignment_list)
+
+        JobService.complete_job_output(db, job.id, out_path, alignment=alignment_str)
         db.refresh(job)
 
     max_wait = 180  # 3 minutes maximum timeout
@@ -155,6 +176,34 @@ async def text_to_speech(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Tệp âm thanh kết quả không tồn tại."
         )
+
+    if payload.with_alignment:
+        import json
+        import soundfile as sf
+        
+        duration = 0.0
+        try:
+            info = sf.info(job.output_audio_path)
+            duration = info.duration
+        except Exception:
+            pass
+            
+        alignment_data = []
+        if job.alignment:
+            try:
+                alignment_data = json.loads(job.alignment)
+            except Exception:
+                pass
+                
+        base_url = str(request.base_url).rstrip("/")
+        audio_url = f"{base_url}/v1/tts/jobs/{job.id}/audio"
+        
+        return {
+            "status": "completed",
+            "audioUrl": audio_url,
+            "duration": round(duration, 2),
+            "alignment": alignment_data
+        }
 
     media_type = "audio/wav"
     filename = f"speech_{job.id}.wav"

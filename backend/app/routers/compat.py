@@ -101,10 +101,12 @@ class CompatInferenceRequest(BaseModel):
     duration: Optional[float] = None
     speed: Optional[float] = 1.0
     language_id: Optional[str] = None
+    with_alignment: Optional[bool] = False
 
 @router.post("/inference")
 async def single_inference(
     payload: CompatInferenceRequest,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_user_or_api_key)
 ):
@@ -142,6 +144,7 @@ async def single_inference(
         ref_text=payload.ref_text,
         speed=payload.speed,
         duration=payload.duration,
+        with_alignment=payload.with_alignment,
         status="queued",
         message="Yêu cầu API tương thích. Đang chuẩn bị..."
     )
@@ -153,10 +156,29 @@ async def single_inference(
         from app.services.audio_service import AudioService
         from app.services.mock_worker import MockWorker
         from app.services.job_service import JobService
+        import json
         AudioService.ensure_directories()
         out_path = os.path.abspath(os.path.join(settings.outputs_dir, f"{job_id}.wav"))
         MockWorker._generate_sine_wav(out_path)
-        JobService.complete_job_output(db, job_id, out_path)
+        
+        alignment_str = None
+        if payload.with_alignment:
+            words = (payload.text or "").split()
+            if words:
+                word_dur = 3.0 / len(words)
+                alignment_list = []
+                curr_time = 0.0
+                for w in words:
+                    clean_w = w.strip(".,!?\"'")
+                    alignment_list.append({
+                        "word": clean_w,
+                        "start": round(curr_time, 3),
+                        "end": round(curr_time + word_dur, 3)
+                    })
+                    curr_time += word_dur
+                alignment_str = json.dumps(alignment_list)
+
+        JobService.complete_job_output(db, job_id, out_path, alignment=alignment_str)
         db.refresh(db_job)
     
     # 4. Wait synchronously for completion (with 90s timeout)
@@ -182,6 +204,32 @@ async def single_inference(
     if not db_job.output_audio_path or not os.path.exists(db_job.output_audio_path):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Không tìm thấy tệp kết quả âm thanh trên Gateway.")
         
+    if payload.with_alignment:
+        import soundfile as sf
+        duration = 0.0
+        try:
+            info = sf.info(db_job.output_audio_path)
+            duration = info.duration
+        except Exception:
+            pass
+            
+        alignment_data = []
+        if db_job.alignment:
+            try:
+                alignment_data = json.loads(db_job.alignment)
+            except Exception:
+                pass
+                
+        base_url = str(request.base_url).rstrip("/")
+        audio_url = f"{base_url}/v1/tts/jobs/{db_job.id}/audio"
+        
+        return {
+            "status": "completed",
+            "audioUrl": audio_url,
+            "duration": round(duration, 2),
+            "alignment": alignment_data
+        }
+
     return FileResponse(
         db_job.output_audio_path,
         media_type="audio/wav",

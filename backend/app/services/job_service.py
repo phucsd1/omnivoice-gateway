@@ -146,7 +146,8 @@ class JobService:
         postprocess_output: bool = True,
         audio_chunk_duration: float = 15.0,
         audio_chunk_threshold: float = 30.0,
-        ref_text: str = None
+        ref_text: str = None,
+        with_alignment: bool = False
     ) -> TTSJob:
         """Creates a TTS job based on the chosen mode (clone_voice, auto_voice, voice_design)."""
         job_id = generate_id("job")
@@ -196,6 +197,7 @@ class JobService:
             postprocess_output=postprocess_output,
             audio_chunk_duration=audio_chunk_duration,
             audio_chunk_threshold=audio_chunk_threshold,
+            with_alignment=with_alignment,
             status="queued",
             message="Đã nhận yêu cầu. Đang chuẩn bị đầu vào..."
         )
@@ -258,7 +260,7 @@ class JobService:
         return job
 
     @staticmethod
-    def complete_job_output(db: Session, job_id: str, local_output_path: str) -> TTSJob:
+    def complete_job_output(db: Session, job_id: str, local_output_path: str, alignment: Optional[str] = None) -> TTSJob:
         """Completes a job, persists output paths, and handles target conversions."""
         job = db.query(TTSJob).filter(TTSJob.id == job_id).first()
         if not job:
@@ -269,6 +271,8 @@ class JobService:
         job.message = "Hoàn tất"
         job.progress = 100
         job.output_audio_path = local_output_path
+        if alignment:
+            job.alignment = alignment
         
         # Sync and copy to preview if it's a voice design preview
         if job.job_type == "voice_design_preview" and job.preview_id:

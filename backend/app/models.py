@@ -111,6 +111,8 @@ class TTSJob(Base):
     error_message = Column(Text, nullable=True)
     batch_id = Column(String(50), index=True, nullable=True)
     compat_id = Column(String(100), nullable=True)
+    with_alignment = Column(Boolean, nullable=True, default=False)
+    alignment = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

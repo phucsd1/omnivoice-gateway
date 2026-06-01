@@ -93,6 +93,7 @@ class TTSJobCreate(BaseModel):
     postprocess_output: Optional[bool] = True
     audio_chunk_duration: Optional[float] = 15.0
     audio_chunk_threshold: Optional[float] = 30.0
+    with_alignment: Optional[bool] = False
 
 class TTSJobResponse(BaseModel):
     job_id: str
@@ -109,6 +110,7 @@ class JobStatusResponse(BaseModel):
     job_type: Optional[str] = None
     text: Optional[str] = None
     created_at: Optional[datetime] = None
+    alignment: Optional[Any] = None
 
 # Worker related schemas
 class WorkerRegisterRequest(BaseModel):
@@ -153,6 +155,7 @@ class WorkerJobPayload(BaseModel):
     postprocess_output: Optional[bool] = True
     audio_chunk_duration: Optional[float] = 15.0
     audio_chunk_threshold: Optional[float] = 30.0
+    with_alignment: Optional[bool] = False
 
 class WorkerNextJobResponse(BaseModel):
     job: Optional[WorkerJobPayload] = None

@@ -76,6 +76,32 @@ def test_single_inference_auto_voice():
     assert response.headers["content-type"] == "audio/wav"
     assert len(response.content) > 0
 
+
+def test_single_inference_with_alignment():
+    headers = {"Authorization": "Bearer api_key_compat_new"}
+    response = client.post("/v1/tts/inference", json={
+        "text": "This is a single inference test.",
+        "speed": 1.5,
+        "with_alignment": True
+    }, headers=headers)
+    
+    assert response.status_code == 200
+    assert "application/json" in response.headers["content-type"]
+    
+    data = response.json()
+    assert data["status"] == "completed"
+    assert "audioUrl" in data
+    assert "duration" in data
+    assert isinstance(data["duration"], (int, float))
+    assert "alignment" in data
+    assert isinstance(data["alignment"], list)
+    assert len(data["alignment"]) > 0
+    for item in data["alignment"]:
+        assert "word" in item
+        assert "start" in item
+        assert "end" in item
+
+
 def test_batch_inference_json_array():
     headers = {"Authorization": "Bearer api_key_compat_new"}
     response = client.post("/v1/tts/batch", json=[

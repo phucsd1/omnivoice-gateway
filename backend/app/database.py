@@ -69,7 +69,9 @@ def migrate_database(db_url: str):
             "audio_chunk_duration": "FLOAT DEFAULT 15.0",
             "audio_chunk_threshold": "FLOAT DEFAULT 30.0",
             "batch_id": "VARCHAR(50)",
-            "compat_id": "VARCHAR(100)"
+            "compat_id": "VARCHAR(100)",
+            "with_alignment": "BOOLEAN DEFAULT 0",
+            "alignment": "TEXT"
         }
         
         for col, col_type in new_cols.items():

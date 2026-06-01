@@ -40,7 +40,8 @@ def create_tts_job(payload: TTSJobCreate, request: Request, db: Session = Depend
             preprocess_prompt=payload.preprocess_prompt,
             postprocess_output=payload.postprocess_output,
             audio_chunk_duration=payload.audio_chunk_duration,
-            audio_chunk_threshold=payload.audio_chunk_threshold
+            audio_chunk_threshold=payload.audio_chunk_threshold,
+            with_alignment=payload.with_alignment
         )
         return TTSJobResponse(
             job_id=job.id,

@@ -95,9 +95,28 @@ class MockWorker:
             elif job.speed and job.speed > 0:
                 duration_sec = max(0.5, 3.0 / job.speed)
 
+            import json
             MockWorker._generate_sine_wav(output_path, duration_sec=duration_sec)
+            
+            alignment_str = None
+            if job.with_alignment:
+                words = (job.text or "").split()
+                if words:
+                    word_dur = duration_sec / len(words)
+                    alignment_list = []
+                    curr_time = 0.0
+                    for w in words:
+                        clean_w = w.strip(".,!?\"'")
+                        alignment_list.append({
+                            "word": clean_w,
+                            "start": round(curr_time, 3),
+                            "end": round(curr_time + word_dur, 3)
+                        })
+                        curr_time += word_dur
+                    alignment_str = json.dumps(alignment_list)
+
             # Register success using JobService
-            JobService.complete_job_output(db, job_id, output_path)
+            JobService.complete_job_output(db, job_id, output_path, alignment=alignment_str)
             print(f"[MockWorker] Job {job_id} completed successfully. Audio saved to {output_path} ({duration_sec:.1f}s)")
         except Exception as e:
             error_msg = f"Mock audio generation failed: {e}"

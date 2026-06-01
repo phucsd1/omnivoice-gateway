@@ -217,3 +217,37 @@ def test_openai_compatible_audio_endpoints():
     assert len(speech_res.content) > 0
 
 
+def test_openai_compatible_speech_with_alignment():
+    # 1. Login to get JWT token
+    login_res = client.post("/v1/auth/login", json={
+        "username": "test_user_123",
+        "password": "password_123"
+    })
+    assert login_res.status_code == 200
+    token = login_res.json()["access_token"]
+    user_headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Request speech synthesis with alignment
+    speech_res = client.post("/v1/audio/speech", json={
+        "model": "omnivoice",
+        "input": "Đây là cà phê Trung Nguyên",
+        "voice": "female, young adult, american accent",
+        "with_alignment": True
+    }, headers=user_headers)
+    assert speech_res.status_code == 200
+    assert "application/json" in speech_res.headers["content-type"]
+    
+    data = speech_res.json()
+    assert data["status"] == "completed"
+    assert "audioUrl" in data
+    assert "duration" in data
+    assert isinstance(data["duration"], (int, float))
+    assert "alignment" in data
+    assert isinstance(data["alignment"], list)
+    assert len(data["alignment"]) > 0
+    for item in data["alignment"]:
+        assert "word" in item
+        assert "start" in item
+        assert "end" in item
+
+

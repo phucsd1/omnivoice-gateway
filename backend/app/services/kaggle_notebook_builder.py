@@ -347,10 +347,40 @@ def main():
                 sf.write(local_out_path, audio_result[0], 24000, format='WAV', subtype='PCM_16')
                 log(f"Generated audio saved to {{local_out_path}}")
 
-                # Upload output WAV
+                # Generate proportional word alignments if requested to save GPU/CPU by default
+                alignment_str = None
+                if job.get("with_alignment"):
+                    words = (job.get("text") or "").split()
+                    if words:
+                        duration_sec = len(audio_result[0]) / 24000.0
+                        word_dur = duration_sec / len(words)
+                        alignment_list = []
+                        curr_time = 0.0
+                        for w in words:
+                            clean_w = w.strip(".,!?\"'")
+                            alignment_list.append({{
+                                "word": clean_w,
+                                "start": round(curr_time, 3),
+                                "end": round(curr_time + word_dur, 3)
+                            }})
+                            curr_time += word_dur
+                        import json
+                        alignment_str = json.dumps(alignment_list)
+                        log(f"Generated alignment data: {{len(alignment_list)}} words")
+
+                # Upload output WAV along with any alignment data
+                data_payload = {{}}
+                if alignment_str:
+                    data_payload["alignment"] = alignment_str
+
                 with open(local_out_path, "rb") as out_file:
                     files = {{"file": (f"{{job_id}}.wav", out_file, "audio/wav")}}
-                    upload_res = make_request("POST", f"/v1/internal/jobs/{{job_id}}/output", files=files)
+                    upload_res = make_request(
+                        "POST", 
+                        f"/v1/internal/jobs/{{job_id}}/output", 
+                        files=files,
+                        data=data_payload
+                    )
                     
                 if upload_res.status_code == 200:
                     log(f"Successfully uploaded job {{job_id}} output audio.")

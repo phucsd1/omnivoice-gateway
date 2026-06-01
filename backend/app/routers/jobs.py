@@ -22,6 +22,15 @@ def list_jobs(response: Response, db: Session = Depends(get_db), current_user: U
                 audio_url = f"/v1/voice-design/previews/{job.preview_id}/audio"
             else:
                 audio_url = f"/v1/tts/jobs/{job.id}/audio"
+                
+        import json
+        alignment_data = None
+        if job.alignment:
+            try:
+                alignment_data = json.loads(job.alignment)
+            except Exception:
+                pass
+
         result.append(
             JobStatusResponse(
                 job_id=job.id,
@@ -32,7 +41,8 @@ def list_jobs(response: Response, db: Session = Depends(get_db), current_user: U
                 error_message=job.error_message,
                 job_type=job.job_type,
                 text=job.text,
-                created_at=job.created_at
+                created_at=job.created_at,
+                alignment=alignment_data
             )
         )
     return result
@@ -58,6 +68,14 @@ def get_job_status(job_id: str, response: Response, db: Session = Depends(get_db
         else:
             audio_url = f"/v1/tts/jobs/{job.id}/audio"
 
+    import json
+    alignment_data = None
+    if job.alignment:
+        try:
+            alignment_data = json.loads(job.alignment)
+        except Exception:
+            pass
+
     return JobStatusResponse(
         job_id=job.id,
         status=job.status,
@@ -67,5 +85,6 @@ def get_job_status(job_id: str, response: Response, db: Session = Depends(get_db
         error_message=job.error_message,
         job_type=job.job_type,
         text=job.text,
-        created_at=job.created_at
+        created_at=job.created_at,
+        alignment=alignment_data
     )

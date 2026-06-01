@@ -1,6 +1,6 @@
 import os
 import shutil
-from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -98,7 +98,8 @@ def get_next_job(worker_id: str, request: Request, db: Session = Depends(get_db)
         preprocess_prompt=job.preprocess_prompt,
         postprocess_output=job.postprocess_output,
         audio_chunk_duration=job.audio_chunk_duration,
-        audio_chunk_threshold=job.audio_chunk_threshold
+        audio_chunk_threshold=job.audio_chunk_threshold,
+        with_alignment=job.with_alignment
     )
 
     return WorkerNextJobResponse(job=payload, message="Job assigned")
@@ -130,6 +131,7 @@ def update_job_status(
 async def upload_job_output(
     job_id: str,
     file: UploadFile = File(...),
+    alignment: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
     """
@@ -163,7 +165,7 @@ async def upload_job_output(
         )
 
     # Finalize job in db
-    JobService.complete_job_output(db, job_id, dest_path)
+    JobService.complete_job_output(db, job_id, dest_path, alignment=alignment)
 
     return {
         "status": "completed",
