@@ -3,7 +3,7 @@ import time
 import asyncio
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy.orm import Session
 
@@ -34,7 +34,7 @@ class SpeechRequest(BaseModel):
     postprocess_output: Optional[bool] = True
     audio_chunk_duration: Optional[float] = 15.0
     audio_chunk_threshold: Optional[float] = 30.0
-    with_alignment: Optional[bool] = False
+    with_alignment: Optional[bool] = Field(False, description="Nếu true, hệ thống chặn đồng bộ và trả về kết quả JSON chứa thông tin thời gian khớp từng từ (alignment) thay vì file âm thanh thô.")
 
 @router.post("/speech")
 async def text_to_speech(

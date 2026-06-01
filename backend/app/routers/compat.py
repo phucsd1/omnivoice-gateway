@@ -11,7 +11,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File, BackgroundTasks
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.database import get_db
 from app.models import TTSJob, User, VoiceSample
@@ -101,7 +101,7 @@ class CompatInferenceRequest(BaseModel):
     duration: Optional[float] = None
     speed: Optional[float] = 1.0
     language_id: Optional[str] = None
-    with_alignment: Optional[bool] = False
+    with_alignment: Optional[bool] = Field(False, description="Nếu true, hệ thống chặn đồng bộ và trả về kết quả JSON chứa thông tin thời gian khớp từng từ (alignment) thay vì file âm thanh thô.")
 
 @router.post("/inference")
 async def single_inference(

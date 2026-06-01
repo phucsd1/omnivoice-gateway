@@ -93,7 +93,7 @@ class TTSJobCreate(BaseModel):
     postprocess_output: Optional[bool] = True
     audio_chunk_duration: Optional[float] = 15.0
     audio_chunk_threshold: Optional[float] = 30.0
-    with_alignment: Optional[bool] = False
+    with_alignment: Optional[bool] = Field(False, description="Yêu cầu xuất kèm mốc thời gian (alignment) từng từ để làm phụ đề.")
 
 class TTSJobResponse(BaseModel):
     job_id: str
@@ -110,7 +110,7 @@ class JobStatusResponse(BaseModel):
     job_type: Optional[str] = None
     text: Optional[str] = None
     created_at: Optional[datetime] = None
-    alignment: Optional[Any] = None
+    alignment: Optional[Any] = Field(None, description="Danh sách mốc thời gian khớp từ tương ứng dạng JSON array [{\"word\": \"...\", \"start\": 0.0, \"end\": 0.5}] (Chỉ có khi with_alignment=True)")
 
 # Worker related schemas
 class WorkerRegisterRequest(BaseModel):
@@ -155,7 +155,7 @@ class WorkerJobPayload(BaseModel):
     postprocess_output: Optional[bool] = True
     audio_chunk_duration: Optional[float] = 15.0
     audio_chunk_threshold: Optional[float] = 30.0
-    with_alignment: Optional[bool] = False
+    with_alignment: Optional[bool] = Field(False, description="Yêu cầu worker trích xuất và tải lên mốc thời gian (alignment) từng từ.")
 
 class WorkerNextJobResponse(BaseModel):
     job: Optional[WorkerJobPayload] = None
