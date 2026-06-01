@@ -357,7 +357,7 @@ def main():
                         alignment_list = []
                         curr_time = 0.0
                         for w in words:
-                            clean_w = w.strip(".,!?\"'")
+                            clean_w = w.strip(".,!?\\"'")
                             alignment_list.append({{
                                 "word": clean_w,
                                 "start": round(curr_time, 3),
