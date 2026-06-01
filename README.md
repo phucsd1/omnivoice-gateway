@@ -181,3 +181,48 @@ The system supports an automatic mechanism to build the worker directory and sou
 
 4. **Automatic activation (Automated push)**:
    If the backend is running in `WORKER_MODE=kaggle` and there is currently no active worker, the FastAPI gateway will automatically trigger this prepare-and-push process when it receives the first TTS job from a user.
+
+---
+
+## D. Word-Level Alignment API Guide (Opt-in)
+
+The gateway supports returning precise word-level start/end timestamps (in seconds) to automate caption synchronization.
+
+### 1. Request Schema (`POST /v1/audio/speech`)
+This is an OpenAI-compatible speech endpoint. Add `with_alignment: true` to get the word timestamps.
+
+**Headers:**
+```http
+Authorization: Bearer <your_jwt_token_or_api_key>
+Content-Type: application/json
+```
+
+**Body:**
+```json
+{
+  "model": "omnivoice",
+  "input": "Hệ thống OmniVoice đang chạy",
+  "voice": "female, young adult, american accent",
+  "with_alignment": true
+}
+```
+
+### 2. Response Schema
+When `with_alignment` is `true`, instead of returning the raw binary audio file, the API returns a structured JSON payload:
+
+```json
+{
+  "status": "completed",
+  "audioUrl": "https://<your-gateway-host>/v1/tts/jobs/job_xxxxxx/audio",
+  "duration": 2.05,
+  "alignment": [
+    { "word": "Hệ", "start": 0.0, "end": 0.68 },
+    { "word": "thống", "start": 0.68, "end": 1.36 },
+    { "word": "OmniVoice", "start": 1.36, "end": 2.05 }
+  ]
+}
+```
+
+> [!NOTE]
+> By default, `with_alignment` is `false`. The API will return the raw audio binary file directly, saving GPU/CPU resources on the worker nodes.
+
