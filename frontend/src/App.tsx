@@ -430,7 +430,7 @@ function App() {
       <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-purple-500/5 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Sidebar 240px */}
-      <aside className="hidden lg:block w-[240px] h-screen fixed top-0 left-0 shrink-0 z-40">
+      <aside className="hidden lg:block w-fluid-sidebar h-screen fixed top-0 left-0 shrink-0 z-40">
         {sidebarContent}
       </aside>
 
@@ -440,7 +440,7 @@ function App() {
             onClick={() => setSidebarOpen(false)}
             className="fixed inset-0 bg-black/60 backdrop-blur-sm"
           />
-          <div className="relative w-[240px] max-w-sm h-full flex-col z-50 animate-fadeIn">
+          <div className="relative w-fluid-sidebar max-w-sm h-full flex-col z-50 animate-fadeIn">
             {sidebarContent}
             <button
               onClick={() => setSidebarOpen(false)}
@@ -452,8 +452,8 @@ function App() {
         </div>
       )}
 
-      {/* Padding left changed to pl-[240px] */}
-      <div className="flex-grow flex flex-col min-w-0 lg:pl-[240px] min-h-screen">
+      {/* Padding left changed to pl-fluid-sidebar */}
+      <div className="flex-grow flex flex-col min-w-0 lg:pl-fluid-sidebar min-h-screen">
         <header className="lg:hidden sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
@@ -570,7 +570,7 @@ function App() {
       </div>
 
       {/* Global Sticky Bottom Audio Player */}
-      <div className="fixed bottom-0 left-0 lg:left-[240px] right-0 z-50 h-[80px] bg-card/90 backdrop-blur-md border-t border-border">
+      <div className="fixed bottom-0 left-0 lg:left-fluid-sidebar right-0 z-50 h-fluid-player bg-card/90 backdrop-blur-md border-t border-border">
         <AudioPlayer
           url={currentPlayUrl || ""}
           title={currentPlayTitle || ""}

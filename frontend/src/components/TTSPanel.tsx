@@ -273,23 +273,23 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
   return (
     <div className="w-full flex flex-col gap-6">
       {/* Header section */}
-      <div className="flex flex-col gap-1 select-none max-w-[960px] mx-auto w-full">
-        <h1 className="text-xl font-bold tracking-tight text-foreground">Text to Speech</h1>
-        <p className="text-xs text-muted-foreground font-medium">
+      <div className="flex flex-col gap-1 select-none max-w-fluid-editor mx-auto w-full">
+        <h1 className="text-fluid-xl font-bold tracking-tight text-foreground">Text to Speech</h1>
+        <p className="text-fluid-sm text-muted-foreground font-medium">
           Tạo giọng nói tự nhiên từ văn bản bằng OmniVoice.
         </p>
       </div>
 
-      <div className="w-full max-w-[960px] mx-auto grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+      <div className="w-full max-w-fluid-editor mx-auto grid grid-cols-1 xl:grid-cols-12 gap-fluid items-start">
         
         {/* Left Column: Main Editor (8/12) */}
         <div className="xl:col-span-8 flex flex-col gap-5">
           {/* Selected Voice Card (compact) */}
-          <div className="bg-card border border-border rounded-2xl p-4 flex flex-col gap-3 shadow-sm">
+          <div className="bg-card border border-border rounded-2xl p-fluid-card flex flex-col gap-fluid-sm shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Mẫu giọng (Voice Sample)</span>
+              <span className="text-fluid-xs font-bold text-muted-foreground uppercase tracking-wider">Mẫu giọng (Voice Sample)</span>
               {activeVoiceSampleId && customVoiceSampleId === activeVoiceSampleId && (
-                <span className="text-[9px] text-success font-bold flex items-center gap-1">
+                <span className="text-fluid-xs text-success font-bold flex items-center gap-1">
                   ✓ Giọng đã chọn
                 </span>
               )}
@@ -308,7 +308,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
                     setRefText("");
                   }
                 }}
-                className="bg-secondary/50 border border-border/70 hover:border-border rounded-xl px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-semibold cursor-pointer shadow-sm w-full"
+                className="bg-secondary/50 border border-border/70 hover:border-border rounded-xl px-3.5 h-10 text-fluid-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-semibold cursor-pointer shadow-sm w-full"
               >
                 <option value="">-- Chọn một mẫu giọng --</option>
                 <optgroup label="Giọng cá nhân (Private)">
@@ -327,11 +327,11 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
                 </optgroup>
               </select>
             ) : mode === "auto_voice" ? (
-              <div className="bg-secondary/40 border border-border/60 rounded-xl px-4 py-2.5 text-xs text-muted-foreground font-medium select-none">
+              <div className="bg-secondary/40 border border-border/60 rounded-xl px-4 h-10 flex items-center text-fluid-sm text-muted-foreground font-medium select-none">
                 Auto Voice — Sử dụng giọng ngẫu nhiên
               </div>
             ) : (
-              <div className="bg-secondary/40 border border-border/60 rounded-xl px-4 py-2.5 text-xs text-muted-foreground font-medium select-none">
+              <div className="bg-secondary/40 border border-border/60 rounded-xl px-4 h-10 flex items-center text-fluid-sm text-muted-foreground font-medium select-none">
                 Voice Design Direct — Tạo giọng từ mô tả bên cột cài đặt
               </div>
             )}
@@ -339,16 +339,16 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
 
           {/* Large text area block */}
           <form onSubmit={handleGenerate} className="flex flex-col gap-4">
-            <div className="relative flex flex-col bg-card border border-border focus-within:ring-2 focus-within:ring-primary/20 transition-all rounded-2xl p-4 shadow-sm">
+            <div className="relative flex flex-col bg-card border border-border focus-within:ring-2 focus-within:ring-primary/20 transition-all rounded-2xl p-fluid-card shadow-sm">
               <textarea
                 ref={textareaRef}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 placeholder="Nhập đoạn văn bản cần tạo thành tệp âm thanh..."
-                className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none resize-none font-medium leading-relaxed min-h-[280px] max-h-[420px]"
+                className="w-full bg-transparent text-fluid-base text-foreground placeholder:text-muted-foreground focus:outline-none resize-none font-medium leading-relaxed min-h-[var(--textarea-height)]"
                 maxLength={5000}
               />
-              <div className="flex justify-between items-center mt-3 pt-3 border-t border-border select-none text-[10px] text-muted-foreground font-bold">
+              <div className="flex justify-between items-center mt-3 pt-3 border-t border-border select-none text-fluid-xs text-muted-foreground font-bold">
                 <span>Tiếng Việt - OmniVoice</span>
                 <span className="font-mono">
                   {text.length} / 5000 ký tự &nbsp;•&nbsp; {text.trim().split(/\s+/).filter(Boolean).length} từ
@@ -357,7 +357,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
             </div>
 
             {errorMsg && (
-              <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl text-xs font-semibold">
+              <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl text-fluid-sm font-semibold">
                 {errorMsg}
               </div>
             )}
@@ -366,7 +366,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
             <button
               type="submit"
               disabled={loading || !text}
-              className={`w-full h-11 rounded-xl font-bold text-xs transition-all duration-150 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer shadow-md ${
+              className={`w-full h-11 rounded-xl font-bold text-fluid-sm transition-all duration-150 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer shadow-md ${
                 !loading && text
                   ? "bg-gradient-to-r from-primary to-accent text-white border-none shadow-lg shadow-primary/10 hover:brightness-105"
                   : "bg-secondary text-muted-foreground cursor-not-allowed"
@@ -447,18 +447,18 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
         </div>
 
         {/* Right Column: Settings Panel (4/12) */}
-        <div className="xl:col-span-4 bg-card border border-border rounded-2xl p-5 flex flex-col gap-5 shadow-sm">
+        <div className="xl:col-span-4 bg-card border border-border rounded-2xl p-fluid-card flex flex-col gap-fluid shadow-sm">
           <div className="flex items-center gap-2 pb-2 border-b border-border select-none">
-            <span className="text-xs font-bold text-foreground">Cấu hình tham số</span>
+            <span className="text-fluid-sm font-bold text-foreground">Cấu hình tham số</span>
           </div>
 
           {/* Voice Mode selection */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Voice Mode</label>
+            <label className="text-fluid-xs font-bold text-muted-foreground uppercase tracking-wider">Voice Mode</label>
             <select
               value={mode}
               onChange={(e) => setMode(e.target.value as any)}
-              className="bg-secondary/40 border border-border/70 rounded-xl px-3 py-2 text-xs font-semibold text-foreground focus:outline-none w-full cursor-pointer shadow-sm"
+              className="bg-secondary/40 border border-border/70 rounded-xl px-3 h-10 text-fluid-sm font-semibold text-foreground focus:outline-none w-full cursor-pointer shadow-sm"
             >
               <option value="clone_voice">Sử dụng giọng mẫu</option>
               <option value="auto_voice">Auto Voice</option>
@@ -469,15 +469,15 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
           {/* Reference Text - only for clone mode */}
           {mode === "clone_voice" && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Reference Text (ref_text)</label>
+              <label className="text-fluid-xs font-bold text-muted-foreground uppercase tracking-wider">Reference Text (ref_text)</label>
               <input
                 type="text"
                 value={refText}
                 onChange={(e) => setRefText(e.target.value)}
                 placeholder="Nội dung nói trong file mẫu..."
-                className="bg-secondary/40 border border-border/70 rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none w-full font-medium"
+                className="bg-secondary/40 border border-border/70 rounded-xl px-3 h-10 text-fluid-sm text-foreground focus:outline-none w-full font-medium"
               />
-              <span className="text-[9px] text-muted-foreground leading-snug">
+              <span className="text-fluid-xs text-muted-foreground leading-snug">
                 * Nếu bỏ trống, Whisper ASR sẽ tự động nhận diện từ file mẫu.
               </span>
             </div>
@@ -486,23 +486,23 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
           {/* Instruct tag for voice design */}
           {mode === "voice_design" && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Instruct Tags (Tiếng Anh)</label>
+              <label className="text-fluid-xs font-bold text-muted-foreground uppercase tracking-wider">Instruct Tags (Tiếng Anh)</label>
               <input
                 type="text"
                 value={instruct}
                 onChange={(e) => setInstruct(e.target.value)}
                 placeholder="female, young adult, natural, low pitch..."
-                className="bg-secondary/40 border border-border/70 rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none w-full font-mono font-medium"
+                className="bg-secondary/40 border border-border/70 rounded-xl px-3 h-10 text-fluid-sm text-foreground focus:outline-none w-full font-mono font-medium"
               />
             </div>
           )}
 
           {/* Output Format (Placeholder) */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Đầu ra (Format)</label>
+            <label className="text-fluid-xs font-bold text-muted-foreground uppercase tracking-wider">Đầu ra (Format)</label>
             <select
               disabled
-              className="bg-secondary/20 border border-border/50 rounded-xl px-3 py-2 text-xs font-semibold text-muted-foreground focus:outline-none w-full cursor-not-allowed shadow-none"
+              className="bg-secondary/20 border border-border/50 rounded-xl px-3 h-10 text-fluid-sm font-semibold text-muted-foreground focus:outline-none w-full cursor-not-allowed shadow-none"
             >
               <option value="wav">WAV (Lossless 24kHz)</option>
               <option value="mp3">MP3 (Coming Soon)</option>
@@ -511,7 +511,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
 
           {/* Basic parameters: Speed */}
           <div className="flex flex-col gap-1.5">
-            <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+            <div className="flex justify-between items-center text-fluid-xs font-bold text-muted-foreground uppercase tracking-wider">
               <span>Tốc độ (Speed): {speed.toFixed(1)}x</span>
               <span className="font-mono">0.5x - 2.0x</span>
             </div>
@@ -531,7 +531,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
 
           {/* Basic parameters: Steps */}
           <div className="flex flex-col gap-1.5">
-            <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+            <div className="flex justify-between items-center text-fluid-xs font-bold text-muted-foreground uppercase tracking-wider">
               <span>Độ chính xác (Steps): {numStep}</span>
               <span className="font-mono">10 - 64</span>
             </div>
@@ -551,47 +551,47 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
 
           {/* Emotion tags pills */}
           <div className="flex flex-col gap-2 pt-3 border-t border-border">
-            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Biểu cảm nhanh (Emotion tags)</label>
+            <label className="text-fluid-xs font-bold text-muted-foreground uppercase tracking-wider">Biểu cảm nhanh (Emotion tags)</label>
             <div className="flex flex-wrap gap-1">
               <button
                 type="button"
                 onClick={() => insertTag("[laughter]")}
-                className="px-2 py-1 bg-secondary/50 hover:bg-secondary border border-border text-[9px] text-foreground font-semibold rounded transition-colors cursor-pointer"
+                className="px-2 py-1 bg-secondary/50 hover:bg-secondary border border-border text-fluid-xs text-foreground font-semibold rounded transition-colors cursor-pointer"
               >
                 😊 Cười
               </button>
               <button
                 type="button"
                 onClick={() => insertTag("[sigh]")}
-                className="px-2 py-1 bg-secondary/50 hover:bg-secondary border border-border text-[9px] text-foreground font-semibold rounded transition-colors cursor-pointer"
+                className="px-2 py-1 bg-secondary/50 hover:bg-secondary border border-border text-fluid-xs text-foreground font-semibold rounded transition-colors cursor-pointer"
               >
                 😮‍💨 Thở dài
               </button>
               <button
                 type="button"
                 onClick={() => insertTag("[sniff]")}
-                className="px-2 py-1 bg-secondary/50 hover:bg-secondary border border-border text-[9px] text-foreground font-semibold rounded transition-colors cursor-pointer"
+                className="px-2 py-1 bg-secondary/50 hover:bg-secondary border border-border text-fluid-xs text-foreground font-semibold rounded transition-colors cursor-pointer"
               >
                 👃 Sụt sịt
               </button>
               <button
                 type="button"
                 onClick={() => insertTag("[surprise-ah]")}
-                className="px-2 py-1 bg-secondary/50 hover:bg-secondary border border-border text-[9px] text-foreground font-semibold rounded transition-colors cursor-pointer"
+                className="px-2 py-1 bg-secondary/50 hover:bg-secondary border border-border text-fluid-xs text-foreground font-semibold rounded transition-colors cursor-pointer"
               >
                 😲 Ngạc nhiên
               </button>
               <button
                 type="button"
                 onClick={() => insertTag("[dissatisfaction-hnn]")}
-                className="px-2 py-1 bg-secondary/50 hover:bg-secondary border border-border text-[9px] text-foreground font-semibold rounded transition-colors cursor-pointer"
+                className="px-2 py-1 bg-secondary/50 hover:bg-secondary border border-border text-fluid-xs text-foreground font-semibold rounded transition-colors cursor-pointer"
               >
                 😒 Bất bình
               </button>
               <button
                 type="button"
                 onClick={() => insertTag("[question-en]")}
-                className="px-2 py-1 bg-secondary/50 hover:bg-secondary border border-border text-[9px] text-foreground font-semibold rounded transition-colors cursor-pointer"
+                className="px-2 py-1 bg-secondary/50 hover:bg-secondary border border-border text-fluid-xs text-foreground font-semibold rounded transition-colors cursor-pointer"
               >
                 ❓ Hỏi (EN)
               </button>
@@ -603,7 +603,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
             <button
               type="button"
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="w-full flex items-center justify-between text-[10px] text-muted-foreground hover:text-foreground font-bold uppercase tracking-wider transition-colors cursor-pointer select-none"
+              className="w-full flex items-center justify-between text-fluid-xs text-muted-foreground hover:text-foreground font-bold uppercase tracking-wider transition-colors cursor-pointer select-none"
             >
               <span>Tham số nâng cao (Advanced)</span>
               <span>{showAdvanced ? "▲" : "▼"}</span>
@@ -611,7 +611,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
 
             {showAdvanced && (
               <div className="flex flex-col gap-4 mt-4 animate-fadeIn">
-                <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none">
+                <label className="flex items-center gap-2 text-fluid-sm font-semibold text-muted-foreground cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={denoise}
@@ -717,13 +717,13 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Thời lượng cố định (Duration)</label>
+                  <label className="text-fluid-xs font-bold text-muted-foreground uppercase">Thời lượng cố định (Duration)</label>
                   <input
                     type="number" step="0.1" min="0.1"
                     value={duration}
                     onChange={(e) => setDuration(e.target.value)}
                     placeholder="Mặc định: Tự động"
-                    className="bg-secondary/40 border border-border/70 rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none w-full"
+                    className="bg-secondary/40 border border-border/70 rounded-xl px-3 h-10 text-fluid-sm text-foreground focus:outline-none w-full"
                   />
                 </div>
               </div>

@@ -227,7 +227,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   if (!url) {
     return (
-      <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground/50 select-none font-semibold relative">
+      <div className="w-full h-full flex items-center justify-center text-fluid-sm text-muted-foreground/50 select-none font-semibold relative">
         <div className="absolute inset-0 bg-card/65 backdrop-blur-md transition-colors duration-300 dark:bg-[#151922]/75 -z-10" />
         <div className="flex items-center gap-2">
           <Volume2 className="w-4 h-4 text-muted-foreground/35 animate-pulse" />
@@ -297,7 +297,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           {/* Sound Metadata */}
           <div className="flex flex-col min-w-0 leading-tight">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-foreground truncate max-w-[100px] sm:max-w-[130px] md:max-w-[180px]" title={title}>
+              <span className="text-fluid-sm font-bold text-foreground truncate max-w-[100px] sm:max-w-[130px] md:max-w-[180px]" title={title}>
                 {title}
               </span>
               
@@ -313,12 +313,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             </div>
             
             {hasError ? (
-              <span className="text-[9px] text-destructive font-bold flex items-center gap-0.5">
+              <span className="text-fluid-xs text-destructive font-bold flex items-center gap-0.5">
                 <AlertCircle className="w-3.5 h-3.5" />
                 <span>Lỗi phát âm thanh</span>
               </span>
             ) : (
-              <span className="text-[10px] font-mono font-medium text-muted-foreground mt-0.5 tabular-nums select-none">
+              <span className="text-fluid-xs font-mono font-medium text-muted-foreground mt-0.5 tabular-nums select-none">
                 {formatTime(currentTime)} / {formatTime(duration)}
               </span>
             )}
@@ -347,7 +347,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           <div className="relative flex items-center">
             <button
               onClick={() => setShowSpeedMenu(!showSpeedMenu)}
-              className="px-2.5 py-1.5 bg-background/50 hover:bg-secondary border border-border/80 hover:border-border rounded-lg text-[10px] font-bold text-muted-foreground hover:text-foreground transition-all cursor-pointer select-none"
+              className="px-2.5 py-1.5 bg-background/50 hover:bg-secondary border border-border/80 hover:border-border rounded-lg text-fluid-xs font-bold text-muted-foreground hover:text-foreground transition-all cursor-pointer select-none"
             >
               {playbackRate.toFixed(2)}x
             </button>
@@ -363,7 +363,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
                         setPlaybackRate(s);
                         setShowSpeedMenu(false);
                       }}
-                      className={`px-3 py-1.5 text-left rounded-xl text-[10px] font-bold transition-all cursor-pointer w-full ${
+                      className={`px-3 py-1.5 text-left rounded-xl text-fluid-xs font-bold transition-all cursor-pointer w-full ${
                         playbackRate === s
                           ? "bg-gradient-to-tr from-primary to-accent text-white"
                           : "text-muted-foreground hover:text-foreground hover:bg-secondary"
