@@ -105,14 +105,14 @@ async def lifespan(app: FastAPI):
         from app.services.kaggle_orchestrator import KaggleOrchestrator
         KaggleOrchestrator.start_queue_runner()
         
-    # Start auto-shutdown idle monitor (only if NOT running on HF Spaces)
-    # HF Spaces has its own gcTimeout, so self-termination causes "Runtime error: Exit code 0"
+    # Start auto-shutdown idle monitor (disabled by default, enabled only if ENABLE_AUTO_SHUTDOWN=true)
+    # This prevents the server from shutting down unexpectedly during local development or VM hosting.
     shutdown_task = None
-    if not os.environ.get("SPACE_ID"):
+    if os.environ.get("ENABLE_AUTO_SHUTDOWN") == "true":
         shutdown_task = asyncio.create_task(auto_shutdown_monitor())
-        print("[Main] Auto-shutdown monitor started (not on HF Spaces).")
+        print("[Main] Auto-shutdown monitor started.")
     else:
-        print("[Main] Running on HF Spaces — auto-shutdown disabled (HF manages lifecycle).")
+        print("[Main] Auto-shutdown monitor disabled.")
         
     yield
     

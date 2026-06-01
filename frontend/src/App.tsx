@@ -524,6 +524,7 @@ function App() {
           {activeTab === "library" && (
             <div className="w-full animate-fadeIn">
               <VoiceLibraryPanel 
+                activeVoiceSampleId={activeVoiceSampleId}
                 onUseVoice={(id) => { 
                   setActiveVoiceSampleId(id); 
                   navigateToTab("workspace"); 

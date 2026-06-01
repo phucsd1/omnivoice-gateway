@@ -10,6 +10,7 @@ interface VoiceLibraryPanelProps {
   globalPlayerPlaying: boolean;
   onPlayAudio: (url: string, title: string) => void;
   onTogglePlay: () => void;
+  activeVoiceSampleId?: string | null;
 }
 
 export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({
@@ -18,6 +19,7 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({
   globalPlayerPlaying,
   onPlayAudio,
   onTogglePlay,
+  activeVoiceSampleId,
 }) => {
   const [voices, setVoices] = useState<VoiceSampleResponse[]>([]);
   const [filter, setFilter] = useState<"all" | "private" | "public">("all");
@@ -74,7 +76,7 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({
   });
 
   return (
-    <div className="bg-card/90 border border-border backdrop-blur-md rounded-[var(--radius-card)] p-fluid-card flex flex-col gap-fluid shadow-xl transition-all duration-300">
+    <div className="bg-card/75 dark:bg-[#151618]/95 border border-border/80 dark:border-[#2a2b2f]/80 backdrop-blur-md rounded-[var(--radius-card)] p-fluid-card flex flex-col gap-fluid shadow-xl transition-all duration-300">
       {/* Header Info */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border/60 pb-4">
         <div className="flex flex-col gap-1">
@@ -92,22 +94,22 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({
       <div className="flex flex-col lg:flex-row gap-3">
         {/* Search */}
         <div className="relative flex-grow">
-          <Search className="absolute left-3.5 top-3 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3.5 top-3.5 w-3.5 h-3.5 text-muted-foreground" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Tìm kiếm theo tên, ID, hoặc văn bản tham chiếu..."
-            className="w-full pl-10 pr-4 h-10 bg-muted border border-border rounded-full text-fluid-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-colors font-semibold"
+            className="w-full pl-10 pr-4 h-10 bg-white dark:bg-[#131416] border border-border/80 dark:border-[#2a2b2f]/80 rounded-full text-fluid-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary/50 transition-colors font-semibold shadow-inner"
           />
         </div>
 
         {/* Tab Filters */}
-        <div className="flex bg-muted border border-border rounded-full p-1 shrink-0 self-start lg:self-auto">
+        <div className="flex bg-background/85 dark:bg-[#131416]/85 border border-border/80 dark:border-[#2a2b2f]/80 rounded-full p-1 shrink-0 self-start lg:self-auto">
           <button
             onClick={() => setFilter("all")}
             className={`px-4 py-1.5 rounded-full text-fluid-sm font-bold transition-all cursor-pointer ${
-              filter === "all" ? "bg-card text-foreground shadow-sm border border-border" : "text-muted-foreground hover:text-foreground border border-transparent"
+              filter === "all" ? "bg-card dark:bg-[#1f2023] text-foreground shadow-sm border border-border/80 dark:border-[#2d2e33]" : "text-muted-foreground hover:text-foreground border border-transparent"
             }`}
           >
             Tất cả ({voices.length})
@@ -115,7 +117,7 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({
           <button
             onClick={() => setFilter("private")}
             className={`px-4 py-1.5 rounded-full text-fluid-sm font-bold transition-all cursor-pointer ${
-              filter === "private" ? "bg-card text-foreground shadow-sm border border-border" : "text-muted-foreground hover:text-foreground border border-transparent"
+              filter === "private" ? "bg-card dark:bg-[#1f2023] text-foreground shadow-sm border border-border/80 dark:border-[#2d2e33]" : "text-muted-foreground hover:text-foreground border border-transparent"
             }`}
           >
             Cá nhân ({voices.filter(v => !v.is_public).length})
@@ -123,7 +125,7 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({
           <button
             onClick={() => setFilter("public")}
             className={`px-4 py-1.5 rounded-full text-fluid-sm font-bold transition-all cursor-pointer ${
-              filter === "public" ? "bg-card text-foreground shadow-sm border border-border" : "text-muted-foreground hover:text-foreground border border-transparent"
+              filter === "public" ? "bg-card dark:bg-[#1f2023] text-foreground shadow-sm border border-border/80 dark:border-[#2d2e33]" : "text-muted-foreground hover:text-foreground border border-transparent"
             }`}
           >
             Cộng đồng ({voices.filter(v => v.is_public).length})
@@ -153,10 +155,10 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({
             return (
               <div
                 key={voice.id}
-                className={`bg-muted/30 border rounded-[var(--radius-card)] p-fluid-card flex flex-col justify-between gap-4 transition-all duration-300 shadow-sm group relative ${
-                  currentPlayUrl === audioUrl
-                    ? "border-primary bg-primary/[0.02] shadow-md shadow-primary/5"
-                    : "border-border hover:border-border/40 hover:bg-muted/50"
+                className={`bg-card dark:bg-[#1f2023] border rounded-[var(--radius-card)] p-fluid-card flex flex-col justify-between gap-4 transition-all duration-300 group relative shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)] hover:shadow-[0_4px_12px_-3px_rgba(0,0,0,0.08)] ${
+                  activeVoiceSampleId === voice.id
+                    ? "border-primary/60 dark:border-primary/50 shadow-md shadow-primary/5 ring-1 ring-primary/20"
+                    : "border-border/80 dark:border-[#2d2e33] hover:border-border/40 dark:hover:border-[#3d3e45]"
                 }`}
               >
                 {/* Delete Confirm Overlay */}
@@ -185,27 +187,47 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({
                 {/* Top Info */}
                 <div className="flex flex-col gap-3">
                   <div className="flex justify-between items-start gap-2">
-                    <span className="font-bold text-fluid-sm text-foreground truncate group-hover:text-foreground transition-colors">
-                      {voice.name || "Giọng không tên"}
-                    </span>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-bold text-fluid-sm text-foreground truncate group-hover:text-foreground transition-colors">
+                        {voice.name || "Giọng không tên"}
+                      </span>
+                      {activeVoiceSampleId === voice.id && (
+                        <span className="bg-primary/10 border border-primary/20 text-[9px] font-bold text-primary px-2 py-0.5 rounded-full flex items-center gap-1 mt-1 w-max animate-pulse">
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
+                          <span>Đang dùng</span>
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
                       {/* Visibility Badge */}
                       {voice.is_public ? (
-                        <span className="bg-success/10 border border-success/20 text-fluid-xs font-bold text-success px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <Globe className="w-2.5 h-2.5" />
+                        <span className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/60 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full flex items-center gap-1 select-none">
+                          <Globe className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
                           <span>Công khai</span>
                         </span>
                       ) : (
-                        <span className="bg-muted/80 border border-border text-fluid-xs font-bold text-muted-foreground px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <Lock className="w-2.5 h-2.5" />
+                        <span className="bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/80 text-[10px] font-bold text-zinc-600 dark:text-zinc-300 px-2 py-0.5 rounded-full flex items-center gap-1 select-none">
+                          <Lock className="w-2.5 h-2.5 text-zinc-500 dark:text-zinc-400" />
                           <span>Riêng tư</span>
                         </span>
                       )}
 
                       {/* Source Type Badge */}
-                      <span className="bg-card border border-border text-fluid-xs font-bold text-muted-foreground px-2 py-0.5 rounded-full capitalize select-none">
-                        {voice.source_type === "uploaded" ? "Tải lên" : voice.source_type === "saved_favorite" ? "Yêu thích" : "Thiết kế"}
-                      </span>
+                      {voice.source_type === "uploaded" && (
+                        <span className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-800/60 text-[10px] font-bold text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-full select-none">
+                          Tải lên
+                        </span>
+                      )}
+                      {voice.source_type === "saved_favorite" && (
+                        <span className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-800/60 text-[10px] font-bold text-rose-700 dark:text-rose-400 px-2 py-0.5 rounded-full select-none">
+                          Yêu thích
+                        </span>
+                      )}
+                      {voice.source_type !== "uploaded" && voice.source_type !== "saved_favorite" && (
+                        <span className="bg-purple-50 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/60 text-[10px] font-bold text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded-full select-none">
+                          Thiết kế
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -230,8 +252,8 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({
 
                   {/* Ref text section */}
                   {voice.ref_text && (
-                    <div className="bg-card/60 border border-border rounded-2xl p-3 max-h-[100px] overflow-y-auto text-fluid-sm text-foreground leading-normal scrollbar-thin">
-                      <p className="font-bold text-fluid-xs text-muted-foreground uppercase tracking-wider mb-1">Văn bản tham khảo</p>
+                    <div className="bg-background/80 dark:bg-[#131416]/90 border border-border/80 dark:border-[#2d2e33]/80 rounded-2xl p-3 max-h-[100px] overflow-y-auto text-fluid-sm text-foreground leading-normal scrollbar-thin">
+                      <p className="font-bold text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Văn bản tham khảo</p>
                       {voice.ref_text}
                     </div>
                   )}
