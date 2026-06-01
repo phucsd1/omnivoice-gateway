@@ -344,7 +344,7 @@ def main():
                 temp_out_fd, local_out_path = tempfile.mkstemp(suffix=".wav")
                 os.close(temp_out_fd)
                 
-                sf.write(local_out_path, audio_result[0], 24000)
+                sf.write(local_out_path, audio_result[0], 24000, format='WAV', subtype='PCM_16')
                 log(f"Generated audio saved to {{local_out_path}}")
 
                 # Upload output WAV
@@ -608,7 +608,7 @@ def main():
 
         # Save to output.wav in the current directory (which is /kaggle/working/ output folder)
         output_filename = "output.wav"
-        sf.write(output_filename, audio_result[0], 24000)
+        sf.write(output_filename, audio_result[0], 24000, format='WAV', subtype='PCM_16')
         print(f"Generated audio saved successfully to {{output_filename}}")
         sys.stdout.flush()
 

@@ -113,7 +113,7 @@ def main():
 
         # Save to output.wav in the current directory (which is /kaggle/working/ output folder)
         output_filename = "output.wav"
-        sf.write(output_filename, audio_result[0], 24000)
+        sf.write(output_filename, audio_result[0], 24000, format='WAV', subtype='PCM_16')
         print(f"Generated audio saved successfully to {output_filename}")
         sys.stdout.flush()
 
