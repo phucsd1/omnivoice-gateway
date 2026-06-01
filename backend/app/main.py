@@ -259,6 +259,15 @@ async def update_last_request_time(request: Request, call_next):
         print(f"[AutoShutdown] Request to {path} updated last activity time.")
     return await call_next(request)
 
+@app.get("/")
+def read_root():
+    return {
+        "status": "online",
+        "app": "OmniVoice On-Demand Gateway",
+        "version": "1.0.0",
+        "docs_url": "/docs"
+    }
+
 # Register routers
 app.include_router(health.router)
 app.include_router(auth.router)
