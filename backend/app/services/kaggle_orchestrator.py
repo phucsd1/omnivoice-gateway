@@ -352,8 +352,21 @@ class KaggleOrchestrator:
                 job.message = "Kaggle Worker gặp lỗi khi khởi động."
                 job.error_message = f"Kaggle boot error: {status_output}"
                 db.commit()
+            elif "cancel" in status_lower or "complete" in status_lower or "stop" in status_lower:
+                cls._unknown_status_count.pop(job.id, None)
+                job.status = "failed"
+                job.message = "Kaggle Worker đã dừng hoặc bị hủy."
+                job.error_message = f"Kaggle boot error: {status_output}"
+                db.commit()
             else:
                 print(f"[KaggleOrchestrator] Warning: unknown Kaggle status: {status_output}")
+                cls._unknown_status_count[job.id] = cls._unknown_status_count.get(job.id, 0) + 1
+                if cls._unknown_status_count[job.id] >= 10:
+                    job.status = "failed"
+                    job.message = "Trạng thái máy chủ Kaggle không xác định quá lâu."
+                    job.error_message = f"Unknown Kaggle status consecutively: {status_output}"
+                    db.commit()
+                    cls._unknown_status_count.pop(job.id, None)
                 
         except Exception as e:
             print(f"[KaggleOrchestrator] Exception polling booting worker: {e}")
