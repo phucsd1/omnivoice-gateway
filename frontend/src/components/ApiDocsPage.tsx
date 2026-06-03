@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Terminal, FileCode, Check, Play, Copy, ArrowLeft, KeyRound, BookOpen, Cpu, Code, Volume2, Sparkles } from "lucide-react";
+import { Terminal, FileCode, Check, Play, Copy, ArrowLeft, KeyRound, BookOpen, Cpu, Code, Volume2, Sparkles, Library } from "lucide-react";
 import { api, getApiBaseUrl } from "../api/client";
 import type { ApiKeyResponse } from "../api/client";
 
@@ -59,7 +59,21 @@ curl -X GET "${baseUrl}/v1/jobs/YOUR_JOB_ID" \\
 
 # 3. Tải tệp âm thanh WAV (khi status đạt "completed")
 curl -o output.wav -X GET "${baseUrl}/v1/tts/jobs/YOUR_JOB_ID/audio" \\
-  -H "Authorization: Bearer ${activeKey}"`,
+  -H "Authorization: Bearer ${activeKey}"
+
+# 4. Lấy danh sách giọng nói công khai trong Thư viện Giọng (Không cần xác thực)
+curl -X GET "${baseUrl}/v1/voice-library?tag=Miền%20Nam&search=Trẻ"
+
+# 5. Chỉnh sửa thông tin chi tiết của giọng nói (Yêu cầu API Key của chủ sở hữu)
+curl -X PUT "${baseUrl}/v1/voice-samples/YOUR_VOICE_ID" \\
+  -H "Authorization: Bearer ${activeKey}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "Giọng Nam Bộ Trẻ Đọc Truyện",
+    "tags": ["Miền Nam", "Trẻ", "Kể chuyện"],
+    "ref_text": "Chào bạn, đây là văn bản tham chiếu cập nhật",
+    "is_public": true
+  }'`,
 
     python: `import time
 import requests
@@ -117,7 +131,25 @@ audio_res.raise_for_status()
 
 with open("output.wav", "wb") as f:
     f.write(audio_res.content)
-print("Đã lưu tệp âm thanh thành công dưới tên: output.wav")`,
+print("Đã lưu tệp âm thanh thành công dưới tên: output.wav")
+
+# 4. Lấy danh sách giọng công khai trong Thư viện (Không cần xác thực)
+print("\\nĐang lấy danh sách giọng từ thư viện công khai...")
+lib_res = requests.get(f"{API_URL}/v1/voice-library", params={"tag": "Miền Nam"})
+lib_res.raise_for_status()
+print(f"Tìm thấy {len(lib_res.json())} giọng miền Nam công khai.")
+
+# 5. Cập nhật thông tin giọng nói (Tên, tag, độ công khai)
+print("\\nĐang chỉnh sửa giọng nói...")
+edit_payload = {
+    "name": "Giọng Nam Bộ Trẻ Đọc Truyện",
+    "tags": ["Miền Nam", "Trẻ", "Kể chuyện"],
+    "ref_text": "Văn bản mẫu mới cập nhật...",
+    "is_public": True
+}
+edit_res = requests.put(f"{API_URL}/v1/voice-samples/YOUR_VOICE_ID", json=edit_payload, headers=headers)
+edit_res.raise_for_status()
+print("Đã chỉnh sửa giọng nói thành công!")`,
 
     nodejs: `const fetch = require('node-fetch'); // Yêu cầu node-fetch đối với Node.js < 18
 const fs = require('fs');
@@ -179,6 +211,27 @@ async function generateSpeech() {
     
     fs.writeFileSync('output.wav', buffer);
     console.log("Tệp âm thanh WAV đã được lưu thành công: output.wav");
+
+    // 4. Lấy danh sách giọng công khai trong Thư viện
+    console.log("\\nĐang lấy danh sách giọng từ thư viện công khai...");
+    const libRes = await fetch(\`\${API_URL}/v1/voice-library?tag=Miên Nam\`);
+    const library = await libRes.json();
+    console.log(\`Tìm thấy \${library.length} giọng miền Nam công khai.\`);
+
+    // 5. Cập nhật thông tin giọng nói cá nhân
+    console.log("\\nĐang cập nhật thông tin giọng nói...");
+    const editRes = await fetch(\`\${API_URL}/v1/voice-samples/YOUR_VOICE_ID\`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({
+        name: 'Giọng Nam Bộ Trẻ Đọc Truyện',
+        tags: ['Miền Nam', 'Trẻ', 'Kể chuyện'],
+        ref_text: 'Văn bản mẫu mới cập nhật...',
+        is_public: true
+      })
+    });
+    const updated = await editRes.json();
+    console.log("Đã cập nhật giọng thành công:", updated.name);
   } catch (error) {
     console.error("Lỗi tích hợp:", error);
   }
@@ -489,6 +542,78 @@ generateSpeech();`
                   <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
                     Tải về tệp âm thanh kết quả định dạng WAV. <strong>Lưu ý quan trọng:</strong> Khi gọi GET endpoint này, bạn bắt buộc phải đính kèm Header Authorization API Key.
                   </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Voice Library & Editing API Documentation */}
+          <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-4 shadow-xl">
+            <div className="flex items-center gap-2 border-b border-border pb-2">
+              <Library className="w-4 h-4 text-primary" />
+              <h3 className="font-bold text-xs text-foreground uppercase tracking-wider">
+                Thư viện &amp; Quản lý Giọng nói (Voice Library API)
+              </h3>
+            </div>
+            
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Quản lý thư viện giọng nói công khai hoặc chỉnh sửa thông tin mô tả chi tiết của giọng đọc cá nhân đã được tạo/tải lên.
+            </p>
+
+            <div className="flex flex-col gap-4 mt-1">
+              {/* Endpoint 1 */}
+              <div className="flex gap-4 border-b border-border/40 pb-3">
+                <div className="bg-primary/10 text-primary font-black text-[10px] w-12 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 uppercase">
+                  GET
+                </div>
+                <div className="flex flex-col gap-1 min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="bg-primary/15 border border-primary/20 text-primary text-[10px] font-black px-2 py-0.5 rounded">
+                      PUBLIC
+                    </span>
+                    <span className="font-mono text-xs text-foreground select-all">/v1/voice-library</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
+                    Lấy danh sách các giọng đọc công khai trong hệ thống (không yêu cầu khóa xác thực API Key).
+                  </p>
+                  <div className="text-[11px] text-muted-foreground mt-1 bg-background/50 border border-border/40 p-2.5 rounded-lg space-y-1">
+                    <span className="font-bold text-foreground">Tham số truy vấn (Query params):</span>
+                    <ul className="list-disc pl-4 space-y-0.5 text-[10px]">
+                      <li><code className="text-primary font-mono">tag</code> (tùy chọn): Lọc theo nhãn (như <code className="bg-muted px-1.5 py-0.5 border border-border rounded">Miền Nam</code>, <code className="bg-muted px-1.5 py-0.5 border border-border rounded">Kể chuyện</code>, <code className="bg-muted px-1.5 py-0.5 border border-border rounded">Trẻ</code>...).</li>
+                      <li><code className="text-primary font-mono">search</code> (tùy chọn): Tìm kiếm tương đối theo tên giọng nói.</li>
+                      <li><code className="text-primary font-mono">limit</code> (mặc định 50): Số lượng bản ghi tối đa trả về (từ 1 đến 200).</li>
+                      <li><code className="text-primary font-mono">offset</code> (mặc định 0): Số lượng bản ghi bỏ qua (phục vụ phân trang).</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Endpoint 2 */}
+              <div className="flex gap-4">
+                <div className="bg-success/10 text-success font-black text-[10px] w-12 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 uppercase">
+                  PUT
+                </div>
+                <div className="flex flex-col gap-1 min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="bg-success/15 border border-success/20 text-success text-[10px] font-black px-2 py-0.5 rounded">
+                      AUTH
+                    </span>
+                    <span className="font-mono text-xs text-foreground select-all">/v1/voice-samples/{"{voice_sample_id}"}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
+                    Cập nhật Tên, danh sách Nhãn (Tags), Văn bản mẫu (ref_text) hoặc trạng thái chia sẻ (is_public) của một mẫu giọng do bạn sở hữu (Yêu cầu API Key).
+                  </p>
+                  <div className="text-[11px] text-muted-foreground mt-1 bg-background/50 border border-border/40 p-2.5 rounded-lg space-y-1">
+                    <span className="font-bold text-foreground">Payload JSON (Tất cả tham số đều tùy chọn):</span>
+                    <pre className="font-mono text-[10px] text-primary/90 mt-1 leading-normal overflow-x-auto whitespace-pre">
+{`{
+  "name": "Tên giọng mới",
+  "tags": ["Miền Bắc", "Trẻ", "Kể chuyện"],
+  "ref_text": "Văn bản mẫu của giọng nói",
+  "is_public": true
+}`}
+                    </pre>
+                  </div>
                 </div>
               </div>
             </div>

@@ -165,3 +165,154 @@ def test_save_favorite_voice_flow():
             os.remove(s.file_path)
             
     db.close()
+
+
+def test_public_voice_library_and_editing():
+    db = SessionLocal()
+    
+    # 1. Create a user
+    user_c_id = generate_id("usr")
+    user_c = User(
+        id=user_c_id,
+        username="userc",
+        hashed_password="hashedpasswordC",
+        is_verified=True,
+        is_approved=True
+    )
+    db.add(user_c)
+    db.commit()
+    
+    # Create another user to test edit permissions
+    user_d_id = generate_id("usr")
+    user_d = User(
+        id=user_d_id,
+        username="userd",
+        hashed_password="hashedpasswordD",
+        is_verified=True,
+        is_approved=True
+    )
+    db.add(user_d)
+    db.commit()
+    
+    # Token
+    token_c = create_access_token({"sub": "userc"})
+    token_d = create_access_token({"sub": "userd"})
+    headers_c = {"Authorization": f"Bearer {token_c}"}
+    headers_d = {"Authorization": f"Bearer {token_d}"}
+    
+    # 2. Add public voice sample 1 (Miền Nam, Trẻ)
+    job_id = generate_id("job")
+    job = TTSJob(
+        id=job_id,
+        user_id=user_c_id,
+        job_type="auto_voice",
+        status="completed",
+        text="Công khai Miền Nam",
+        output_audio_path=DUMMY_WAV_PATH
+    )
+    db.add(job)
+    db.commit()
+    
+    payload_1 = {
+        "job_id": job_id,
+        "name": "Giọng Nam Bộ Trẻ",
+        "is_public": True,
+        "ref_text": "Chào bạn",
+        "tags": ["Miền Nam", "Trẻ"]
+    }
+    resp1 = client.post("/v1/voice-samples/save-favorite", json=payload_1, headers=headers_c)
+    assert resp1.status_code == 200
+    vs1_id = resp1.json()["voice_sample_id"]
+    
+    # 3. Add public voice sample 2 (Miền Bắc)
+    job_id_2 = generate_id("job")
+    job_2 = TTSJob(
+        id=job_id_2,
+        user_id=user_c_id,
+        job_type="auto_voice",
+        status="completed",
+        text="Công khai Miền Bắc",
+        output_audio_path=DUMMY_WAV_PATH
+    )
+    db.add(job_2)
+    db.commit()
+    
+    payload_2 = {
+        "job_id": job_id_2,
+        "name": "Giọng Bắc Bộ Kể Chuyện",
+        "is_public": True,
+        "ref_text": "Kính chào quý vị",
+        "tags": ["Miền Bắc", "Kể chuyện"]
+    }
+    resp2 = client.post("/v1/voice-samples/save-favorite", json=payload_2, headers=headers_c)
+    assert resp2.status_code == 200
+    vs2_id = resp2.json()["voice_sample_id"]
+    
+    # 4. Access public voice library endpoint without auth
+    resp = client.get("/v1/voice-library")
+    assert resp.status_code == 200
+    items = resp.json()
+    # Should contain at least our 2 newly created public voices
+    ids = [item["id"] for item in items]
+    assert vs1_id in ids
+    assert vs2_id in ids
+    
+    # Check that preview_url and tags are populated
+    vs1_item = next(item for item in items if item["id"] == vs1_id)
+    assert vs1_item["name"] == "Giọng Nam Bộ Trẻ"
+    assert "Miền Nam" in vs1_item["tags"]
+    assert "Trẻ" in vs1_item["tags"]
+    assert vs1_item["preview_url"] == f"/v1/voice-samples/{vs1_id}/audio"
+    
+    # 5. Filter by tag
+    resp = client.get("/v1/voice-library?tag=Miền Nam")
+    assert resp.status_code == 200
+    items_filtered = resp.json()
+    ids_filtered = [item["id"] for item in items_filtered]
+    assert vs1_id in ids_filtered
+    assert vs2_id not in ids_filtered
+    
+    # 6. Filter by search query
+    resp = client.get("/v1/voice-library?search=Bắc")
+    assert resp.status_code == 200
+    items_searched = resp.json()
+    ids_searched = [item["id"] for item in items_searched]
+    assert vs2_id in ids_searched
+    assert vs1_id not in ids_searched
+    
+    # 7. Edit voice sample details
+    update_payload = {
+        "name": "Giọng Nam Bộ Trẻ Cập Nhật",
+        "tags": ["Miền Nam", "Trẻ", "Quảng cáo"],
+        "ref_text": "Chào bạn hiền",
+        "is_public": False
+    }
+    resp = client.put(f"/v1/voice-samples/{vs1_id}", json=update_payload, headers=headers_c)
+    assert resp.status_code == 200
+    updated_data = resp.json()
+    assert updated_data["name"] == "Giọng Nam Bộ Trẻ Cập Nhật"
+    assert "Quảng cáo" in updated_data["tags"]
+    assert updated_data["ref_text"] == "Chào bạn hiền"
+    assert updated_data["is_public"] is False
+    
+    # Verify it is no longer in the public library
+    resp = client.get("/v1/voice-library")
+    assert resp.status_code == 200
+    items_public = resp.json()
+    public_ids = [item["id"] for item in items_public]
+    assert vs1_id not in public_ids
+    
+    # 8. Attempt edit by another user (User D)
+    resp = client.put(f"/v1/voice-samples/{vs2_id}", json={"name": "Hacker Edit"}, headers=headers_d)
+    assert resp.status_code == 404 # Endpoint returns 404 if not found or unauthorized
+    
+    # Cleanup files
+    db_samples = db.query(VoiceSample).all()
+    for s in db_samples:
+        if os.path.exists(s.file_path):
+            try:
+                os.remove(s.file_path)
+            except Exception:
+                pass
+                
+    db.close()

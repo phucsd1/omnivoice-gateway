@@ -371,7 +371,7 @@ def list_public_voice_library(
     """Lists all public voice samples for browsing. No authentication required."""
     query = db.query(VoiceSample).filter(VoiceSample.is_public == True)
     if tag:
-        query = query.filter(VoiceSample.tags.like(f'"%{tag}"%'))
+        query = query.filter(VoiceSample.tags.like(f'%"{tag}"%'))
     if search:
         query = query.filter(VoiceSample.name.ilike(f"%{search}%"))
     
