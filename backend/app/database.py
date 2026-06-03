@@ -107,7 +107,9 @@ def migrate_database(db_url: str):
             "batch_id": "VARCHAR(50)",
             "compat_id": "VARCHAR(100)",
             "with_alignment": "BOOLEAN DEFAULT 0",
-            "alignment": "TEXT"
+            "alignment": "TEXT",
+            "started_at": "DATETIME",
+            "completed_at": "DATETIME"
         }
         
         for col, col_type in new_cols.items():

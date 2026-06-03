@@ -79,6 +79,13 @@ export interface JobStatusResponse {
   job_type?: string;
   text?: string;
   created_at?: string;
+  started_at?: string;
+  completed_at?: string;
+  processing_time?: number;
+  queue_time?: number;
+  total_time?: number;
+  params?: Record<string, any>;
+  alignment?: any;
 }
 
 export interface ApiKeyResponse {

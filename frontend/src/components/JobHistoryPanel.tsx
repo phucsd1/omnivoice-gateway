@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Clock, RefreshCw, Layers, Heart, Lock, Globe, X, ChevronDown, ChevronUp, AlertCircle, CheckCircle, Play, Pause } from "lucide-react";
+import { Clock, RefreshCw, Layers, Heart, Lock, Globe, X, ChevronDown, ChevronUp, AlertCircle, CheckCircle, Play, Pause, Zap, Copy, Check, Terminal, Settings } from "lucide-react";
 import { api, type JobStatusResponse } from "../api/client";
 
 interface JobHistoryPanelProps {
@@ -33,6 +33,40 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
   const [saveVoiceJobId, setSaveVoiceJobId] = useState<string | null>(null);
   const [isSavingVoice, setIsSavingVoice] = useState(false);
   const [saveVoiceStatus, setSaveVoiceStatus] = useState<string | null>(null);
+
+  // Expanded configs and tabs state
+  const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({});
+  const [activeTabs, setActiveTabs] = useState<Record<string, "params" | "json">>({});
+  const [copiedJobId, setCopiedJobId] = useState<string | null>(null);
+
+  const toggleDetails = (jobId: string) => {
+    setExpandedDetails(prev => ({
+      ...prev,
+      [jobId]: !prev[jobId],
+    }));
+  };
+
+  const isDetailsExpanded = (jobId: string) => !!expandedDetails[jobId];
+
+  const getDetailsTab = (jobId: string) => activeTabs[jobId] || "params";
+
+  const setDetailsTab = (jobId: string, tab: "params" | "json") => {
+    setActiveTabs(prev => ({
+      ...prev,
+      [jobId]: tab,
+    }));
+  };
+
+  const copyToClipboard = (jobId: string, text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedJobId(jobId);
+      setTimeout(() => {
+        setCopiedJobId(null);
+      }, 2000);
+    }).catch(err => {
+      console.error("Lỗi khi sao chép: ", err);
+    });
+  };
 
   const loadJobs = async () => {
     setLoading(true);
@@ -203,6 +237,15 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
                       <Clock className="w-3 h-3 text-muted-foreground" />
                       {formatTime(job.created_at)}
                     </span>
+                    {job.total_time !== undefined && job.total_time !== null && (
+                      <span 
+                        className="text-[10px] text-primary dark:text-primary font-semibold flex items-center gap-1 bg-primary/5 px-2 py-0.5 border border-primary/10 rounded-full cursor-help select-none"
+                        title={`Hàng đợi: ${job.queue_time?.toFixed(1)}s, Xử lý: ${job.processing_time?.toFixed(1)}s`}
+                      >
+                        <Zap className="w-3 h-3 fill-current text-primary" />
+                        <span>{job.total_time.toFixed(1)}s</span>
+                      </span>
+                    )}
                   </div>
 
                   {/* Status Badges */}
@@ -252,6 +295,112 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
                     )}
                   </div>
                 )}
+
+                {/* Accordion Toggle for parameters & Prompt JSON */}
+                <div className="border-t border-border/20 pt-2 flex justify-between items-center select-none">
+                  <button
+                    onClick={() => toggleDetails(job.job_id)}
+                    className="text-[11px] text-muted-foreground hover:text-foreground font-bold focus:outline-none inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    {isDetailsExpanded(job.job_id) ? (
+                      <>
+                        <ChevronUp className="w-3.5 h-3.5" />
+                        <span>Ẩn cấu hình & Prompt JSON</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="w-3.5 h-3.5" />
+                        <span>Xem cấu hình & Prompt JSON</span>
+                      </>
+                    )}
+                  </button>
+                  
+                  {job.total_time !== undefined && job.total_time !== null && (
+                    <span className="text-[10px] text-muted-foreground">
+                      Xử lý: <span className="font-mono font-bold text-foreground">{job.processing_time?.toFixed(1)}s</span>
+                      {job.queue_time !== undefined && (
+                        <> (Chờ: <span className="font-mono font-bold text-foreground">{job.queue_time.toFixed(1)}s</span>)</>
+                      )}
+                    </span>
+                  )}
+                </div>
+
+                {/* Collapsible details panel */}
+                {isDetailsExpanded(job.job_id) && (
+                  <div className="bg-card/40 border border-border/50 rounded-2xl p-4 flex flex-col gap-3 text-xs shadow-inner">
+                    {/* Tabs header */}
+                    <div className="flex border-b border-border/40 pb-1.5 gap-3 select-none">
+                      <button
+                        onClick={() => setDetailsTab(job.job_id, "params")}
+                        className={`pb-1 text-[11px] font-bold border-b-2 transition-all cursor-pointer inline-flex items-center gap-1.5 ${
+                          getDetailsTab(job.job_id) === "params"
+                            ? "border-primary text-primary"
+                            : "border-transparent text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <Settings className="w-3.5 h-3.5" />
+                        <span>Thông số đã gửi</span>
+                      </button>
+                      <button
+                        onClick={() => setDetailsTab(job.job_id, "json")}
+                        className={`pb-1 text-[11px] font-bold border-b-2 transition-all cursor-pointer inline-flex items-center gap-1.5 ${
+                          getDetailsTab(job.job_id) === "json"
+                            ? "border-primary text-primary"
+                            : "border-transparent text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <Terminal className="w-3.5 h-3.5" />
+                        <span>Prompt JSON</span>
+                      </button>
+                    </div>
+
+                    {/* Tab 1: Params grid */}
+                    {getDetailsTab(job.job_id) === "params" && (
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1">
+                        {Object.entries(job.params || {}).map(([key, val]) => {
+                          if (key === "text") return null;
+                          
+                          let formattedVal = String(val);
+                          if (typeof val === "boolean") {
+                            formattedVal = val ? "Bật" : "Tắt";
+                          } else if (key === "speed") {
+                            formattedVal = `${val}x`;
+                          }
+                          
+                          return (
+                            <div key={key} className="bg-background/45 border border-border/30 rounded-xl px-3 py-1.5 flex flex-col gap-0.5 justify-center shadow-sm">
+                              <span className="text-[10px] text-muted-foreground font-bold font-mono tracking-wide">{key}</span>
+                              <span className="font-semibold text-foreground font-sans truncate" title={String(val)}>
+                                {formattedVal}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Tab 2: Prompt JSON code block */}
+                    {getDetailsTab(job.job_id) === "json" && (
+                      <div className="relative mt-1 group">
+                        <pre className="bg-background border border-border/60 rounded-xl p-3.5 overflow-x-auto text-[11px] font-mono leading-relaxed max-h-56 scrollbar-thin select-all">
+                          {JSON.stringify(job.params || {}, null, 2)}
+                        </pre>
+                        <button
+                          onClick={() => copyToClipboard(job.job_id, JSON.stringify(job.params || {}, null, 2))}
+                          className="absolute top-2 right-2 p-1.5 bg-card hover:bg-muted border border-border rounded-lg text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-sm flex items-center justify-center"
+                          title="Sao chép JSON"
+                        >
+                          {copiedJobId === job.job_id ? (
+                            <Check className="w-3.5 h-3.5 text-success" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
 
                 {/* Job Output / Actions */}
                 {isCompleted && job.audio_url && (

@@ -111,6 +111,12 @@ class JobStatusResponse(BaseModel):
     text: Optional[str] = None
     created_at: Optional[datetime] = None
     alignment: Optional[Any] = Field(None, description="Danh sách mốc thời gian khớp từ tương ứng dạng JSON array [{\"word\": \"...\", \"start\": 0.0, \"end\": 0.5}] (Chỉ có khi with_alignment=True)")
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    processing_time: Optional[float] = None
+    queue_time: Optional[float] = None
+    total_time: Optional[float] = None
+    params: Optional[dict[str, Any]] = None
 
 # Worker related schemas
 class WorkerRegisterRequest(BaseModel):

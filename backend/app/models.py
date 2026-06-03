@@ -113,6 +113,8 @@ class TTSJob(Base):
     compat_id = Column(String(100), nullable=True)
     with_alignment = Column(Boolean, nullable=True, default=False)
     alignment = Column(Text, nullable=True)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

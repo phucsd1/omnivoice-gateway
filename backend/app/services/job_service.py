@@ -226,6 +226,7 @@ class JobService:
         job.status = "preparing_input"
         job.worker_id = worker_id
         job.message = "Đang chuẩn bị dữ liệu đầu vào trên Worker..."
+        job.started_at = datetime.utcnow()
         db.commit()
         db.refresh(job)
         return job
@@ -243,6 +244,9 @@ class JobService:
         job.progress = progress
         if error_message:
             job.error_message = error_message
+        
+        if status in ["completed", "failed"]:
+            job.completed_at = datetime.utcnow()
         
         # Sync preview status if it's a preview job
         if job.job_type == "voice_design_preview" and job.preview_id:
@@ -273,6 +277,8 @@ class JobService:
         job.output_audio_path = local_output_path
         if alignment:
             job.alignment = alignment
+        
+        job.completed_at = datetime.utcnow()
         
         # Sync and copy to preview if it's a voice design preview
         if job.job_type == "voice_design_preview" and job.preview_id:
