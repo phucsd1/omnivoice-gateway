@@ -90,7 +90,8 @@ from urllib.parse import urlparse
 os.environ["CUDA_MODULE_LOADING"] = "LAZY"
 os.environ["PYTHONWARNINGS"] = "ignore"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
+os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "0"
+os.environ["HF_HUB_DISABLE_XET"] = "1"
 warnings.filterwarnings("ignore")
 
 def ensure_dependencies():
@@ -104,10 +105,6 @@ def ensure_dependencies():
         import soundfile
     except ImportError:
         missing.append("soundfile")
-    try:
-        import hf_transfer
-    except ImportError:
-        missing.append("hf-transfer")
         
     if missing:
         import subprocess
@@ -487,7 +484,8 @@ import warnings
 os.environ["CUDA_MODULE_LOADING"] = "LAZY"
 os.environ["PYTHONWARNINGS"] = "ignore"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
+os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "0"
+os.environ["HF_HUB_DISABLE_XET"] = "1"
 warnings.filterwarnings("ignore")
 
 def ensure_dependencies():
@@ -501,10 +499,6 @@ def ensure_dependencies():
         import soundfile
     except ImportError:
         missing.append("soundfile")
-    try:
-        import hf_transfer
-    except ImportError:
-        missing.append("hf-transfer")
         
     if missing:
         import subprocess
