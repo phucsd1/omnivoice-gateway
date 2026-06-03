@@ -63,6 +63,8 @@ class VoiceSample(Base):
     duration = Column(Float, nullable=True)
     sample_rate = Column(Integer, nullable=True)
     status = Column(String(50), nullable=False, default="ready")
+    tags = Column(Text, nullable=True)
+    source_job_data = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class VoiceDesignPreview(Base):

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Clock, RefreshCw, Layers, Heart, Lock, Globe, X, ChevronDown, ChevronUp, AlertCircle, CheckCircle, Play, Pause, Zap, Copy, Check, Terminal, Settings } from "lucide-react";
+import { Clock, RefreshCw, Layers, Heart, Lock, Globe, X, ChevronDown, ChevronUp, AlertCircle, CheckCircle, Play, Pause, Zap, Copy, Check, Terminal, Settings, Tag } from "lucide-react";
 import { api, type JobStatusResponse } from "../api/client";
 
 interface JobHistoryPanelProps {
@@ -33,6 +33,7 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
   const [saveVoiceJobId, setSaveVoiceJobId] = useState<string | null>(null);
   const [isSavingVoice, setIsSavingVoice] = useState(false);
   const [saveVoiceStatus, setSaveVoiceStatus] = useState<string | null>(null);
+  const [saveVoiceTags, setSaveVoiceTags] = useState<string[]>([]);
 
   // Expanded configs and tabs state
   const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({});
@@ -103,6 +104,7 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
     setSaveVoiceRefText(suggestedText);
     
     setSaveVoiceIsPublic(false);
+    setSaveVoiceTags([]);
     setSaveVoiceStatus(null);
     setIsSaveModalOpen(true);
   };
@@ -118,6 +120,7 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
         name: saveVoiceName,
         is_public: saveVoiceIsPublic,
         ref_text: saveVoiceRefText,
+        tags: saveVoiceTags.length > 0 ? saveVoiceTags : undefined,
       });
       setSaveVoiceStatus("Lưu giọng thành công vào Thư viện!");
       setTimeout(() => {
@@ -529,6 +532,33 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
                     <Globe className="w-3.5 h-3.5" />
                     <span>Công khai (Public)</span>
                   </button>
+                </div>
+              </div>
+
+              {/* Tags */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                  <Tag className="w-2.5 h-2.5" /> Tags phân loại (Không bắt buộc)
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {["Miền Bắc", "Miền Nam", "Miền Trung", "Trẻ", "Trung niên", "Kể chuyện", "Quảng cáo", "Tin tức", "Podcast", "Audiobook"].map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => {
+                        setSaveVoiceTags(prev =>
+                          prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+                        );
+                      }}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer border ${
+                        saveVoiceTags.includes(tag)
+                          ? "bg-primary text-white border-primary"
+                          : "bg-zinc-50 dark:bg-zinc-800/40 border-zinc-200/60 dark:border-zinc-700/60 text-zinc-600 dark:text-zinc-400 hover:brightness-95 dark:hover:brightness-110"
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>

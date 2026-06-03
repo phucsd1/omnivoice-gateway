@@ -126,7 +126,9 @@ def migrate_database(db_url: str):
             vs_new_cols = {
                 "name": "VARCHAR(100)",
                 "is_public": "BOOLEAN DEFAULT 0",
-                "source_job_id": "VARCHAR(50)"
+                "source_job_id": "VARCHAR(50)",
+                "tags": "TEXT",
+                "source_job_data": "TEXT"
             }
             for col, col_type in vs_new_cols.items():
                 if col not in vs_columns:

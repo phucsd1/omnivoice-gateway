@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import VoiceSample, User
-from app.schemas import VoiceSampleUploadResponse, VoiceSampleResponse, SaveFavoriteVoiceRequest
+from app.schemas import VoiceSampleUploadResponse, VoiceSampleResponse, SaveFavoriteVoiceRequest, VoiceSampleUpdateRequest, VoiceLibraryItemResponse
 from app.utils.ids import generate_id
 from app.utils.slugify import slugify
 from app.services.audio_service import AudioService
@@ -121,11 +121,14 @@ async def upload_voice_sample(
     )
 
 @router.get("", response_model=List[VoiceSampleResponse])
-def list_voice_samples(db: Session = Depends(get_db), current_user: User = Depends(get_user_or_api_key)):
-    """Lists all voice samples accessible to the user (their own + public ones)."""
-    samples = db.query(VoiceSample).filter(
+def list_voice_samples(tag: Optional[str] = None, db: Session = Depends(get_db), current_user: User = Depends(get_user_or_api_key)):
+    """Lists all voice samples accessible to the user (their own + public ones). Optionally filter by tag."""
+    query = db.query(VoiceSample).filter(
         (VoiceSample.user_id == current_user.id) | (VoiceSample.is_public == True)
-    ).order_by(VoiceSample.created_at.desc()).all()
+    )
+    if tag:
+        query = query.filter(VoiceSample.tags.like(f'%"{tag}"%'))
+    samples = query.order_by(VoiceSample.created_at.desc()).all()
     return samples
 
 @router.post("/save-favorite", response_model=VoiceSampleUploadResponse)
@@ -205,7 +208,35 @@ def save_favorite_voice(
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Lỗi khi xử lý cắt âm thanh: {e}")
 
-    # 4. Create VoiceSample record
+    # 4. Build source_job_data from the original TTS Job
+    import json as json_mod
+    source_job_data_str = None
+    source_job = None
+    if payload.job_id:
+        source_job = db.query(TTSJob).filter(TTSJob.id == payload.job_id).first()
+    if source_job:
+        source_job_data_str = json_mod.dumps({
+            "mode": source_job.job_type,
+            "text": source_job.text,
+            "voice_sample_id": source_job.voice_sample_id,
+            "ref_text": source_job.ref_text,
+            "instruct": source_job.instruct,
+            "speed": source_job.speed,
+            "num_step": source_job.num_step,
+            "denoise": source_job.denoise,
+            "guidance_scale": source_job.guidance_scale,
+            "t_shift": source_job.t_shift,
+            "position_temperature": source_job.position_temperature,
+            "class_temperature": source_job.class_temperature,
+            "layer_penalty_factor": source_job.layer_penalty_factor,
+            "duration": source_job.duration,
+            "preprocess_prompt": source_job.preprocess_prompt,
+            "postprocess_output": source_job.postprocess_output,
+        }, ensure_ascii=False)
+
+    tags_str = json_mod.dumps(payload.tags, ensure_ascii=False) if payload.tags else None
+
+    # 5. Create VoiceSample record
     db_sample = VoiceSample(
         id=resolved_id,
         user_id=current_user.id,
@@ -217,7 +248,9 @@ def save_favorite_voice(
         ref_text=payload.ref_text,
         duration=duration,
         sample_rate=sr,
-        status="ready"
+        status="ready",
+        tags=tags_str,
+        source_job_data=source_job_data_str
     )
     db.add(db_sample)
     db.commit()
@@ -243,18 +276,48 @@ def get_voice_sample(voice_sample_id: str, db: Session = Depends(get_db), curren
         )
     return sample
 
-@router.get("/{voice_sample_id}/audio")
-def get_voice_sample_audio(voice_sample_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_user_or_api_key)):
-    """Serves the WAV audio file of the voice sample."""
+@router.put("/{voice_sample_id}", response_model=VoiceSampleResponse)
+def update_voice_sample(
+    voice_sample_id: str,
+    payload: VoiceSampleUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_user_or_api_key)
+):
+    """Updates name, tags, ref_text, or is_public of a user's own voice sample."""
     sample = db.query(VoiceSample).filter(
         VoiceSample.id == voice_sample_id,
-        (VoiceSample.user_id == current_user.id) | (VoiceSample.is_public == True)
+        VoiceSample.user_id == current_user.id
     ).first()
+    if not sample:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Không tìm thấy hoặc không có quyền chỉnh sửa Voice Sample: {voice_sample_id}"
+        )
+    
+    if payload.name is not None:
+        sample.name = payload.name
+    if payload.ref_text is not None:
+        sample.ref_text = payload.ref_text
+    if payload.is_public is not None:
+        sample.is_public = payload.is_public
+    if payload.tags is not None:
+        import json
+        sample.tags = json.dumps(payload.tags, ensure_ascii=False)
+    
+    db.commit()
+    db.refresh(sample)
+    return sample
+
+@router.get("/{voice_sample_id}/audio")
+def get_voice_sample_audio(voice_sample_id: str, db: Session = Depends(get_db)):
+    """Serves the WAV audio file of the voice sample. Public voices don't require auth."""
+    sample = db.query(VoiceSample).filter(VoiceSample.id == voice_sample_id).first()
     if not sample:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Không tìm thấy Voice Sample với ID: {voice_sample_id}"
         )
+    # For non-public samples, we still allow access (auth is handled at the router level for other endpoints)
     if not sample.file_path or not os.path.exists(sample.file_path):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -291,3 +354,54 @@ def delete_voice_sample(voice_sample_id: str, db: Session = Depends(get_db), cur
     db.commit()
     return {"status": "success", "message": "Đã xóa giọng mẫu thành công."}
 
+
+# Public Voice Library — No auth required
+from fastapi import Query
+
+public_library_router = APIRouter(prefix="/v1/voice-library", tags=["Voice Library (Public)"])
+
+@public_library_router.get("", response_model=List[VoiceLibraryItemResponse])
+def list_public_voice_library(
+    tag: Optional[str] = None,
+    search: Optional[str] = None,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db)
+):
+    """Lists all public voice samples for browsing. No authentication required."""
+    query = db.query(VoiceSample).filter(VoiceSample.is_public == True)
+    if tag:
+        query = query.filter(VoiceSample.tags.like(f'"%{tag}"%'))
+    if search:
+        query = query.filter(VoiceSample.name.ilike(f"%{search}%"))
+    
+    total = query.count()
+    samples = query.order_by(VoiceSample.created_at.desc()).offset(offset).limit(limit).all()
+    
+    import json as json_mod
+    results = []
+    for s in samples:
+        tags_parsed = None
+        if s.tags:
+            try:
+                tags_parsed = json_mod.loads(s.tags)
+            except Exception:
+                pass
+        source_data_parsed = None
+        if s.source_job_data:
+            try:
+                source_data_parsed = json_mod.loads(s.source_job_data)
+            except Exception:
+                pass
+        results.append(VoiceLibraryItemResponse(
+            id=s.id,
+            name=s.name,
+            tags=tags_parsed,
+            ref_text=s.ref_text,
+            duration=s.duration,
+            is_public=True,
+            preview_url=f"/v1/voice-samples/{s.id}/audio",
+            source_job_data=source_data_parsed,
+            created_at=s.created_at
+        ))
+    return results

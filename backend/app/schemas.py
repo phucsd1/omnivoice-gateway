@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import Optional, Any
 from datetime import datetime
+import json as _json
 
 class HealthResponse(BaseModel):
     status: str
@@ -24,6 +25,28 @@ class VoiceSampleResponse(BaseModel):
     name: Optional[str] = None
     is_public: bool = False
     source_job_id: Optional[str] = None
+    tags: Optional[list[str]] = None
+    source_job_data: Optional[dict[str, Any]] = None
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def parse_tags(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            try:
+                return _json.loads(v)
+            except Exception:
+                return None
+        return v
+
+    @field_validator("source_job_data", mode="before")
+    @classmethod
+    def parse_source_job_data(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            try:
+                return _json.loads(v)
+            except Exception:
+                return None
+        return v
 
 class SaveFavoriteVoiceRequest(BaseModel):
     job_id: Optional[str] = None
@@ -32,6 +55,25 @@ class SaveFavoriteVoiceRequest(BaseModel):
     is_public: bool = False
     ref_text: str
     custom_id: Optional[str] = Field(None, max_length=50)
+    tags: Optional[list[str]] = None
+
+
+class VoiceSampleUpdateRequest(BaseModel):
+    name: Optional[str] = Field(None, max_length=100)
+    tags: Optional[list[str]] = None
+    ref_text: Optional[str] = None
+    is_public: Optional[bool] = None
+
+class VoiceLibraryItemResponse(BaseModel):
+    id: str
+    name: Optional[str] = None
+    tags: Optional[list[str]] = None
+    ref_text: Optional[str] = None
+    duration: Optional[float] = None
+    is_public: bool = True
+    preview_url: str
+    source_job_data: Optional[dict[str, Any]] = None
+    created_at: datetime
 
 
 class VoiceDesignPreviewCreate(BaseModel):

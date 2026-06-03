@@ -37,6 +37,15 @@ export interface VoiceSampleResponse {
   name: string | null;
   is_public: boolean;
   source_job_id: string | null;
+  tags?: string[] | null;
+  source_job_data?: Record<string, any> | null;
+}
+
+export interface VoiceSampleUpdateRequest {
+  name?: string;
+  tags?: string[];
+  ref_text?: string;
+  is_public?: boolean;
 }
 
 export interface VoiceDesignPreviewResponse {
@@ -479,13 +488,24 @@ export const api = {
     return request<ApiLogResponse[]>(url);
   },
 
-  listVoiceSamples: async (): Promise<VoiceSampleResponse[]> => {
-    return request<VoiceSampleResponse[]>("/v1/voice-samples");
+  listVoiceSamples: async (tag?: string): Promise<VoiceSampleResponse[]> => {
+    const params = tag ? `?tag=${encodeURIComponent(tag)}` : "";
+    return request<VoiceSampleResponse[]>(`/v1/voice-samples${params}`);
   },
 
-  saveFavoriteVoice: async (payload: { job_id?: string; preview_id?: string; name: string; is_public: boolean; ref_text: string; custom_id?: string }): Promise<VoiceSampleUploadResponse> => {
+  saveFavoriteVoice: async (payload: { job_id?: string; preview_id?: string; name: string; is_public: boolean; ref_text: string; custom_id?: string; tags?: string[] }): Promise<VoiceSampleUploadResponse> => {
     return request<VoiceSampleUploadResponse>("/v1/voice-samples/save-favorite", {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+  },
+
+  updateVoiceSample: async (voiceSampleId: string, payload: VoiceSampleUpdateRequest): Promise<VoiceSampleResponse> => {
+    return request<VoiceSampleResponse>(`/v1/voice-samples/${voiceSampleId}`, {
+      method: "PUT",
       headers: {
         "Content-Type": "application/json",
       },

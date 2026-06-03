@@ -226,3 +226,75 @@ When `with_alignment` is `true`, instead of returning the raw binary audio file,
 > [!NOTE]
 > By default, `with_alignment` is `false`. The API will return the raw audio binary file directly, saving GPU/CPU resources on the worker nodes.
 
+---
+
+## E. Voice Library API
+
+The gateway provides a Voice Library system for managing and browsing voice samples. Public voices can be listed without authentication, making it easy for clients to browse and select voices.
+
+### 1. List Public Voices — `GET /v1/voice-library`
+
+**No authentication required.** Browse all public voice samples with optional filtering.
+
+**Query Parameters:**
+
+| Param    | Type   | Default | Description                          |
+|----------|--------|---------|--------------------------------------|
+| `tag`    | string | —       | Filter by tag (e.g., `Miền Bắc`)     |
+| `search` | string | —       | Search by voice name                 |
+| `limit`  | int    | 50      | Maximum number of results (1-200)    |
+| `offset` | int    | 0       | Pagination offset                    |
+
+**Response:**
+```json
+[
+  {
+    "id": "vs_abc123",
+    "name": "Giọng nữ trầm ấm",
+    "tags": ["Miền Bắc", "Trẻ", "Kể chuyện"],
+    "ref_text": "Xin chào, tôi là...",
+    "duration": 7.5,
+    "is_public": true,
+    "preview_url": "/v1/voice-samples/vs_abc123/audio",
+    "source_job_data": {
+      "mode": "clone_voice",
+      "speed": 1.0,
+      "num_step": 32,
+      "guidance_scale": 2.0
+    },
+    "created_at": "2025-06-01T12:00:00"
+  }
+]
+```
+
+### 2. Preview Audio — `GET /v1/voice-samples/{id}/audio`
+
+Returns the WAV audio file of a voice sample. Public voices don't require authentication.
+
+### 3. Edit Voice Sample — `PUT /v1/voice-samples/{id}`
+
+**Requires Bearer token.** Updates name, tags, ref_text, or is_public of a user's own voice sample.
+
+**Request Body:**
+```json
+{
+  "name": "Giọng nữ mới",
+  "tags": ["Miền Nam", "Quảng cáo"],
+  "ref_text": "Văn bản tham khảo mới...",
+  "is_public": false
+}
+```
+
+All fields are optional. Only provided fields will be updated.
+
+### 4. Available Tags
+
+Voice samples support custom tags for classification. Common preset tags include:
+
+| Category   | Tags                                |
+|-----------|-------------------------------------|
+| Region    | `Miền Bắc`, `Miền Nam`, `Miền Trung` |
+| Age       | `Trẻ`, `Trung niên`, `Cao tuổi`      |
+| Style     | `Kể chuyện`, `Quảng cáo`, `Tin tức`, `Podcast`, `Audiobook` |
+
+Custom tags can also be added freely.

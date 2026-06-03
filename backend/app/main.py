@@ -273,6 +273,8 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(voice_samples.router)
+from app.routers.voice_samples import public_library_router
+app.include_router(public_library_router)
 app.include_router(voice_design.router)
 app.include_router(tts.router)
 app.include_router(jobs.router)
