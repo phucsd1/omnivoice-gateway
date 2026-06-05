@@ -210,9 +210,9 @@ class JobService:
     @staticmethod
     def get_next_job(db: Session, worker_id: str, user_id: str = None) -> Optional[TTSJob]:
         """Locks the oldest queued job for the requested worker and updates status to preparing_input."""
-        # Find queued or starting_worker status jobs
+        # Find queued, starting_worker, or queued_kaggle status jobs
         query = db.query(TTSJob).filter(
-            TTSJob.status.in_(["queued", "starting_worker"])
+            TTSJob.status.in_(["queued", "starting_worker", "queued_kaggle"])
         )
         if user_id:
             query = query.filter(TTSJob.user_id == user_id)

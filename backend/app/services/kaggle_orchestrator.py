@@ -320,7 +320,7 @@ class KaggleOrchestrator:
                 print(f"[KaggleOrchestrator] Warning: kaggle kernels status CLI failed: {err_msg}")
                 # Increment failure count
                 cls._consecutive_poll_failures[job.id] = cls._consecutive_poll_failures.get(job.id, 0) + 1
-                if cls._consecutive_poll_failures[job.id] >= 10:  # 10 checks * 10s = 100s
+                if cls._consecutive_poll_failures[job.id] >= 30:  # 30 checks * 10s = 300s
                     job.status = "failed"
                     job.message = "Không thể thăm dò trạng thái máy chủ Kaggle."
                     job.error_message = f"Kaggle CLI status failed consecutively: {err_msg}"
@@ -361,7 +361,7 @@ class KaggleOrchestrator:
             else:
                 print(f"[KaggleOrchestrator] Warning: unknown Kaggle status: {status_output}")
                 cls._unknown_status_count[job.id] = cls._unknown_status_count.get(job.id, 0) + 1
-                if cls._unknown_status_count[job.id] >= 10:
+                if cls._unknown_status_count[job.id] >= 30:  # 30 checks * 10s = 300s
                     job.status = "failed"
                     job.message = "Trạng thái máy chủ Kaggle không xác định quá lâu."
                     job.error_message = f"Unknown Kaggle status consecutively: {status_output}"
