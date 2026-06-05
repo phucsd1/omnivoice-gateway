@@ -73,8 +73,8 @@ class KaggleOrchestrator:
         from app.models import WorkerSession
         from datetime import datetime, timedelta
         
-        # Consider a worker "live" if it is in an active status and has heartbeat within the last 60 seconds
-        cutoff = datetime.utcnow() - timedelta(seconds=60)
+        # Consider a worker "live" if it is in an active status and has heartbeat within the last 180 seconds
+        cutoff = datetime.utcnow() - timedelta(seconds=180)
         
         session = db.query(WorkerSession).filter(
             WorkerSession.status.in_(["starting", "loading_model", "ready", "busy", "idle"]),
@@ -125,15 +125,15 @@ class KaggleOrchestrator:
         while cls._runner_stop_event and not cls._runner_stop_event.is_set():
             db = SessionLocal()
             try:
-                # 1. Recover stuck jobs from dead workers (no heartbeat for 120s)
-                cutoff = datetime.utcnow() - timedelta(seconds=120)
+                # 1. Recover stuck jobs from dead workers (no heartbeat for 180s)
+                cutoff = datetime.utcnow() - timedelta(seconds=180)
                 dead_sessions = db.query(WorkerSession).filter(
                     WorkerSession.status.in_(["starting", "loading_model", "ready", "busy", "idle"]),
                     WorkerSession.last_heartbeat_at < cutoff
                 ).all()
                 
                 for session in dead_sessions:
-                    print(f"[KaggleOrchestrator] Worker {session.worker_id} has died (no heartbeat for 120s). Stopping session.")
+                    print(f"[KaggleOrchestrator] Worker {session.worker_id} has died (no heartbeat for 180s). Stopping session.")
                     session.status = "stopped"
                     session.stopped_at = datetime.utcnow()
                     session.message = "Stuck worker detected and stopped by Gateway."
