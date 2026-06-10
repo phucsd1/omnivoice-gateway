@@ -253,9 +253,12 @@ export const PlaygroundPanel: React.FC = () => {
       setCurrentTime(time);
 
       const range = playWordRangeRef.current;
-      if (range && !isSeekingWordRef.current && time >= range.end) {
-        audio.pause();
-        playWordRangeRef.current = null;
+      if (range && !isSeekingWordRef.current) {
+        const stopTime = range.end - Math.min(0.08, (range.end - range.start) * 0.4);
+        if (time >= stopTime) {
+          audio.pause();
+          playWordRangeRef.current = null;
+        }
       }
 
       if (!audio.paused) {
@@ -293,9 +296,12 @@ export const PlaygroundPanel: React.FC = () => {
       const time = audio.currentTime;
       setCurrentTime(time);
       const range = playWordRangeRef.current;
-      if (range && !isSeekingWordRef.current && time >= range.end) {
-        audio.pause();
-        playWordRangeRef.current = null;
+      if (range && !isSeekingWordRef.current) {
+        const stopTime = range.end - Math.min(0.08, (range.end - range.start) * 0.4);
+        if (time >= stopTime) {
+          audio.pause();
+          playWordRangeRef.current = null;
+        }
       }
     };
     const handleSeeked = () => {
