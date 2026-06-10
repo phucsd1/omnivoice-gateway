@@ -67,6 +67,8 @@ export const PlaygroundPanel: React.FC = () => {
 
   const pollIntervalRef = useRef<number | null>(null);
   const timeoutRef = useRef<number | null>(null);
+  const playWordRangeRef = useRef<{ start: number, end: number } | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
   // Fetch voice samples on mount
   const fetchVoiceSamples = async () => {
@@ -240,18 +242,66 @@ export const PlaygroundPanel: React.FC = () => {
     setLoading(false);
   };
 
+  const startPreciseTracking = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const checkTime = () => {
+      if (!audio) return;
+      const time = audio.currentTime;
+      setCurrentTime(time);
+
+      const range = playWordRangeRef.current;
+      if (range && time >= range.end) {
+        audio.pause();
+        playWordRangeRef.current = null;
+      }
+
+      if (!audio.paused) {
+        animationFrameRef.current = requestAnimationFrame(checkTime);
+      }
+    };
+
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    animationFrameRef.current = requestAnimationFrame(checkTime);
+  };
+
+  const stopPreciseTracking = () => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+  };
+
   // Audio Event Bindings
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
-    const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
+    const handlePlay = () => {
+      setIsPlaying(true);
+      startPreciseTracking();
+    };
+    const handlePause = () => {
+      setIsPlaying(false);
+      stopPreciseTracking();
+    };
+    const handleTimeUpdate = () => {
+      const time = audio.currentTime;
+      setCurrentTime(time);
+      const range = playWordRangeRef.current;
+      if (range && time >= range.end) {
+        audio.pause();
+        playWordRangeRef.current = null;
+      }
+    };
     const handleLoadedMetadata = () => setDurationAudio(audio.duration);
     const handleEnded = () => {
       setIsPlaying(false);
       setCurrentTime(0);
+      stopPreciseTracking();
     };
 
     audio.addEventListener("play", handlePlay);
@@ -266,6 +316,7 @@ export const PlaygroundPanel: React.FC = () => {
       audio.removeEventListener("timeupdate", handleTimeUpdate);
       audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
       audio.removeEventListener("ended", handleEnded);
+      stopPreciseTracking();
     };
   }, [jobStatus?.audio_url]);
 
@@ -289,23 +340,27 @@ export const PlaygroundPanel: React.FC = () => {
     if (isPlaying) {
       audio.pause();
     } else {
+      playWordRangeRef.current = null; // Clear play range when playing normally
       audio.play().catch(err => console.error("Audio playback error:", err));
     }
   };
 
-  const handleWordClick = (wordStart: number) => {
+  const handleWordClick = (wordStart: number, wordEnd: number) => {
     const audio = audioRef.current;
     if (!audio) return;
+    
+    // Set play word range
+    playWordRangeRef.current = { start: wordStart, end: wordEnd };
+    
     audio.currentTime = wordStart;
     setCurrentTime(wordStart);
-    if (!isPlaying) {
-      audio.play().catch(err => console.error("Audio playback error on seek:", err));
-    }
+    audio.play().catch(err => console.error("Audio playback error on seek:", err));
   };
 
   const handleRewind = () => {
     const audio = audioRef.current;
     if (!audio) return;
+    playWordRangeRef.current = null;
     audio.currentTime = Math.max(0, audio.currentTime - 5);
     setCurrentTime(audio.currentTime);
   };
@@ -313,6 +368,7 @@ export const PlaygroundPanel: React.FC = () => {
   const handleForward = () => {
     const audio = audioRef.current;
     if (!audio) return;
+    playWordRangeRef.current = null;
     audio.currentTime = Math.min(durationAudio, audio.currentTime + 5);
     setCurrentTime(audio.currentTime);
   };
@@ -698,7 +754,7 @@ export const PlaygroundPanel: React.FC = () => {
                         <button
                           key={index}
                           type="button"
-                          onClick={() => handleWordClick(item.start)}
+                          onClick={() => handleWordClick(item.start, item.end)}
                           className={`inline-block py-0.5 px-1.5 rounded-md text-fluid-base transition-all duration-100 cursor-pointer border select-none ${
                             isActive
                               ? "bg-primary/20 border-primary/40 text-primary font-black scale-110 shadow-sm animate-pulse"
@@ -706,7 +762,7 @@ export const PlaygroundPanel: React.FC = () => {
                               ? "bg-secondary/20 border-transparent text-muted-foreground/50 font-medium scale-95"
                               : "bg-transparent border-transparent text-foreground hover:bg-secondary/40 hover:border-border font-medium"
                           }`}
-                          title={`Nhấp để tua tới từ này (Từ ${item.start}s - ${item.end}s)`}
+                          title={`Nhấp để phát âm riêng từ này (Từ ${item.start}s - ${item.end}s)`}
                         >
                           {item.word}
                         </button>
@@ -741,6 +797,7 @@ export const PlaygroundPanel: React.FC = () => {
                       onChange={(e) => {
                         const newTime = parseFloat(e.target.value);
                         if (audioRef.current) {
+                          playWordRangeRef.current = null;
                           audioRef.current.currentTime = newTime;
                           setCurrentTime(newTime);
                         }
