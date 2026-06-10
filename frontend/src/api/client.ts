@@ -290,6 +290,12 @@ export const api = {
     return request<JobStatusResponse[]>("/v1/jobs");
   },
 
+  deleteJob: async (jobId: string): Promise<{ status: string; message: string }> => {
+    return request<{ status: string; message: string }>(`/v1/jobs/${jobId}`, {
+      method: "DELETE",
+    });
+  },
+
   getSettings: async (): Promise<SystemSettings> => {
     return request<SystemSettings>(`/v1/settings?t=${Date.now()}`);
   },

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Clock, RefreshCw, Layers, Heart, Lock, Globe, X, ChevronDown, ChevronUp, AlertCircle, CheckCircle, Play, Pause, Zap, Copy, Check, Terminal, Settings, Tag } from "lucide-react";
+import { Clock, RefreshCw, Layers, Heart, Lock, Globe, X, ChevronDown, ChevronUp, AlertCircle, CheckCircle, Play, Pause, Zap, Copy, Check, Terminal, Settings, Tag, Trash2 } from "lucide-react";
 import { api, type JobStatusResponse } from "../api/client";
 
 interface JobHistoryPanelProps {
@@ -80,6 +80,19 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
       setErrorMsg(err.message || "Không thể tải danh sách lịch sử công việc.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteJob = async (jobId: string) => {
+    const isConfirmed = window.confirm("Bạn có chắc chắn muốn xóa tác vụ này không? Hành động này không thể hoàn tác.");
+    if (!isConfirmed) return;
+    
+    try {
+      await api.deleteJob(jobId);
+      loadJobs();
+    } catch (err: any) {
+      console.error("Lỗi khi xóa tác vụ:", err);
+      alert(`Không thể xóa tác vụ: ${err.message || "Lỗi không xác định"}`);
     }
   };
 
@@ -251,8 +264,8 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
                     )}
                   </div>
 
-                  {/* Status Badges */}
-                  <div>
+                  {/* Status Badges & Delete Action */}
+                  <div className="flex items-center gap-2">
                     {isCompleted && (
                       <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2.5 py-0.5 bg-success/10 border border-success/20 text-success rounded-full select-none">
                         <CheckCircle className="w-3 h-3" />
@@ -271,6 +284,14 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
                         <span>Đang chạy ({job.progress}%)</span>
                       </span>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteJob(job.job_id)}
+                      className="p-1 hover:bg-destructive/10 border border-transparent hover:border-destructive/20 text-muted-foreground hover:text-destructive rounded-lg transition-colors cursor-pointer"
+                      title={isProcessing ? "Hủy tác vụ khởi hàng chờ" : "Xóa tác vụ khỏi lịch sử"}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
 

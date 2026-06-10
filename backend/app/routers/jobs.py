@@ -106,3 +106,40 @@ def get_job_status(job_id: str, response: Response, db: Session = Depends(get_db
             detail=f"Không tìm thấy Job với ID: {job_id}"
         )
     return _build_job_response(job)
+
+@router.delete("/{job_id}")
+def delete_job(job_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_user_or_api_key)):
+    """
+    Xóa/Hủy một tác vụ khỏi hàng chờ hoặc lịch sử. Nếu tác vụ có file âm thanh kết quả,
+    file đó cũng sẽ được dọn dẹp khỏi disk.
+    """
+    import os
+    job = db.query(TTSJob).filter(TTSJob.id == job_id, TTSJob.user_id == current_user.id).first()
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Không tìm thấy Job với ID: {job_id}"
+        )
+    
+    # Dọn dẹp file âm thanh đầu ra nếu có
+    if job.output_audio_path and os.path.exists(job.output_audio_path):
+        try:
+            os.remove(job.output_audio_path)
+        except Exception as e:
+            print(f"Lỗi xóa file âm thanh đầu ra: {e}")
+            
+    # Dọn dẹp file preview thiết kế giọng nếu có
+    if job.job_type == "voice_design_preview" and job.preview_id:
+        from app.models import VoiceDesignPreview
+        preview = db.query(VoiceDesignPreview).filter(VoiceDesignPreview.id == job.preview_id).first()
+        if preview:
+            if preview.preview_audio_path and os.path.exists(preview.preview_audio_path):
+                try:
+                    os.remove(preview.preview_audio_path)
+                except Exception as e:
+                    print(f"Lỗi xóa file preview: {e}")
+            db.delete(preview)
+
+    db.delete(job)
+    db.commit()
+    return {"status": "success", "message": f"Đã xóa tác vụ {job_id} thành công."}
