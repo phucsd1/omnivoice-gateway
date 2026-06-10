@@ -13,11 +13,12 @@ import { AdminDashboard } from "./components/AdminDashboard";
 import { JobHistoryPanel } from "./components/JobHistoryPanel";
 import { VoiceLibraryPanel } from "./components/VoiceLibraryPanel";
 import { AudioPlayer } from "./components/AudioPlayer";
+import { PlaygroundPanel } from "./components/PlaygroundPanel";
 
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem("VITE_JWT_TOKEN"));
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"workspace" | "voice-lab" | "library" | "history" | "docs" | "admin" >(() => {
+  const [activeTab, setActiveTab] = useState<"workspace" | "voice-lab" | "library" | "history" | "docs" | "admin" | "playground" >(() => {
     return window.location.hash === "#/docs" ? "docs" : "workspace";
   });
   
@@ -69,7 +70,7 @@ function App() {
     };
   }, []);
 
-  const navigateToTab = (tab: "workspace" | "voice-lab" | "library" | "history" | "docs" | "admin") => {
+  const navigateToTab = (tab: "workspace" | "voice-lab" | "library" | "history" | "docs" | "admin" | "playground") => {
     setActiveTab(tab);
     setSidebarOpen(false);
     if (tab === "docs") {
@@ -356,17 +357,31 @@ function App() {
           </button>
 
           {currentUser?.is_admin && (
-            <button
-              onClick={() => navigateToTab("admin")}
-              className={`w-full px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-2.5 cursor-pointer ${
-                activeTab === "admin"
-                  ? "bg-secondary text-foreground font-bold"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
-              }`}
-            >
-              <Server className="w-3.5 h-3.5 shrink-0" />
-              <span>Admin Portal</span>
-            </button>
+            <>
+              <button
+                onClick={() => navigateToTab("playground")}
+                className={`w-full px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-2.5 cursor-pointer ${
+                  activeTab === "playground"
+                    ? "bg-secondary text-foreground font-bold"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                <span>Playground - Test API</span>
+              </button>
+
+              <button
+                onClick={() => navigateToTab("admin")}
+                className={`w-full px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-2.5 cursor-pointer ${
+                  activeTab === "admin"
+                    ? "bg-secondary text-foreground font-bold"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
+                }`}
+              >
+                <Server className="w-3.5 h-3.5 shrink-0" />
+                <span>Admin Portal</span>
+              </button>
+            </>
           )}
         </div>
       </nav>
@@ -560,6 +575,12 @@ function App() {
           {activeTab === "admin" && currentUser?.is_admin && (
             <div className="w-full animate-fadeIn">
               <AdminDashboard onBack={() => navigateToTab("workspace")} onSettingsChanged={fetchSettings} />
+            </div>
+          )}
+
+          {activeTab === "playground" && currentUser?.is_admin && (
+            <div className="w-full animate-fadeIn">
+              <PlaygroundPanel />
             </div>
           )}
 

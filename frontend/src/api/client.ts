@@ -207,6 +207,7 @@ export interface OmniVoiceParams {
   postprocess_output?: boolean;
   audio_chunk_duration?: number;
   audio_chunk_threshold?: number;
+  with_alignment?: boolean;
 }
 
 export const api = {
