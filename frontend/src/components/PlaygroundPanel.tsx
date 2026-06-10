@@ -149,6 +149,7 @@ export const PlaygroundPanel: React.FC = () => {
         refTextParam
       );
       setJobId(res.job_id);
+      localStorage.setItem("VITE_PLAYGROUND_JOB_ID", res.job_id);
       setJobStatus({
         job_id: res.job_id,
         status: res.status,
@@ -163,6 +164,32 @@ export const PlaygroundPanel: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const handleClearJob = () => {
+    setJobId(null);
+    setJobStatus(null);
+    localStorage.removeItem("VITE_PLAYGROUND_JOB_ID");
+  };
+
+  useEffect(() => {
+    const savedJobId = localStorage.getItem("VITE_PLAYGROUND_JOB_ID");
+    if (savedJobId) {
+      setJobId(savedJobId);
+      setLoading(true);
+      api.getJobStatus(savedJobId)
+        .then((status) => {
+          setJobStatus(status);
+          setLoading(false);
+          if (status.status !== "completed" && status.status !== "failed") {
+            setIsPolling(true);
+          }
+        })
+        .catch((err) => {
+          console.error("Lỗi khôi phục Playground job status:", err);
+          setLoading(false);
+        });
+    }
+  }, []);
 
   // Job Polling Loop
   useEffect(() => {
@@ -571,6 +598,17 @@ export const PlaygroundPanel: React.FC = () => {
 
         {/* Right Column: Karaoke Player & Alignment Visualizer (7/12) */}
         <div className="xl:col-span-7 flex flex-col gap-5">
+          {jobId && jobStatus && (jobStatus.status === "completed" || jobStatus.status === "failed") && (
+            <div className="flex justify-end select-none -mb-3">
+              <button
+                type="button"
+                onClick={handleClearJob}
+                className="text-[10px] text-muted-foreground hover:text-foreground underline cursor-pointer font-bold"
+              >
+                Xóa kết quả hiển thị
+              </button>
+            </div>
+          )}
           {/* Job status loading card */}
           {jobId && jobStatus && jobStatus.status !== "completed" && jobStatus.status !== "failed" && (
             <div className="bg-card border border-border rounded-2xl p-6 flex flex-col gap-4 shadow-sm animate-pulse">

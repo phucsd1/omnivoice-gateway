@@ -195,6 +195,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
     try {
       const res = await api.createTTSJob(mode, text, voiceSampleId, instructParam, speed, numStep, params, refTextParam);
       setJobId(res.job_id);
+      localStorage.setItem("VITE_TTS_JOB_ID", res.job_id);
       setJobStatus({
         job_id: res.job_id,
         status: res.status,
@@ -210,6 +211,32 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
       setLoading(false);
     }
   };
+
+  const handleClearJob = () => {
+    setJobId(null);
+    setJobStatus(null);
+    localStorage.removeItem("VITE_TTS_JOB_ID");
+  };
+
+  useEffect(() => {
+    const savedJobId = localStorage.getItem("VITE_TTS_JOB_ID");
+    if (savedJobId) {
+      setJobId(savedJobId);
+      setLoading(true);
+      api.getJobStatus(savedJobId)
+        .then((status) => {
+          setJobStatus(status);
+          setLoading(false);
+          if (status.status !== "completed" && status.status !== "failed") {
+            setIsPolling(true);
+          }
+        })
+        .catch((err) => {
+          console.error("Lỗi khôi phục TTS job status:", err);
+          setLoading(false);
+        });
+    }
+  }, []);
 
   useEffect(() => {
     if (isPolling && jobId) {
@@ -392,6 +419,18 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
           {/* Progress and status display */}
           {jobId && jobStatus && (
             <div className="mt-2 flex flex-col gap-4">
+              <div className="flex justify-between items-center px-1">
+                <span className="text-[10px] text-muted-foreground font-bold uppercase">Tiến trình tạo file</span>
+                {(jobStatus.status === "completed" || jobStatus.status === "failed") && (
+                  <button
+                    type="button"
+                    onClick={handleClearJob}
+                    className="text-[10px] text-muted-foreground hover:text-foreground underline cursor-pointer font-bold"
+                  >
+                    Xóa kết quả hiển thị
+                  </button>
+                )}
+              </div>
               <JobStatusCard
                 jobId={jobStatus.job_id}
                 status={jobStatus.status}

@@ -92,6 +92,8 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({
       const res = await api.createVoiceDesignPreview(voiceRequest, previewText, speed, numStep, params);
       setJobId(res.job_id);
       setPreviewId(res.preview_id);
+      localStorage.setItem("VITE_VOICE_DESIGN_JOB_ID", res.job_id);
+      localStorage.setItem("VITE_VOICE_DESIGN_PREVIEW_ID", res.preview_id);
       setJobStatus({
         job_id: res.job_id,
         status: res.status,
@@ -107,6 +109,36 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({
       setLoading(false);
     }
   };
+
+  const handleClearJob = () => {
+    setJobId(null);
+    setPreviewId(null);
+    setJobStatus(null);
+    localStorage.removeItem("VITE_VOICE_DESIGN_JOB_ID");
+    localStorage.removeItem("VITE_VOICE_DESIGN_PREVIEW_ID");
+  };
+
+  useEffect(() => {
+    const savedJobId = localStorage.getItem("VITE_VOICE_DESIGN_JOB_ID");
+    const savedPreviewId = localStorage.getItem("VITE_VOICE_DESIGN_PREVIEW_ID");
+    if (savedJobId) {
+      setJobId(savedJobId);
+      if (savedPreviewId) setPreviewId(savedPreviewId);
+      setLoading(true);
+      api.getJobStatus(savedJobId)
+        .then((status) => {
+          setJobStatus(status);
+          setLoading(false);
+          if (status.status !== "completed" && status.status !== "failed") {
+            setIsPolling(true);
+          }
+        })
+        .catch((err) => {
+          console.error("Lỗi khôi phục Voice Design job status:", err);
+          setLoading(false);
+        });
+    }
+  }, []);
 
   useEffect(() => {
     if (isPolling && jobId) {
@@ -501,6 +533,18 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({
       {/* Progress display */}
       {jobId && jobStatus && (
         <div className="mt-2 flex flex-col gap-4">
+          <div className="flex justify-between items-center px-1">
+            <span className="text-[10px] text-muted-foreground font-bold uppercase">Tiến trình tạo file</span>
+            {(jobStatus.status === "completed" || jobStatus.status === "failed") && (
+              <button
+                type="button"
+                onClick={handleClearJob}
+                className="text-[10px] text-muted-foreground hover:text-foreground underline cursor-pointer font-bold"
+              >
+                Xóa kết quả hiển thị
+              </button>
+            )}
+          </div>
           <JobStatusCard
             jobId={jobStatus.job_id}
             status={jobStatus.status}
