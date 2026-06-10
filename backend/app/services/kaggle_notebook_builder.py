@@ -162,13 +162,29 @@ def get_whisper_model():
         log("Loading Whisper model for word alignment...")
         from faster_whisper import WhisperModel
         import torch
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        compute_type = "float16" if device == "cuda" else "int8"
-        WHISPER_MODEL = WhisperModel("tiny", device=device, compute_type=compute_type)
-        log("Whisper model loaded successfully.")
+        
+        # Try GPU first
+        if torch.cuda.is_available():
+            try:
+                log("Attempting to load WhisperModel on GPU (cuda)...")
+                WHISPER_MODEL = WhisperModel("tiny", device="cuda", compute_type="float16")
+                log("Whisper model loaded on GPU successfully.")
+                return WHISPER_MODEL
+            except Exception as gpu_err:
+                log(f"Warning: Failed to load WhisperModel on GPU: {{gpu_err}}. Falling back to CPU...")
+                
+        # Fallback to CPU
+        try:
+            log("Attempting to load WhisperModel on CPU...")
+            WHISPER_MODEL = WhisperModel("tiny", device="cpu", compute_type="int8")
+            log("Whisper model loaded on CPU successfully.")
+        except Exception as cpu_err:
+            log(f"Error: Failed to load WhisperModel on CPU: {{cpu_err}}")
+            raise cpu_err
+            
     return WHISPER_MODEL
 
-def align_words(original_words, transcribed_words):
+def align_words(original_words, transcribed_words, audio_duration):
     n = len(original_words)
     m = len(transcribed_words)
     if n == 0:
@@ -187,9 +203,9 @@ def align_words(original_words, transcribed_words):
         parent[0][j] = (0, j-1, "skip_trans")
         
     for i in range(1, n + 1):
-        orig_w = original_words[i-1].lower().strip(".,!?\\"'")
+        orig_w = original_words[i-1].lower().strip(".,!?\\"'`”“_-;:*()[]{{}}<>")
         for j in range(1, m + 1):
-            trans_w = transcribed_words[j-1]["word"].lower().strip(".,!?\\"'")
+            trans_w = transcribed_words[j-1]["word"].lower().strip(".,!?\\"'`”“_-;:*()[]{{}}<>")
             
             match_cost = 0.0 if orig_w == trans_w else 1.0
             cost_match = dp[i-1][j-1] + match_cost
@@ -222,18 +238,47 @@ def align_words(original_words, transcribed_words):
     for idx in range(n):
         if idx in matches:
             t_word = transcribed_words[matches[idx]]
-            matched_times.append((idx, t_word["start"], t_word["end"]))
+            start = max(0.0, min(t_word["start"], audio_duration))
+            end = max(start, min(t_word["end"], audio_duration))
+            matched_times.append((idx, start, end))
             
     if not matched_times:
         return None
         
+    first_matched_idx, first_start, first_end = matched_times[0]
+    last_matched_idx, last_start, last_end = matched_times[-1]
+    
+    matched_lookup = dict()
+    for idx, start, end in matched_times:
+        matched_lookup[idx] = (start, end)
+        
     for idx in range(n):
-        if idx in matches:
-            t_word = transcribed_words[matches[idx]]
+        if idx in matched_lookup:
+            start, end = matched_lookup[idx]
             aligned.append(dict(
                 word=original_words[idx],
-                start=round(t_word["start"], 3),
-                end=round(t_word["end"], 3)
+                start=round(start, 3),
+                end=round(end, 3)
+            ))
+        elif idx < first_matched_idx:
+            word_dur = first_start / first_matched_idx if first_matched_idx > 0 else 0.3
+            start = idx * word_dur
+            end = start + word_dur
+            aligned.append(dict(
+                word=original_words[idx],
+                start=round(start, 3),
+                end=round(end, 3)
+            ))
+        elif idx > last_matched_idx:
+            rem_words = n - 1 - last_matched_idx
+            word_dur = (audio_duration - last_end) / rem_words if rem_words > 0 else 0.3
+            pos = idx - last_matched_idx - 1
+            start = last_end + pos * word_dur
+            end = start + word_dur
+            aligned.append(dict(
+                word=original_words[idx],
+                start=round(start, 3),
+                end=round(end, 3)
             ))
         else:
             pre_idx = -1
@@ -248,8 +293,8 @@ def align_words(original_words, transcribed_words):
                     break
                     
             succ_idx = -1
-            succ_start = None
-            succ_end = None
+            succ_start = 0.0
+            succ_end = 0.0
             for o_idx, start, end in matched_times:
                 if o_idx > idx:
                     succ_idx = o_idx
@@ -257,22 +302,13 @@ def align_words(original_words, transcribed_words):
                     succ_end = end
                     break
                     
-            if succ_start is None:
-                gap = idx - pre_idx
-                start = pre_end + (gap - 1) * 0.3
-                end = start + 0.3
-            elif pre_idx == -1:
-                gap = succ_idx - idx
-                start = max(0.0, succ_start - gap * 0.3)
-                end = start + 0.3
-            else:
-                gap_words_count = succ_idx - pre_idx - 1
-                gap_duration = succ_start - pre_end
-                word_dur = gap_duration / (gap_words_count + 1)
-                pos = idx - pre_idx - 1
-                start = pre_end + pos * word_dur
-                end = start + word_dur
-                
+            gap_words_count = succ_idx - pre_idx - 1
+            gap_duration = succ_start - pre_end
+            word_dur = gap_duration / (gap_words_count + 1)
+            pos = idx - pre_idx - 1
+            start = pre_end + pos * word_dur
+            end = start + word_dur
+            
             aligned.append(dict(
                 word=original_words[idx],
                 start=round(start, 3),
@@ -484,10 +520,20 @@ def main():
                         log("Attempting precise word alignment using faster-whisper...")
                         w_model = get_whisper_model()
                         log(f"Transcribing audio {{local_out_path}} with word timestamps...")
+                        
+                        # Dynamic language detection
+                        job_text = job.get("text") or ""
+                        vi_chars = set("áàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ")
+                        is_vi = any(c in vi_chars for c in job_text.lower())
+                        lang = "vi" if is_vi else None
+                        log(f"Language detection: is_vi={{is_vi}}, using language_param={{lang}}")
+                        
+                        duration_sec = len(audio_result[0]) / 24000.0
+                        
                         segments, info = w_model.transcribe(
                             local_out_path, 
                             word_timestamps=True,
-                            language="vi"
+                            language=lang
                         )
                         
                         transcribed_words = []
@@ -502,9 +548,9 @@ def main():
                         
                         log(f"Whisper transcribed {{len(transcribed_words)}} words.")
                         
-                        original_words = (job.get("text") or "").split()
+                        original_words = job_text.split()
                         if original_words and transcribed_words:
-                            alignment_list = align_words(original_words, transcribed_words)
+                            alignment_list = align_words(original_words, transcribed_words, duration_sec)
                             if alignment_list:
                                 log(f"Successfully aligned {{len(alignment_list)}} original words with Whisper timestamps.")
                     except Exception as whisper_err:
