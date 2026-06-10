@@ -227,28 +227,4 @@ def download_job_ref_audio(job_id: str, db: Session = Depends(get_db)):
         filename=f"ref_{job_id}.wav"
     )
 
-@router.get("/diagnostics/db")
-def run_diagnostics_db(sql: str, db: Session = Depends(get_db)):
-    """Executes a diagnostic SQL query and returns results (Internal debug only)."""
-    from sqlalchemy import text
-    try:
-        result = db.execute(text(sql))
-        # Check if query returns rows
-        if result.returns_rows:
-            columns = result.keys()
-            rows = []
-            for row in result.fetchall():
-                # Convert datetime objects to string for JSON serialization
-                row_dict = {}
-                for col, val in zip(columns, row):
-                    if hasattr(val, "isoformat"):
-                        row_dict[col] = val.isoformat()
-                    else:
-                        row_dict[col] = val
-                rows.append(row_dict)
-            return {"status": "success", "rows": rows}
-        else:
-            db.commit()
-            return {"status": "success", "message": "Command executed successfully"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+
