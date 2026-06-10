@@ -19,18 +19,11 @@ class KaggleOrchestrator:
             own_db = True
             
         try:
-            if user_id:
-                from app.models import UserSetting
-                db_username = db.query(UserSetting).filter(UserSetting.user_id == user_id, UserSetting.key == "kaggle_username").first()
-                db_key = db.query(UserSetting).filter(UserSetting.user_id == user_id, UserSetting.key == "kaggle_key").first()
-                db_kernel_ref = db.query(UserSetting).filter(UserSetting.user_id == user_id, UserSetting.key == "kaggle_kernel_ref").first()
-                db_worker_dir = db.query(UserSetting).filter(UserSetting.user_id == user_id, UserSetting.key == "kaggle_worker_dir").first()
-            else:
-                from app.models import SystemSetting
-                db_username = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_username").first()
-                db_key = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_key").first()
-                db_kernel_ref = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_kernel_ref").first()
-                db_worker_dir = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_worker_dir").first()
+            from app.models import SystemSetting
+            db_username = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_username").first()
+            db_key = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_key").first()
+            db_kernel_ref = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_kernel_ref").first()
+            db_worker_dir = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_worker_dir").first()
             
             if db_username and db_username.value.strip():
                 username = db_username.value.strip()
@@ -40,6 +33,22 @@ class KaggleOrchestrator:
                 kernel_ref = db_kernel_ref.value.strip()
             if db_worker_dir and db_worker_dir.value.strip():
                 worker_dir = db_worker_dir.value.strip()
+
+            if user_id:
+                from app.models import UserSetting
+                u_username = db.query(UserSetting).filter(UserSetting.user_id == user_id, UserSetting.key == "kaggle_username").first()
+                u_key = db.query(UserSetting).filter(UserSetting.user_id == user_id, UserSetting.key == "kaggle_key").first()
+                u_kernel_ref = db.query(UserSetting).filter(UserSetting.user_id == user_id, UserSetting.key == "kaggle_kernel_ref").first()
+                u_worker_dir = db.query(UserSetting).filter(UserSetting.user_id == user_id, UserSetting.key == "kaggle_worker_dir").first()
+                
+                if u_username and u_username.value.strip():
+                    username = u_username.value.strip()
+                if u_key and u_key.value.strip():
+                    key = u_key.value.strip()
+                if u_kernel_ref and u_kernel_ref.value.strip():
+                    kernel_ref = u_kernel_ref.value.strip()
+                if u_worker_dir and u_worker_dir.value.strip():
+                    worker_dir = u_worker_dir.value.strip()
         except Exception as e:
             print(f"[KaggleOrchestrator] Error reading settings from DB: {e}")
         finally:

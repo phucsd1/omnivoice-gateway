@@ -936,14 +936,16 @@ if __name__ == '__main__':
         # Resolve accelerator settings
         accelerator = settings.KAGGLE_ACCELERATOR
         if db:
-            if user_id:
-                from app.models import UserSetting
-                db_acc = db.query(UserSetting).filter(UserSetting.user_id == user_id, UserSetting.key == "kaggle_accelerator").first()
-            else:
-                from app.models import SystemSetting
-                db_acc = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_accelerator").first()
+            from app.models import SystemSetting
+            db_acc = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_accelerator").first()
             if db_acc and db_acc.value.strip():
                 accelerator = db_acc.value.strip()
+                
+            if user_id:
+                from app.models import UserSetting
+                u_acc = db.query(UserSetting).filter(UserSetting.user_id == user_id, UserSetting.key == "kaggle_accelerator").first()
+                if u_acc and u_acc.value.strip():
+                    accelerator = u_acc.value.strip()
         
         # Extract slug from sanitized kernel_ref
         slug = kernel_ref.split("/")[-1] if "/" in kernel_ref else settings.KAGGLE_KERNEL_SLUG
