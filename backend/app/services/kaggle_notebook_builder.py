@@ -54,7 +54,7 @@ class KaggleNotebookBuilder:
     def generate_requirements(worker_dir: str) -> str:
         """Generates or updates the requirements.txt file."""
         req_path = os.path.join(worker_dir, "requirements.txt")
-        req_content = "omnivoice\nsoundfile\nrequests\n"
+        req_content = "omnivoice\nsoundfile\nrequests\nfaster-whisper\n"
         
         with open(req_path, "w", encoding="utf-8") as f:
             f.write(req_content)
@@ -105,6 +105,10 @@ def ensure_dependencies():
         import soundfile
     except ImportError:
         missing.append("soundfile")
+    try:
+        import faster_whisper
+    except ImportError:
+        missing.append("faster-whisper")
         
     if missing:
         import subprocess
@@ -149,6 +153,133 @@ def make_request(method: str, path: str, **kwargs) -> requests.Response:
     else:
         kwargs["headers"] = HEADERS.copy()
     return requests.request(method, url, **kwargs)
+
+WHISPER_MODEL = None
+
+def get_whisper_model():
+    global WHISPER_MODEL
+    if WHISPER_MODEL is None:
+        log("Loading Whisper model for word alignment...")
+        from faster_whisper import WhisperModel
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        compute_type = "float16" if device == "cuda" else "int8"
+        WHISPER_MODEL = WhisperModel("tiny", device=device, compute_type=compute_type)
+        log("Whisper model loaded successfully.")
+    return WHISPER_MODEL
+
+def align_words(original_words, transcribed_words):
+    n = len(original_words)
+    m = len(transcribed_words)
+    if n == 0:
+        return []
+    if m == 0:
+        return None
+    
+    dp = [[0.0] * (m + 1) for _ in range(n + 1)]
+    parent = [[None] * (m + 1) for _ in range(n + 1)]
+    
+    for i in range(1, n + 1):
+        dp[i][0] = dp[i-1][0] + 1.0
+        parent[i][0] = (i-1, 0, "skip_orig")
+    for j in range(1, m + 1):
+        dp[0][j] = dp[0][j-1] + 1.0
+        parent[0][j] = (0, j-1, "skip_trans")
+        
+    for i in range(1, n + 1):
+        orig_w = original_words[i-1].lower().strip(".,!?\\"'")
+        for j in range(1, m + 1):
+            trans_w = transcribed_words[j-1]["word"].lower().strip(".,!?\\"'")
+            
+            match_cost = 0.0 if orig_w == trans_w else 1.0
+            cost_match = dp[i-1][j-1] + match_cost
+            cost_skip_orig = dp[i-1][j] + 1.0
+            cost_skip_trans = dp[i][j-1] + 1.0
+            
+            min_cost = min(cost_match, cost_skip_orig, cost_skip_trans)
+            dp[i][j] = min_cost
+            
+            if min_cost == cost_match:
+                parent[i][j] = (i-1, j-1, "match")
+            elif min_cost == cost_skip_orig:
+                parent[i][j] = (i-1, j, "skip_orig")
+            else:
+                parent[i][j] = (i, j-1, "skip_trans")
+                
+    i, j = n, m
+    matches = dict()
+    while i > 0 or j > 0:
+        p = parent[i][j]
+        if p is None:
+            break
+        pi, pj, op = p
+        if op == "match":
+            matches[pi] = pj
+        i, j = pi, pj
+        
+    aligned = []
+    matched_times = []
+    for idx in range(n):
+        if idx in matches:
+            t_word = transcribed_words[matches[idx]]
+            matched_times.append((idx, t_word["start"], t_word["end"]))
+            
+    if not matched_times:
+        return None
+        
+    for idx in range(n):
+        if idx in matches:
+            t_word = transcribed_words[matches[idx]]
+            aligned.append(dict(
+                word=original_words[idx],
+                start=round(t_word["start"], 3),
+                end=round(t_word["end"], 3)
+            ))
+        else:
+            pre_idx = -1
+            pre_start = 0.0
+            pre_end = 0.0
+            for o_idx, start, end in matched_times:
+                if o_idx < idx:
+                    pre_idx = o_idx
+                    pre_start = start
+                    pre_end = end
+                else:
+                    break
+                    
+            succ_idx = -1
+            succ_start = None
+            succ_end = None
+            for o_idx, start, end in matched_times:
+                if o_idx > idx:
+                    succ_idx = o_idx
+                    succ_start = start
+                    succ_end = end
+                    break
+                    
+            if succ_start is None:
+                gap = idx - pre_idx
+                start = pre_end + (gap - 1) * 0.3
+                end = start + 0.3
+            elif pre_idx == -1:
+                gap = succ_idx - idx
+                start = max(0.0, succ_start - gap * 0.3)
+                end = start + 0.3
+            else:
+                gap_words_count = succ_idx - pre_idx - 1
+                gap_duration = succ_start - pre_end
+                word_dur = gap_duration / (gap_words_count + 1)
+                pos = idx - pre_idx - 1
+                start = pre_end + pos * word_dur
+                end = start + word_dur
+                
+            aligned.append(dict(
+                word=original_words[idx],
+                start=round(start, 3),
+                end=round(end, 3)
+            ))
+            
+    return aligned
 
 def main():
     if not PUBLIC_API_BASE_URL:
@@ -344,23 +475,61 @@ def main():
                 sf.write(local_out_path, audio_result[0], 24000, format='WAV', subtype='PCM_16')
                 log(f"Generated audio saved to {{local_out_path}}")
 
-                # Generate proportional word alignments if requested to save GPU/CPU by default
+                # Generate word alignments
                 alignment_str = None
                 if job.get("with_alignment"):
-                    words = (job.get("text") or "").split()
-                    if words:
-                        duration_sec = len(audio_result[0]) / 24000.0
-                        word_dur = duration_sec / len(words)
-                        alignment_list = []
-                        curr_time = 0.0
-                        for w in words:
-                            clean_w = w.strip(".,!?\\"'")
-                            alignment_list.append({{
-                                "word": clean_w,
-                                "start": round(curr_time, 3),
-                                "end": round(curr_time + word_dur, 3)
-                            }})
-                            curr_time += word_dur
+                    log("Generating word alignment...")
+                    alignment_list = None
+                    try:
+                        log("Attempting precise word alignment using faster-whisper...")
+                        w_model = get_whisper_model()
+                        log(f"Transcribing audio {{local_out_path}} with word timestamps...")
+                        segments, info = w_model.transcribe(
+                            local_out_path, 
+                            word_timestamps=True,
+                            language="vi"
+                        )
+                        
+                        transcribed_words = []
+                        for segment in segments:
+                            if segment.words:
+                                for w in segment.words:
+                                    transcribed_words.append(dict(
+                                        word=w.word.strip(),
+                                        start=w.start,
+                                        end=w.end
+                                    ))
+                        
+                        log(f"Whisper transcribed {{len(transcribed_words)}} words.")
+                        
+                        original_words = (job.get("text") or "").split()
+                        if original_words and transcribed_words:
+                            alignment_list = align_words(original_words, transcribed_words)
+                            if alignment_list:
+                                log(f"Successfully aligned {{len(alignment_list)}} original words with Whisper timestamps.")
+                    except Exception as whisper_err:
+                        log(f"Warning: Precise alignment failed: {{whisper_err}}. Falling back to proportional spacing.")
+                        import traceback
+                        log(traceback.format_exc())
+                        
+                    # Fallback to proportional spacing
+                    if not alignment_list:
+                        words = (job.get("text") or "").split()
+                        if words:
+                            duration_sec = len(audio_result[0]) / 24000.0
+                            word_dur = duration_sec / len(words)
+                            alignment_list = []
+                            curr_time = 0.0
+                            for w in words:
+                                clean_w = w.strip(".,!?\\"'")
+                                alignment_list.append(dict(
+                                    word=clean_w,
+                                    start=round(curr_time, 3),
+                                    end=round(curr_time + word_dur, 3)
+                                ))
+                                curr_time += word_dur
+                                
+                    if alignment_list:
                         import json
                         alignment_str = json.dumps(alignment_list)
                         log(f"Generated alignment data: {{len(alignment_list)}} words")
@@ -499,6 +668,10 @@ def ensure_dependencies():
         import soundfile
     except ImportError:
         missing.append("soundfile")
+    try:
+        import faster_whisper
+    except ImportError:
+        missing.append("faster-whisper")
         
     if missing:
         import subprocess
