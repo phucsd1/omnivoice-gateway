@@ -68,6 +68,7 @@ export const PlaygroundPanel: React.FC = () => {
   const pollIntervalRef = useRef<number | null>(null);
   const timeoutRef = useRef<number | null>(null);
   const playWordRangeRef = useRef<{ start: number, end: number } | null>(null);
+  const isSeekingWordRef = useRef(false);
   const animationFrameRef = useRef<number | null>(null);
 
   // Fetch voice samples on mount
@@ -252,7 +253,7 @@ export const PlaygroundPanel: React.FC = () => {
       setCurrentTime(time);
 
       const range = playWordRangeRef.current;
-      if (range && time >= range.end) {
+      if (range && !isSeekingWordRef.current && time >= range.end) {
         audio.pause();
         playWordRangeRef.current = null;
       }
@@ -292,10 +293,13 @@ export const PlaygroundPanel: React.FC = () => {
       const time = audio.currentTime;
       setCurrentTime(time);
       const range = playWordRangeRef.current;
-      if (range && time >= range.end) {
+      if (range && !isSeekingWordRef.current && time >= range.end) {
         audio.pause();
         playWordRangeRef.current = null;
       }
+    };
+    const handleSeeked = () => {
+      isSeekingWordRef.current = false;
     };
     const handleLoadedMetadata = () => setDurationAudio(audio.duration);
     const handleEnded = () => {
@@ -307,6 +311,7 @@ export const PlaygroundPanel: React.FC = () => {
     audio.addEventListener("play", handlePlay);
     audio.addEventListener("pause", handlePause);
     audio.addEventListener("timeupdate", handleTimeUpdate);
+    audio.addEventListener("seeked", handleSeeked);
     audio.addEventListener("loadedmetadata", handleLoadedMetadata);
     audio.addEventListener("ended", handleEnded);
 
@@ -314,6 +319,7 @@ export const PlaygroundPanel: React.FC = () => {
       audio.removeEventListener("play", handlePlay);
       audio.removeEventListener("pause", handlePause);
       audio.removeEventListener("timeupdate", handleTimeUpdate);
+      audio.removeEventListener("seeked", handleSeeked);
       audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
       audio.removeEventListener("ended", handleEnded);
       stopPreciseTracking();
@@ -351,6 +357,7 @@ export const PlaygroundPanel: React.FC = () => {
     
     // Set play word range
     playWordRangeRef.current = { start: wordStart, end: wordEnd };
+    isSeekingWordRef.current = true;
     
     audio.currentTime = wordStart;
     setCurrentTime(wordStart);
