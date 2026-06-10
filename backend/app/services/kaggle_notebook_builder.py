@@ -164,6 +164,23 @@ def make_request(method: str, path: str, **kwargs) -> requests.Response:
 
 WHISPER_MODEL = None
 
+def levenshtein_ratio(s1, s2):
+    if len(s1) == 0 or len(s2) == 0:
+        return 0.0
+    if s1 == s2:
+        return 1.0
+    matrix = [[0] * (len(s2) + 1) for _ in range(len(s1) + 1)]
+    for i in range(len(s1) + 1):
+        matrix[i][0] = i
+    for j in range(len(s2) + 1):
+        matrix[0][j] = j
+    for i in range(1, len(s1) + 1):
+        for j in range(1, len(s2) + 1):
+            cost = 0 if s1[i-1] == s2[j-1] else 1
+            matrix[i][j] = min(matrix[i-1][j] + 1, matrix[i][j-1] + 1, matrix[i-1][j-1] + cost)
+    max_len = max(len(s1), len(s2))
+    return 1.0 - (matrix[len(s1)][len(s2)] / max_len)
+
 def get_whisper_model():
     global WHISPER_MODEL
     if WHISPER_MODEL is None:
@@ -175,7 +192,7 @@ def get_whisper_model():
         if torch.cuda.is_available():
             try:
                 log("Attempting to load WhisperModel on GPU (cuda)...")
-                WHISPER_MODEL = WhisperModel("tiny", device="cuda", compute_type="float16")
+                WHISPER_MODEL = WhisperModel("medium", device="cuda", compute_type="float16")
                 log("Whisper model loaded on GPU successfully.")
                 return WHISPER_MODEL
             except Exception as gpu_err:
@@ -184,7 +201,7 @@ def get_whisper_model():
         # Fallback to CPU
         try:
             log("Attempting to load WhisperModel on CPU...")
-            WHISPER_MODEL = WhisperModel("tiny", device="cpu", compute_type="int8")
+            WHISPER_MODEL = WhisperModel("medium", device="cpu", compute_type="int8")
             log("Whisper model loaded on CPU successfully.")
         except Exception as cpu_err:
             log(f"Error: Failed to load WhisperModel on CPU: {{cpu_err}}")
@@ -215,7 +232,14 @@ def align_words(original_words, transcribed_words, audio_duration):
         for j in range(1, m + 1):
             trans_w = transcribed_words[j-1]["word"].lower().strip(".,!?\\"'`”“_-;:*()[]{{}}<>")
             
-            match_cost = 0.0 if orig_w == trans_w else 1.0
+            ratio = levenshtein_ratio(orig_w, trans_w)
+            if ratio >= 0.7:
+                match_cost = 0.0
+            elif ratio >= 0.4:
+                match_cost = 0.5
+            else:
+                match_cost = 1.0
+                
             cost_match = dp[i-1][j-1] + match_cost
             cost_skip_orig = dp[i-1][j] + 1.0
             cost_skip_trans = dp[i][j-1] + 1.0
@@ -269,8 +293,10 @@ def align_words(original_words, transcribed_words, audio_duration):
                 end=round(end, 3)
             ))
         elif idx < first_matched_idx:
-            word_dur = first_start / first_matched_idx if first_matched_idx > 0 else 0.3
-            start = idx * word_dur
+            total_chars = sum(len(original_words[k]) for k in range(first_matched_idx)) or 1
+            chars_before = sum(len(original_words[k]) for k in range(idx))
+            start = first_start * (chars_before / total_chars)
+            word_dur = first_start * (len(original_words[idx]) / total_chars)
             end = start + word_dur
             aligned.append(dict(
                 word=original_words[idx],
@@ -278,10 +304,11 @@ def align_words(original_words, transcribed_words, audio_duration):
                 end=round(end, 3)
             ))
         elif idx > last_matched_idx:
-            rem_words = n - 1 - last_matched_idx
-            word_dur = (audio_duration - last_end) / rem_words if rem_words > 0 else 0.3
-            pos = idx - last_matched_idx - 1
-            start = last_end + pos * word_dur
+            rem_chars = sum(len(original_words[k]) for k in range(last_matched_idx + 1, n)) or 1
+            chars_before = sum(len(original_words[k]) for k in range(last_matched_idx + 1, idx))
+            rem_duration = audio_duration - last_end
+            start = last_end + rem_duration * (chars_before / rem_chars)
+            word_dur = rem_duration * (len(original_words[idx]) / rem_chars)
             end = start + word_dur
             aligned.append(dict(
                 word=original_words[idx],
@@ -310,11 +337,12 @@ def align_words(original_words, transcribed_words, audio_duration):
                     succ_end = end
                     break
                     
-            gap_words_count = succ_idx - pre_idx - 1
+            gap_chars = sum(len(original_words[k]) for k in range(pre_idx + 1, succ_idx)) or 1
+            chars_before = sum(len(original_words[k]) for k in range(pre_idx + 1, idx))
             gap_duration = succ_start - pre_end
-            word_dur = gap_duration / (gap_words_count + 1)
-            pos = idx - pre_idx - 1
-            start = pre_end + pos * word_dur
+            
+            start = pre_end + gap_duration * (chars_before / gap_chars)
+            word_dur = gap_duration * (len(original_words[idx]) / gap_chars)
             end = start + word_dur
             
             aligned.append(dict(
