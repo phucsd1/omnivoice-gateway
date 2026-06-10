@@ -78,6 +78,7 @@ class SystemSettingsResponse(BaseModel):
     kaggle_kernel_title: str
     kaggle_accelerator: str
     kaggle_timeout_seconds: int
+    kaggle_idle_timeout_seconds: int
     kaggle_worker_dir: str
     ui_layout: str
 
@@ -96,6 +97,7 @@ class SystemSettingsUpdateRequest(BaseModel):
     kaggle_kernel_title: Optional[str] = None
     kaggle_accelerator: Optional[str] = None
     kaggle_timeout_seconds: Optional[int] = None
+    kaggle_idle_timeout_seconds: Optional[int] = None
     kaggle_worker_dir: Optional[str] = None
     ui_layout: Optional[str] = None
 
@@ -321,6 +323,12 @@ def get_system_settings_admin(
     except ValueError:
         kaggle_timeout_seconds = settings.KAGGLE_TIMEOUT_SECONDS
         
+    kaggle_idle_timeout_str = get_setting("kaggle_idle_timeout_seconds", str(settings.WORKER_IDLE_TIMEOUT_SECONDS))
+    try:
+        kaggle_idle_timeout_seconds = int(kaggle_idle_timeout_str)
+    except ValueError:
+        kaggle_idle_timeout_seconds = settings.WORKER_IDLE_TIMEOUT_SECONDS
+
     kaggle_worker_dir = get_setting("kaggle_worker_dir", settings.KAGGLE_WORKER_DIR)
     ui_layout = get_setting("ui_layout", "modern")
 
@@ -339,6 +347,7 @@ def get_system_settings_admin(
         kaggle_kernel_title=kaggle_kernel_title,
         kaggle_accelerator=kaggle_accelerator,
         kaggle_timeout_seconds=kaggle_timeout_seconds,
+        kaggle_idle_timeout_seconds=kaggle_idle_timeout_seconds,
         kaggle_worker_dir=kaggle_worker_dir,
         ui_layout=ui_layout
     )
@@ -399,6 +408,8 @@ def update_system_settings_admin(
             save_setting("kaggle_accelerator", payload.kaggle_accelerator)
         if payload.kaggle_timeout_seconds is not None:
             save_setting("kaggle_timeout_seconds", payload.kaggle_timeout_seconds)
+        if payload.kaggle_idle_timeout_seconds is not None:
+            save_setting("kaggle_idle_timeout_seconds", payload.kaggle_idle_timeout_seconds)
         if payload.kaggle_worker_dir is not None:
             save_setting("kaggle_worker_dir", payload.kaggle_worker_dir)
         

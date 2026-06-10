@@ -142,6 +142,7 @@ export interface SystemSettingsResponse {
   kaggle_kernel_title: string;
   kaggle_accelerator: string;
   kaggle_timeout_seconds: number;
+  kaggle_idle_timeout_seconds: number;
   kaggle_worker_dir: string;
   ui_layout: string;
 }
@@ -161,6 +162,7 @@ export interface SystemSettingsUpdateRequest {
   kaggle_kernel_title?: string;
   kaggle_accelerator?: string;
   kaggle_timeout_seconds?: number;
+  kaggle_idle_timeout_seconds?: number;
   kaggle_worker_dir?: string;
   ui_layout?: string;
 }

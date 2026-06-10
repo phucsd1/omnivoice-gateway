@@ -41,7 +41,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
   const [newKeyName, setNewKeyName] = useState("");
   const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({});
 
-  // System Settings States
   const [settingsData, setSettingsData] = useState<any>({
     worker_mode: "mock",
     require_admin_approval: false,
@@ -57,6 +56,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
     kaggle_kernel_title: "",
     kaggle_accelerator: "",
     kaggle_timeout_seconds: 3600,
+    kaggle_idle_timeout_seconds: 1800,
     kaggle_worker_dir: "",
     ui_layout: "modern",
   });
@@ -679,6 +679,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
                 value={settingsData.kaggle_accelerator}
                 onChange={(e) => setSettingsData({ ...settingsData, kaggle_accelerator: e.target.value })}
                 className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-muted-foreground">Thời gian chờ Idle của Worker (giây)</label>
+              <input
+                type="number"
+                value={settingsData.kaggle_idle_timeout_seconds}
+                onChange={(e) => setSettingsData({ ...settingsData, kaggle_idle_timeout_seconds: parseInt(e.target.value) || 0 })}
+                className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary"
+                min="0"
+                required
               />
             </div>
 

@@ -63,7 +63,7 @@ class KaggleNotebookBuilder:
         return req_path
 
     @staticmethod
-    def generate_worker_code(worker_dir: str, job=None, public_api_url: str = "", worker_token: str = "", is_daemon: bool = True) -> str:
+    def generate_worker_code(worker_dir: str, job=None, public_api_url: str = "", worker_token: str = "", is_daemon: bool = True, db=None) -> str:
         """Generates the omnivoice_worker.py Python script containing the OmniVoice batch or daemon generation logic."""
         worker_path = os.path.join(worker_dir, "omnivoice_worker.py")
         
@@ -74,6 +74,14 @@ class KaggleNotebookBuilder:
             import uuid
             worker_id = f"kaggle_worker_{uuid.uuid4().hex[:6]}"
             idle_timeout = settings.WORKER_IDLE_TIMEOUT_SECONDS
+            if db:
+                from app.models import SystemSetting
+                db_idle = db.query(SystemSetting).filter(SystemSetting.key == "kaggle_idle_timeout_seconds").first()
+                if db_idle and db_idle.value.strip():
+                    try:
+                        idle_timeout = int(db_idle.value.strip())
+                    except ValueError:
+                        pass
             poll_interval = settings.WORKER_POLL_INTERVAL_SECONDS
             
             # Optimized Daemon script template
@@ -926,6 +934,6 @@ if __name__ == '__main__':
                 worker_token = user.api_key
 
         # Generate worker script with embedded credentials and API URLs
-        KaggleNotebookBuilder.generate_worker_code(worker_dir_abs, job, public_api_url, worker_token, is_daemon=is_daemon)
+        KaggleNotebookBuilder.generate_worker_code(worker_dir_abs, job, public_api_url, worker_token, is_daemon=is_daemon, db=db)
         
         return worker_dir_abs
