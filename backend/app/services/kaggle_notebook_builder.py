@@ -192,7 +192,7 @@ def get_whisper_model():
         if torch.cuda.is_available():
             try:
                 log("Attempting to load WhisperModel on GPU (cuda)...")
-                WHISPER_MODEL = WhisperModel("medium", device="cuda", compute_type="float16")
+                WHISPER_MODEL = WhisperModel("small", device="cuda", compute_type="float16")
                 log("Whisper model loaded on GPU successfully.")
                 return WHISPER_MODEL
             except Exception as gpu_err:
@@ -201,7 +201,7 @@ def get_whisper_model():
         # Fallback to CPU
         try:
             log("Attempting to load WhisperModel on CPU...")
-            WHISPER_MODEL = WhisperModel("medium", device="cpu", compute_type="int8")
+            WHISPER_MODEL = WhisperModel("small", device="cpu", compute_type="int8")
             log("Whisper model loaded on CPU successfully.")
         except Exception as cpu_err:
             log(f"Error: Failed to load WhisperModel on CPU: {{cpu_err}}")
