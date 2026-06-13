@@ -265,16 +265,6 @@ generateSpeech();`
         </div>
 
         <div className="flex items-center gap-2.5">
-          <a
-            href="/llms.txt"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-2 bg-card hover:bg-muted border border-border rounded-xl text-foreground hover:text-white transition-colors cursor-pointer flex items-center gap-1.5"
-            title="Tải tài liệu Markdown cho AI Agent"
-          >
-            <FileCode className="w-4 h-4 text-primary" />
-            <span className="text-xs font-bold hidden sm:inline">AI Agent Docs</span>
-          </a>
           <span className="text-[10px] bg-primary/20 text-primary/90 font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
             API v1.0
           </span>

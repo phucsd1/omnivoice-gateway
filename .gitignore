@@ -39,3 +39,7 @@ Thumbs.db
 *.log
 *.wav
 scratch/
+scratch_kaggle_test/
+omnivoice-gpu-worker.py
+omnivoice-worker.py
+
