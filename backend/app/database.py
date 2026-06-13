@@ -4,6 +4,81 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.event import listens_for
 from app.config import settings
 
+def test_db_writable(db_url: str) -> bool:
+    if not db_url.startswith("sqlite"):
+        return True
+    
+    # Extract file path
+    db_path = db_url
+    if db_path.startswith("sqlite:///"):
+        db_path = db_path[10:]
+    elif db_path.startswith("sqlite://"):
+        db_path = db_path[9:]
+    elif db_path.startswith("sqlite:"):
+        db_path = db_path[7:]
+    if "?" in db_path:
+        db_path = db_path.split("?")[0]
+        
+    parent_dir = os.path.dirname(db_path)
+    if parent_dir:
+        try:
+            os.makedirs(parent_dir, exist_ok=True)
+        except Exception as e:
+            print(f"[Database Init] Failed to create directory {parent_dir}: {e}")
+            return False
+            
+    import sqlite3
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path, timeout=5)
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA journal_mode=DELETE")
+        cursor.execute("CREATE TABLE IF NOT EXISTS _write_test (id INTEGER PRIMARY KEY)")
+        cursor.execute("INSERT INTO _write_test DEFAULT VALUES")
+        cursor.execute("DROP TABLE _write_test")
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"[Database Init] Write verification failed for {db_path}: {e}")
+        if conn:
+            try:
+                conn.close()
+            except:
+                pass
+        return False
+
+# Resolve Database URL with dynamic writeability fallback checks
+resolved_db_url = settings.DATABASE_URL
+if resolved_db_url.startswith("sqlite"):
+    if not test_db_writable(resolved_db_url):
+        print(f"[Database Init] Warning: Default database path {resolved_db_url} is not writable.")
+        
+        # Fallback 1: Try /data/db subdirectory if not already tried and /data is writable
+        if "/data" in resolved_db_url and "/data/db" not in resolved_db_url:
+            fallback_1 = "sqlite:////data/db/omnivoice_gateway.db?nolock=1"
+            print(f"[Database Init] Attempting fallback 1: {fallback_1}")
+            if test_db_writable(fallback_1):
+                resolved_db_url = fallback_1
+                print(f"[Database Init] Success: Using fallback 1")
+            
+        # Fallback 2 (if 1 failed or wasn't applicable): Try /tmp/
+        if resolved_db_url == settings.DATABASE_URL:
+            fallback_2 = "sqlite:////tmp/omnivoice_gateway.db"
+            print(f"[Database Init] Attempting fallback 2: {fallback_2}")
+            if test_db_writable(fallback_2):
+                resolved_db_url = fallback_2
+                print(f"[Database Init] Success: Using fallback 2")
+            else:
+                # Fallback 3: Local fallback file
+                fallback_3 = "sqlite:///./omnivoice_gateway_fallback.db"
+                print(f"[Database Init] Attempting fallback 3: {fallback_3}")
+                resolved_db_url = fallback_3
+                print(f"[Database Init] Using fallback 3")
+        
+        # Override the setting globally so all routes and services use the working database path
+        settings.DATABASE_URL = resolved_db_url
+
 # Cleanup stale SQLite WAL/SHM lock files on start to prevent disk I/O errors on network drives
 if settings.DATABASE_URL.startswith("sqlite"):
     db_path = settings.DATABASE_URL
@@ -39,6 +114,7 @@ engine = create_engine(
     connect_args=connect_args,
     echo=False
 )
+
 
 # Apply performance and lock-avoidance pragmas to SQLite connections
 @listens_for(engine, "connect")
