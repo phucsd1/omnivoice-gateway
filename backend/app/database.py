@@ -25,6 +25,74 @@ if settings.DATABASE_URL.startswith("sqlite"):
             except Exception as e:
                 print(f"[Database Error] Failed to remove lock file {lock_file}: {e}")
 
+    # Self-healing logic for corrupted SQLite database file
+    if os.path.exists(db_path):
+        import sqlite3
+        import time
+        import subprocess
+        
+        is_corrupt = False
+        try:
+            conn = sqlite3.connect(db_path, timeout=5)
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA integrity_check(1)")
+            res = cursor.fetchone()
+            if not res or res[0] != "ok":
+                is_corrupt = True
+                print(f"[Database] Integrity check failed for {db_path}: {res}")
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            is_corrupt = True
+            print(f"[Database] Error checking integrity for {db_path}: {e}")
+
+        if is_corrupt:
+            print(f"[Database Warning] SQLite database {db_path} is corrupted! Attempting recovery...")
+            recovered_path = db_path + ".recovered"
+            recovery_success = False
+            
+            try:
+                # Use sqlite3 CLI to recover if available
+                print(f"[Database] Running sqlite3 recovery command...")
+                proc1 = subprocess.Popen(["sqlite3", db_path, ".recover"], stdout=subprocess.PIPE)
+                proc2 = subprocess.Popen(["sqlite3", recovered_path], stdin=proc1.stdout, stdout=subprocess.PIPE)
+                proc1.stdout.close()
+                proc2.communicate()
+                
+                if os.path.exists(recovered_path) and os.path.getsize(recovered_path) > 0:
+                    conn_rec = sqlite3.connect(recovered_path)
+                    cur_rec = conn_rec.cursor()
+                    cur_rec.execute("PRAGMA integrity_check(1)")
+                    res_rec = cur_rec.fetchone()
+                    if res_rec and res_rec[0] == "ok":
+                        recovery_success = True
+                    cur_rec.close()
+                    conn_rec.close()
+            except Exception as e:
+                print(f"[Database] Recovery tool execution failed: {e}")
+                
+            corrupt_backup = db_path + f".corrupt.{int(time.time())}"
+            if recovery_success:
+                print(f"[Database] Recovery successful! Swapping database files...")
+                try:
+                    os.rename(db_path, corrupt_backup)
+                    os.rename(recovered_path, db_path)
+                    print(f"[Database] Swapped. Corrupt backup saved as {corrupt_backup}")
+                except Exception as e:
+                    print(f"[Database] Error swapping recovered database: {e}")
+            else:
+                print(f"[Database ERROR] Recovery failed. Recreating database to restore service...")
+                try:
+                    os.rename(db_path, corrupt_backup)
+                    print(f"[Database] Corrupt database renamed to {corrupt_backup}. A new database will be created.")
+                except Exception as e:
+                    print(f"[Database] Error renaming corrupt database: {e}")
+                if os.path.exists(recovered_path):
+                    try:
+                        os.remove(recovered_path)
+                    except:
+                        pass
+
 # For SQLite, we need connect_args={"check_same_thread": False, "timeout": 30, "uri": True}
 connect_args = {}
 if settings.DATABASE_URL.startswith("sqlite"):
