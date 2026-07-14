@@ -153,6 +153,14 @@ def ensure_dependencies():
     except ImportError:
         missing.append("modelscope")
     try:
+        import sentencepiece
+    except ImportError:
+        missing.append("sentencepiece")
+    try:
+        import tiktoken
+    except ImportError:
+        missing.append("tiktoken")
+    try:
         import faster_whisper
     except ImportError:
         missing.append("faster-whisper")
@@ -835,6 +843,14 @@ def ensure_dependencies():
         import modelscope
     except ImportError:
         missing.append("modelscope")
+    try:
+        import sentencepiece
+    except ImportError:
+        missing.append("sentencepiece")
+    try:
+        import tiktoken
+    except ImportError:
+        missing.append("tiktoken")
     try:
         import faster_whisper
     except ImportError:
