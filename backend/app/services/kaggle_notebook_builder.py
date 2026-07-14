@@ -469,6 +469,38 @@ def main():
 
         # Load from model_dir if it was not loaded from Hugging Face directly
         if not model_loaded:
+            # Check if tokenizer files are missing from model_dir
+            tokenizer_json = os.path.join(model_dir, "tokenizer.json")
+            tokenizer_config = os.path.join(model_dir, "tokenizer_config.json")
+            if not os.path.exists(tokenizer_json) or not os.path.exists(tokenizer_config):
+                log("Tokenizer files are missing from local directory. Merging with downloaded tokenizer files...")
+                temp_model_dir = tempfile.mkdtemp()
+                # Create symbolic links to all files in model_dir
+                for f in os.listdir(model_dir):
+                    src_file = os.path.join(model_dir, f)
+                    dst_file = os.path.join(temp_model_dir, f)
+                    if os.path.isfile(src_file):
+                        try:
+                            os.symlink(src_file, dst_file)
+                        except Exception:
+                            import shutil
+                            shutil.copy2(src_file, dst_file)
+                # Download missing tokenizer files from Hugging Face Hub
+                for filename in ["tokenizer.json", "tokenizer_config.json"]:
+                    dst_file = os.path.join(temp_model_dir, filename)
+                    if not os.path.exists(dst_file):
+                        try:
+                            log(f"Downloading {filename} from Hugging Face...")
+                            res = requests.get(f"https://huggingface.co/k2-fsa/OmniVoice/resolve/main/{filename}", timeout=30)
+                            if res.status_code == 200:
+                                with open(dst_file, "wb") as out_f:
+                                    out_f.write(res.content)
+                            else:
+                                log(f"Warning: Failed to download {filename} (status: {res.status_code})")
+                        except Exception as dl_err:
+                            log(f"Warning: Failed to download {filename}: {dl_err}")
+                model_dir = temp_model_dir
+
             model = OmniVoice.from_pretrained(
                 model_dir,
                 device_map="cuda:0",
@@ -977,6 +1009,43 @@ def main():
 
         # Load from model_dir if it was not loaded from Hugging Face directly
         if not model_loaded:
+            # Check if tokenizer files are missing from model_dir
+            tokenizer_json = os.path.join(model_dir, "tokenizer.json")
+            tokenizer_config = os.path.join(model_dir, "tokenizer_config.json")
+            if not os.path.exists(tokenizer_json) or not os.path.exists(tokenizer_config):
+                print("Tokenizer files are missing from local directory. Merging with downloaded tokenizer files...")
+                sys.stdout.flush()
+                import tempfile
+                import shutil
+                temp_model_dir = tempfile.mkdtemp()
+                # Create symbolic links to all files in model_dir
+                for f in os.listdir(model_dir):
+                    src_file = os.path.join(model_dir, f)
+                    dst_file = os.path.join(temp_model_dir, f)
+                    if os.path.isfile(src_file):
+                        try:
+                            os.symlink(src_file, dst_file)
+                        except Exception:
+                            shutil.copy2(src_file, dst_file)
+                # Download missing tokenizer files from Hugging Face Hub
+                for filename in ["tokenizer.json", "tokenizer_config.json"]:
+                    dst_file = os.path.join(temp_model_dir, filename)
+                    if not os.path.exists(dst_file):
+                        try:
+                            print(f"Downloading {filename} from Hugging Face...")
+                            sys.stdout.flush()
+                            res = requests.get(f"https://huggingface.co/k2-fsa/OmniVoice/resolve/main/{filename}", timeout=30)
+                            if res.status_code == 200:
+                                with open(dst_file, "wb") as out_f:
+                                    out_f.write(res.content)
+                            else:
+                                print(f"Warning: Failed to download {filename} (status: {res.status_code})")
+                                sys.stdout.flush()
+                        except Exception as dl_err:
+                            print(f"Warning: Failed to download {filename}: {dl_err}")
+                            sys.stdout.flush()
+                model_dir = temp_model_dir
+
             model = OmniVoice.from_pretrained(
                 model_dir,
                 device_map="cuda:0",
