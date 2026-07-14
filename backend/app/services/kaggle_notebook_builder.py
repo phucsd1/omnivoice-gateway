@@ -25,7 +25,7 @@ class KaggleNotebookBuilder:
             "is_private": True,
             "enable_gpu": True,
             "enable_internet": True,
-            "dataset_sources": [],
+            "dataset_sources": ["phcnguynhukendykerry/omnivoice-original"],
             "kernel_sources": [],
             "competition_sources": []
         }
@@ -113,6 +113,10 @@ def ensure_dependencies():
         import soundfile
     except ImportError:
         missing.append("soundfile")
+    try:
+        import modelscope
+    except ImportError:
+        missing.append("modelscope")
     try:
         import faster_whisper
     except ImportError:
@@ -381,12 +385,54 @@ def main():
             json={{"worker_id": WORKER_ID, "status": "loading_model", "message": "Loading model weights..."}}
         )
 
-        model = OmniVoice.from_pretrained(
-            "k2-fsa/OmniVoice",
-            device_map="cuda:0",
-            dtype=torch.float16,
-            load_asr=True,
-        )
+        model_dir = None
+        model_loaded = False
+        
+        # 1. First priority: Mounted Kaggle Dataset (0-second load)
+        if os.path.exists("/kaggle/input"):
+            for root, dirs, files in os.walk("/kaggle/input"):
+                if "model.safetensors" in files and "config.json" in files:
+                    if not root.endswith("audio_tokenizer"):
+                        model_dir = root
+                        log(f"Found mounted model weights at: {{model_dir}}. Loading instantly...")
+                        break
+        
+        # 2. Second priority: Original Hugging Face Hub (Fast stable download when CDN works)
+        if not model_dir:
+            try:
+                log("Attempting to load model from Hugging Face Hub (standard source)...")
+                model = OmniVoice.from_pretrained(
+                    "k2-fsa/OmniVoice",
+                    device_map="cuda:0",
+                    dtype=torch.float16,
+                    load_asr=True,
+                )
+                log("OmniVoice model loaded successfully from Hugging Face Hub.")
+                model_loaded = True
+            except Exception as hf_err:
+                log(f"Warning: Failed to load from Hugging Face Hub (CDN issue?): {{hf_err}}")
+                model_loaded = False
+        
+        # 3. Third priority: ModelScope fallback (Stable alternative source if HF is down)
+        if not model_dir and not model_loaded:
+            try:
+                from modelscope import snapshot_download
+                log("Falling back to ModelScope to download model weights...")
+                model_dir = snapshot_download("k2-fsa/OmniVoice")
+                log(f"Model weights loaded locally via ModelScope at: {{model_dir}}")
+            except Exception as ms_err:
+                log(f"CRITICAL: Failed to download from ModelScope: {{ms_err}}")
+                model_dir = "k2-fsa/OmniVoice"
+
+        # Load from model_dir if it was not loaded from Hugging Face directly
+        if not model_loaded:
+            model = OmniVoice.from_pretrained(
+                model_dir,
+                device_map="cuda:0",
+                dtype=torch.float16,
+                load_asr=True,
+            )
+            log("OmniVoice model loaded successfully from local path.")
         log("OmniVoice model loaded successfully.")
     except Exception as e:
         log(f"CRITICAL ERROR loading OmniVoice model: {{e}}")
@@ -751,6 +797,10 @@ def ensure_dependencies():
     except ImportError:
         missing.append("soundfile")
     try:
+        import modelscope
+    except ImportError:
+        missing.append("modelscope")
+    try:
         import faster_whisper
     except ImportError:
         missing.append("faster-whisper")
@@ -828,12 +878,62 @@ def main():
     print("Loading OmniVoice model...")
     sys.stdout.flush()
     try:
-        model = OmniVoice.from_pretrained(
-            "k2-fsa/OmniVoice",
-            device_map="cuda:0",
-            dtype=torch.float16,
-            load_asr=True,
-        )
+        model_dir = None
+        model_loaded = False
+        
+        # 1. First priority: Mounted Kaggle Dataset (0-second load)
+        if os.path.exists("/kaggle/input"):
+            for root, dirs, files in os.walk("/kaggle/input"):
+                if "model.safetensors" in files and "config.json" in files:
+                    if not root.endswith("audio_tokenizer"):
+                        model_dir = root
+                        print(f"Found mounted model weights at: {{model_dir}}. Loading instantly...")
+                        sys.stdout.flush()
+                        break
+        
+        # 2. Second priority: Original Hugging Face Hub (Fast stable download when CDN works)
+        if not model_dir:
+            try:
+                print("Attempting to load model from Hugging Face Hub (standard source)...")
+                sys.stdout.flush()
+                model = OmniVoice.from_pretrained(
+                    "k2-fsa/OmniVoice",
+                    device_map="cuda:0",
+                    dtype=torch.float16,
+                    load_asr=True,
+                )
+                print("OmniVoice model loaded successfully from Hugging Face Hub.")
+                sys.stdout.flush()
+                model_loaded = True
+            except Exception as hf_err:
+                print(f"Warning: Failed to load from Hugging Face Hub (CDN issue?): {{hf_err}}")
+                sys.stdout.flush()
+                model_loaded = False
+        
+        # 3. Third priority: ModelScope fallback (Stable alternative source if HF is down)
+        if not model_dir and not model_loaded:
+            try:
+                from modelscope import snapshot_download
+                print("Falling back to ModelScope to download model weights...")
+                sys.stdout.flush()
+                model_dir = snapshot_download("k2-fsa/OmniVoice")
+                print(f"Model weights loaded locally via ModelScope at: {{model_dir}}")
+                sys.stdout.flush()
+            except Exception as ms_err:
+                print(f"CRITICAL: Failed to download from ModelScope: {{ms_err}}")
+                sys.stdout.flush()
+                model_dir = "k2-fsa/OmniVoice"
+
+        # Load from model_dir if it was not loaded from Hugging Face directly
+        if not model_loaded:
+            model = OmniVoice.from_pretrained(
+                model_dir,
+                device_map="cuda:0",
+                dtype=torch.float16,
+                load_asr=True,
+            )
+            print("OmniVoice model loaded successfully from local path.")
+            sys.stdout.flush()
         print("OmniVoice model loaded successfully.")
     except Exception as e:
         print(f"CRITICAL ERROR loading OmniVoice model: {{e}}")
