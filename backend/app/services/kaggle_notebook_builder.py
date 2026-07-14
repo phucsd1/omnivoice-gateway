@@ -15,6 +15,41 @@ class KaggleNotebookBuilder:
         """Generates or updates kernel-metadata.json from configurations."""
         metadata_path = os.path.join(worker_dir, "kernel-metadata.json")
         
+        dataset_sources = []
+        # Check settings for Kaggle credentials to dynamically check datasets
+        if settings.KAGGLE_USERNAME and settings.KAGGLE_KEY:
+            try:
+                # Set temporary env variables for the kaggle library
+                os.environ["KAGGLE_USERNAME"] = settings.KAGGLE_USERNAME
+                os.environ["KAGGLE_KEY"] = settings.KAGGLE_KEY
+                
+                from kaggle.api.kaggle_api_extended import KaggleApi
+                api = KaggleApi()
+                api.authenticate()
+                
+                # Check which of the target datasets is available and accessible
+                candidates = [
+                    "phcnguynhukendykerry/omnivoice-original-2",
+                    "phcnguynhukendykerry/omnivoice-original",
+                    f"{username}/omnivoice-model",
+                    f"{username}/omnivoice"
+                ]
+                for dataset_ref in candidates:
+                    try:
+                        status = api.dataset_status(dataset_ref)
+                        if status:
+                            dataset_sources.append(dataset_ref)
+                            print(f"[KaggleNotebookBuilder] Auto-detected Kaggle dataset: {dataset_ref} (status: {status}). Adding to dataset_sources.")
+                            break
+                    except Exception:
+                        continue
+            except Exception as ex:
+                print(f"[KaggleNotebookBuilder] Info: Kaggle API dataset status check skipped: {ex}")
+                
+        # If no dataset was found via API, fallback to default
+        if not dataset_sources:
+            dataset_sources = ["phcnguynhukendykerry/omnivoice-original-2"]
+
         # Build metadata structure
         metadata = {
             "id": f"{username}/{slug}",
@@ -25,7 +60,7 @@ class KaggleNotebookBuilder:
             "is_private": True,
             "enable_gpu": True,
             "enable_internet": True,
-            "dataset_sources": ["phcnguynhukendykerry/omnivoice-original"],
+            "dataset_sources": dataset_sources,
             "kernel_sources": [],
             "competition_sources": []
         }
