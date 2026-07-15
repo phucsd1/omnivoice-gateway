@@ -45,6 +45,11 @@ export const PlaygroundPanel: React.FC = () => {
   const duration = "";
   const [preprocessPrompt, setPreprocessPrompt] = useState(true);
   const postprocessOutput = true;
+  
+  // New OmniVoice 0.2.0 params states
+  const [language, setLanguage] = useState("");
+  const [padDuration, setPadDuration] = useState<string>("");
+  const [fadeDuration, setFadeDuration] = useState<string>("");
 
   // Job Polling States
   const [loading, setLoading] = useState(false);
@@ -137,7 +142,10 @@ export const PlaygroundPanel: React.FC = () => {
       duration: duration ? parseFloat(duration) : undefined,
       preprocess_prompt: preprocessPrompt,
       postprocess_output: postprocessOutput,
-      with_alignment: true // Enforced for alignment testing playground
+      with_alignment: true, // Enforced for alignment testing playground
+      language: language || undefined,
+      pad_duration: padDuration !== "" ? parseFloat(padDuration) : undefined,
+      fade_duration: fadeDuration !== "" ? parseFloat(fadeDuration) : undefined
     };
 
     try {
@@ -629,6 +637,50 @@ export const PlaygroundPanel: React.FC = () => {
                       onChange={(e) => setPositionTemperature(parseFloat(e.target.value))}
                       className="seekbar w-full"
                     />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex justify-between text-[9px] font-bold text-muted-foreground uppercase">
+                      <span>Language (Ngôn ngữ)</span>
+                    </div>
+                    <select
+                      value={language}
+                      onChange={(e) => setLanguage(e.target.value)}
+                      className="w-full bg-card border border-border rounded-lg text-xs p-1.5 focus:outline-none focus:ring-1 focus:ring-violet-500 text-foreground"
+                    >
+                      <option value="">Auto Detect (Mặc định)</option>
+                      <option value="vi">Vietnamese (vi)</option>
+                      <option value="en">English (en)</option>
+                      <option value="zh">Chinese (zh)</option>
+                      <option value="ja">Japanese (ja)</option>
+                      <option value="ko">Korean (ko)</option>
+                      <option value="fr">French (fr)</option>
+                      <option value="de">German (de)</option>
+                      <option value="es">Spanish (es)</option>
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex justify-between text-[9px] font-bold text-muted-foreground uppercase">
+                        <span>Pad Duration (Độ đệm)</span>
+                      </div>
+                      <input
+                        type="number" min="0" max="2.0" step="0.05" placeholder="Mặc định" value={padDuration}
+                        onChange={(e) => setPadDuration(e.target.value)}
+                        className="bg-card border border-border rounded-lg text-xs p-1.5 focus:outline-none focus:ring-1 focus:ring-violet-500 text-foreground w-full"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex justify-between text-[9px] font-bold text-muted-foreground uppercase">
+                        <span>Fade Duration (Làm mượt)</span>
+                      </div>
+                      <input
+                        type="number" min="0" max="1.0" step="0.05" placeholder="Mặc định" value={fadeDuration}
+                        onChange={(e) => setFadeDuration(e.target.value)}
+                        className="bg-card border border-border rounded-lg text-xs p-1.5 focus:outline-none focus:ring-1 focus:ring-violet-500 text-foreground w-full"
+                      />
+                    </div>
                   </div>
                 </div>
               )}

@@ -74,7 +74,10 @@ class JobService:
         preprocess_prompt: bool = True,
         postprocess_output: bool = True,
         audio_chunk_duration: float = 15.0,
-        audio_chunk_threshold: float = 30.0
+        audio_chunk_threshold: float = 30.0,
+        language: str = None,
+        pad_duration: float = None,
+        fade_duration: float = None
     ) -> tuple[VoiceDesignPreview, TTSJob]:
         """Creates a VoiceDesignPreview entry and triggers a background preview TTS job."""
         preview_id = generate_id("vd")
@@ -114,6 +117,9 @@ class JobService:
             postprocess_output=postprocess_output,
             audio_chunk_duration=audio_chunk_duration,
             audio_chunk_threshold=audio_chunk_threshold,
+            language=language,
+            pad_duration=pad_duration,
+            fade_duration=fade_duration,
             status="queued",
             message="Đã nhận yêu cầu thiết kế giọng."
         )
@@ -147,7 +153,10 @@ class JobService:
         audio_chunk_duration: float = 15.0,
         audio_chunk_threshold: float = 30.0,
         ref_text: str = None,
-        with_alignment: bool = False
+        with_alignment: bool = False,
+        language: str = None,
+        pad_duration: float = None,
+        fade_duration: float = None
     ) -> TTSJob:
         """Creates a TTS job based on the chosen mode (clone_voice, auto_voice, voice_design)."""
         job_id = generate_id("job")
@@ -198,6 +207,9 @@ class JobService:
             audio_chunk_duration=audio_chunk_duration,
             audio_chunk_threshold=audio_chunk_threshold,
             with_alignment=with_alignment,
+            language=language,
+            pad_duration=pad_duration,
+            fade_duration=fade_duration,
             status="queued",
             message="Đã nhận yêu cầu. Đang chuẩn bị đầu vào..."
         )

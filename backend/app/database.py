@@ -185,7 +185,10 @@ def migrate_database(db_url: str):
             "with_alignment": "BOOLEAN DEFAULT 0",
             "alignment": "TEXT",
             "started_at": "DATETIME",
-            "completed_at": "DATETIME"
+            "completed_at": "DATETIME",
+            "language": "VARCHAR(50)",
+            "pad_duration": "FLOAT",
+            "fade_duration": "FLOAT"
         }
         
         for col, col_type in new_cols.items():

@@ -51,6 +51,9 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
   const [postprocessOutput] = useState<boolean>(true);
   const [audioChunkDuration] = useState(15.0);
   const [audioChunkThreshold] = useState(30.0);
+  const [language, setLanguage] = useState("");
+  const [padDuration, setPadDuration] = useState<string>("");
+  const [fadeDuration, setFadeDuration] = useState<string>("");
   
   const [activePreset, setActivePreset] = useState("Tự nhiên");
 
@@ -132,7 +135,10 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
       preprocess_prompt: preprocessPrompt,
       postprocess_output: postprocessOutput,
       audio_chunk_duration: audioChunkDuration,
-      audio_chunk_threshold: audioChunkThreshold
+      audio_chunk_threshold: audioChunkThreshold,
+      language: language || undefined,
+      pad_duration: padDuration !== "" ? parseFloat(padDuration) : undefined,
+      fade_duration: fadeDuration !== "" ? parseFloat(fadeDuration) : undefined
     };
 
     try {
@@ -396,6 +402,43 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
                     <div className="flex flex-col gap-1">
                       <span className="text-[10px] font-bold text-muted-foreground uppercase">Layer Penalty: {layerPenaltyFactor.toFixed(1)}</span>
                       <input type="range" min="0.0" max="10.0" step="0.5" value={layerPenaltyFactor} onChange={e => setLayerPenaltyFactor(parseFloat(e.target.value))} className="w-full" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase">Ngôn ngữ (Language)</span>
+                      <select
+                        value={language}
+                        onChange={e => setLanguage(e.target.value)}
+                        className="w-full bg-background border border-border rounded-lg text-xs p-2 focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+                      >
+                        <option value="">Tự động nhận diện (Mặc định)</option>
+                        <option value="vi">Tiếng Việt (vi)</option>
+                        <option value="en">Tiếng Anh (en)</option>
+                        <option value="zh">Tiếng Trung (zh)</option>
+                        <option value="ja">Tiếng Nhật (ja)</option>
+                        <option value="ko">Tiếng Hàn (ko)</option>
+                        <option value="fr">Tiếng Pháp (fr)</option>
+                        <option value="de">Tiếng Đức (de)</option>
+                        <option value="es">Tiếng Tây Ban Nha (es)</option>
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase">Pad Duration (Độ đệm)</span>
+                        <input
+                          type="number" min="0" max="2.0" step="0.05" placeholder="Mặc định" value={padDuration}
+                          onChange={e => setPadDuration(e.target.value)}
+                          className="bg-background border border-border rounded-lg text-xs p-2 focus:outline-none focus:ring-1 focus:ring-primary text-foreground w-full"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase">Fade Duration (Làm mượt)</span>
+                        <input
+                          type="number" min="0" max="1.0" step="0.05" placeholder="Mặc định" value={fadeDuration}
+                          onChange={e => setFadeDuration(e.target.value)}
+                          className="bg-background border border-border rounded-lg text-xs p-2 focus:outline-none focus:ring-1 focus:ring-primary text-foreground w-full"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}

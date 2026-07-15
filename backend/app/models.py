@@ -117,6 +117,9 @@ class TTSJob(Base):
     alignment = Column(Text, nullable=True)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
+    language = Column(String(50), nullable=True)
+    pad_duration = Column(Float, nullable=True)
+    fade_duration = Column(Float, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

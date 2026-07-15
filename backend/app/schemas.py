@@ -136,6 +136,9 @@ class TTSJobCreate(BaseModel):
     audio_chunk_duration: Optional[float] = 15.0
     audio_chunk_threshold: Optional[float] = 30.0
     with_alignment: Optional[bool] = Field(False, description="Yêu cầu xuất kèm mốc thời gian (alignment) từng từ để làm phụ đề.")
+    language: Optional[str] = None
+    pad_duration: Optional[float] = None
+    fade_duration: Optional[float] = None
 
 class TTSJobResponse(BaseModel):
     job_id: str

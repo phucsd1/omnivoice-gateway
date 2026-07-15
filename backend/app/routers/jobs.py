@@ -60,7 +60,10 @@ def _build_job_response(job: TTSJob) -> JobStatusResponse:
         "postprocess_output": job.postprocess_output,
         "audio_chunk_duration": job.audio_chunk_duration,
         "audio_chunk_threshold": job.audio_chunk_threshold,
-        "with_alignment": job.with_alignment
+        "with_alignment": job.with_alignment,
+        "language": job.language,
+        "pad_duration": job.pad_duration,
+        "fade_duration": job.fade_duration
     }
     params_data = {k: v for k, v in params_data.items() if v is not None}
 

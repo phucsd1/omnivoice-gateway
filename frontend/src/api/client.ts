@@ -210,6 +210,9 @@ export interface OmniVoiceParams {
   audio_chunk_duration?: number;
   audio_chunk_threshold?: number;
   with_alignment?: boolean;
+  language?: string;
+  pad_duration?: number;
+  fade_duration?: number;
 }
 
 export const api = {

@@ -638,12 +638,12 @@ def main():
                 elif job_type != "auto_voice":
                     raise Exception(f"Unknown job type: {{job_type}}")
                 
-                # Check for optional OmniVoice parameters in job payload
                 optional_keys = [
                     "num_step", "denoise", "guidance_scale", "t_shift",
                     "position_temperature", "class_temperature", "layer_penalty_factor",
                     "duration", "speed", "preprocess_prompt", "postprocess_output",
-                    "audio_chunk_duration", "audio_chunk_threshold"
+                    "audio_chunk_duration", "audio_chunk_threshold",
+                    "language", "pad_duration", "fade_duration"
                 ]
                 for key in optional_keys:
                     if key in job and job[key] is not None:
@@ -807,7 +807,10 @@ if __name__ == '__main__':
                 "preprocess_prompt": True,
                 "postprocess_output": True,
                 "audio_chunk_duration": 15.0,
-                "audio_chunk_threshold": 30.0
+                "audio_chunk_threshold": 30.0,
+                "language": None,
+                "pad_duration": None,
+                "fade_duration": None
             }
 
             if job:
@@ -840,6 +843,9 @@ if __name__ == '__main__':
             postprocess_output = job_params["postprocess_output"]
             audio_chunk_duration = job_params["audio_chunk_duration"]
             audio_chunk_threshold = job_params["audio_chunk_threshold"]
+            language = job_params["language"]
+            pad_duration = job_params["pad_duration"]
+            fade_duration = job_params["fade_duration"]
 
             ref_audio_url = None
             if voice_sample_id:
@@ -931,6 +937,9 @@ PREPROCESS_PROMPT = {preprocess_prompt}
 POSTPROCESS_OUTPUT = {postprocess_output}
 AUDIO_CHUNK_DURATION = {audio_chunk_duration}
 AUDIO_CHUNK_THRESHOLD = {audio_chunk_threshold}
+LANGUAGE = {repr(language)}
+PAD_DURATION = {pad_duration}
+FADE_DURATION = {fade_duration}
 WORKER_TOKEN = {repr(worker_token)}
 
 def main():
@@ -1098,7 +1107,10 @@ def main():
             "preprocess_prompt": PREPROCESS_PROMPT,
             "postprocess_output": POSTPROCESS_OUTPUT,
             "audio_chunk_duration": AUDIO_CHUNK_DURATION,
-            "audio_chunk_threshold": AUDIO_CHUNK_THRESHOLD
+            "audio_chunk_threshold": AUDIO_CHUNK_THRESHOLD,
+            "language": LANGUAGE,
+            "pad_duration": PAD_DURATION,
+            "fade_duration": FADE_DURATION
         }}
         for key, val in params_map.items():
             if val is not None:
