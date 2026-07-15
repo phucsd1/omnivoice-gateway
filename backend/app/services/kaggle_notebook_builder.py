@@ -46,8 +46,9 @@ class KaggleNotebookBuilder:
             except Exception as ex:
                 print(f"[KaggleNotebookBuilder] Info: Kaggle API dataset status check skipped: {ex}")
                 
-        # Temporarily disabled for benchmark (forcing Hugging Face Hub download)
-        dataset_sources = []
+        # If no dataset was found via API, fallback to default
+        if not dataset_sources:
+            dataset_sources = ["phcnguynhukendykerry/omnivoice-original-2"]
 
         # Build metadata structure
         metadata = {
