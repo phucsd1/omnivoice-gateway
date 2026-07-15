@@ -135,6 +135,7 @@ os.environ["PYTHONWARNINGS"] = "ignore"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "0"
 os.environ["HF_HUB_DISABLE_XET"] = "1"
+os.environ["HF_HUB_ETAG_TIMEOUT"] = "15"
 warnings.filterwarnings("ignore")
 
 def ensure_dependencies():
@@ -431,33 +432,33 @@ def main():
         model_dir = None
         model_loaded = False
         
-        # 1. First priority: Mounted Kaggle Dataset (0-second load)
-        if os.path.exists("/kaggle/input"):
-            for root, dirs, files in os.walk("/kaggle/input"):
-                if "model.safetensors" in files and "config.json" in files:
-                    if not root.endswith("audio_tokenizer"):
-                        model_dir = root
-                        log(f"Found mounted model weights at: {{model_dir}}. Loading instantly...")
-                        break
+        # 1. First priority: Original Hugging Face Hub (direct download)
+        try:
+            log("Attempting to load model from Hugging Face Hub...")
+            model = OmniVoice.from_pretrained(
+                "k2-fsa/OmniVoice",
+                device_map="cuda:0",
+                dtype=torch.float16,
+                load_asr=True,
+            )
+            log("OmniVoice model loaded successfully from Hugging Face Hub.")
+            model_loaded = True
+        except Exception as hf_err:
+            log(f"Warning: Failed to load from Hugging Face Hub (CDN issue?): {{hf_err}}")
+            model_loaded = False
         
-        # 2. Second priority: Original Hugging Face Hub (Fast stable download when CDN works)
-        if not model_dir:
-            try:
-                log("Attempting to load model from Hugging Face Hub (standard source)...")
-                model = OmniVoice.from_pretrained(
-                    "k2-fsa/OmniVoice",
-                    device_map="cuda:0",
-                    dtype=torch.float16,
-                    load_asr=True,
-                )
-                log("OmniVoice model loaded successfully from Hugging Face Hub.")
-                model_loaded = True
-            except Exception as hf_err:
-                log(f"Warning: Failed to load from Hugging Face Hub (CDN issue?): {{hf_err}}")
-                model_loaded = False
+        # 2. Second priority: Mounted Kaggle Dataset (Fallback)
+        if not model_loaded:
+            if os.path.exists("/kaggle/input"):
+                for root, dirs, files in os.walk("/kaggle/input"):
+                    if "model.safetensors" in files and "config.json" in files:
+                        if not root.endswith("audio_tokenizer"):
+                            model_dir = root
+                            log(f"Found mounted model weights at: {{model_dir}}. Loading instantly...")
+                            break
         
         # 3. Third priority: ModelScope fallback (Stable alternative source if HF is down)
-        if not model_dir and not model_loaded:
+        if not model_loaded and not model_dir:
             try:
                 from modelscope import snapshot_download
                 log("Falling back to ModelScope to download model weights...")
@@ -858,6 +859,7 @@ os.environ["PYTHONWARNINGS"] = "ignore"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "0"
 os.environ["HF_HUB_DISABLE_XET"] = "1"
+os.environ["HF_HUB_ETAG_TIMEOUT"] = "15"
 warnings.filterwarnings("ignore")
 
 def ensure_dependencies():
@@ -964,37 +966,37 @@ def main():
         model_dir = None
         model_loaded = False
         
-        # 1. First priority: Mounted Kaggle Dataset (0-second load)
-        if os.path.exists("/kaggle/input"):
-            for root, dirs, files in os.walk("/kaggle/input"):
-                if "model.safetensors" in files and "config.json" in files:
-                    if not root.endswith("audio_tokenizer"):
-                        model_dir = root
-                        print(f"Found mounted model weights at: {{model_dir}}. Loading instantly...")
-                        sys.stdout.flush()
-                        break
+        # 1. First priority: Original Hugging Face Hub (direct download)
+        try:
+            print("Attempting to load model from Hugging Face Hub...")
+            sys.stdout.flush()
+            model = OmniVoice.from_pretrained(
+                "k2-fsa/OmniVoice",
+                device_map="cuda:0",
+                dtype=torch.float16,
+                load_asr=True,
+            )
+            print("OmniVoice model loaded successfully from Hugging Face Hub.")
+            sys.stdout.flush()
+            model_loaded = True
+        except Exception as hf_err:
+            print(f"Warning: Failed to load from Hugging Face Hub (CDN issue?): {{hf_err}}")
+            sys.stdout.flush()
+            model_loaded = False
         
-        # 2. Second priority: Original Hugging Face Hub (Fast stable download when CDN works)
-        if not model_dir:
-            try:
-                print("Attempting to load model from Hugging Face Hub (standard source)...")
-                sys.stdout.flush()
-                model = OmniVoice.from_pretrained(
-                    "k2-fsa/OmniVoice",
-                    device_map="cuda:0",
-                    dtype=torch.float16,
-                    load_asr=True,
-                )
-                print("OmniVoice model loaded successfully from Hugging Face Hub.")
-                sys.stdout.flush()
-                model_loaded = True
-            except Exception as hf_err:
-                print(f"Warning: Failed to load from Hugging Face Hub (CDN issue?): {{hf_err}}")
-                sys.stdout.flush()
-                model_loaded = False
+        # 2. Second priority: Mounted Kaggle Dataset (Fallback)
+        if not model_loaded:
+            if os.path.exists("/kaggle/input"):
+                for root, dirs, files in os.walk("/kaggle/input"):
+                    if "model.safetensors" in files and "config.json" in files:
+                        if not root.endswith("audio_tokenizer"):
+                            model_dir = root
+                            print(f"Found mounted model weights at: {{model_dir}}. Loading instantly...")
+                            sys.stdout.flush()
+                            break
         
         # 3. Third priority: ModelScope fallback (Stable alternative source if HF is down)
-        if not model_dir and not model_loaded:
+        if not model_loaded and not model_dir:
             try:
                 from modelscope import snapshot_download
                 print("Falling back to ModelScope to download model weights...")
