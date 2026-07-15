@@ -158,29 +158,46 @@ class KaggleOrchestrator:
                             stuck_job.worker_id = None
                     db.commit()
 
-                # 2. Check if there are any jobs currently starting or booting
-                booting_job = db.query(TTSJob).filter(
-                    TTSJob.status.in_(["starting_worker", "queued_kaggle"])
-                ).first()
+                # 2. Count active/live worker sessions
+                active_sessions = db.query(WorkerSession).filter(
+                    WorkerSession.status.in_(["starting", "loading_model", "ready", "busy", "idle"]),
+                    WorkerSession.last_heartbeat_at >= cutoff
+                ).all()
+                active_worker_ids = {s.worker_id for s in active_sessions}
 
-                if booting_job:
-                    # Poll Kaggle to check if the kernel is starting/running
-                    cls._poll_booting_worker(db, booting_job)
-                else:
-                    # No booting job. Find the next queued job.
+                # 3. Find and check booting jobs
+                booting_jobs = db.query(TTSJob).filter(
+                    TTSJob.status.in_(["starting_worker", "queued_kaggle"])
+                ).all()
+
+                # Poll status for each booting job
+                for b_job in booting_jobs:
+                    cls._poll_booting_worker(db, b_job)
+
+                # Determine active or booting worker IDs
+                booting_worker_ids = {j.worker_id for j in booting_jobs if j.worker_id}
+                total_active_or_booting = active_worker_ids.union(booting_worker_ids)
+
+                # If we have less than 2 active/booting workers, trigger a new one if there are queued jobs
+                if len(total_active_or_booting) < 2:
                     next_job = db.query(TTSJob).filter(
                         TTSJob.status == "queued"
                     ).order_by(TTSJob.created_at.asc()).first()
 
                     if next_job:
-                        # Check if we have a live worker session already
-                        if cls.has_live_worker(db):
-                            # Yes! The live worker will poll and pick up the job via API.
-                            # We don't need to do anything at the gateway.
-                            print(f"[KaggleOrchestrator] Live worker detected. Job {next_job.id} is queued and waiting for worker to pull.")
-                        else:
-                            # No live worker! We need to trigger a new Kaggle worker session.
-                            cls._trigger_daemon_worker(db, next_job)
+                        # Decide which worker slot to assign
+                        assigned_worker_id = "worker_1"
+                        if "worker_1" in total_active_or_booting:
+                            assigned_worker_id = "worker_2"
+                        elif "worker_2" in total_active_or_booting:
+                            assigned_worker_id = "worker_1"
+                        
+                        print(f"[KaggleOrchestrator] Queued job {next_job.id} found. Active/booting workers: {total_active_or_booting}. Triggering slot {assigned_worker_id}...")
+                        next_job.worker_id = assigned_worker_id
+                        db.commit()
+                        db.refresh(next_job)
+                        
+                        cls._trigger_daemon_worker(db, next_job)
             except Exception as e:
                 print(f"[KaggleOrchestrator] Exception in queue loop: {e}")
             finally:
@@ -192,7 +209,7 @@ class KaggleOrchestrator:
     @classmethod
     def _trigger_daemon_worker(cls, db, job):
         """Prepares daemon worker code and pushes it to Kaggle."""
-        print(f"[KaggleOrchestrator] Triggering daemon worker for job context {job.id}")
+        print(f"[KaggleOrchestrator] Triggering daemon worker for job context {job.id} on slot {job.worker_id}")
         
         # Update status to starting_worker
         job.status = "starting_worker"
@@ -201,8 +218,12 @@ class KaggleOrchestrator:
         db.commit()
         db.refresh(job)
 
+        # Register or update worker session in DB to immediately mark it as starting
+        from app.services.worker_session_service import WorkerSessionService
+        WorkerSessionService.register_worker(db, job.worker_id, "starting", "Kaggle kernel is being pushed...")
+
         # Resolve credentials
-        username, key, kernel_ref, worker_dir = cls.get_credentials(db, job.user_id)
+        username, key, default_kernel_ref, default_worker_dir = cls.get_credentials(db, job.user_id)
         if not username or not key:
             job.status = "failed"
             job.message = "Chưa cấu hình tài khoản Kaggle."
@@ -210,10 +231,20 @@ class KaggleOrchestrator:
             db.commit()
             return
 
+        # Resolve dynamic slot slug and directory
+        if job.worker_id == "worker_2":
+            kernel_ref = f"{username}/omnivoice-worker-2"
+            worker_dir_path = f"{default_worker_dir}-2"
+        else:
+            kernel_ref = f"{username}/omnivoice-worker-1"
+            worker_dir_path = f"{default_worker_dir}-1"
+
+        worker_dir_abs = os.path.abspath(worker_dir_path)
+
         # Call builder to prepare files
         try:
             from app.services.kaggle_notebook_builder import KaggleNotebookBuilder
-            KaggleNotebookBuilder.prepare_all(job=None, db=db, is_daemon=True, user_id=job.user_id)
+            KaggleNotebookBuilder.prepare_all(job=job, db=db, is_daemon=True, user_id=job.user_id)
         except Exception as e:
             job.status = "failed"
             job.message = "Lỗi chuẩn bị mã nguồn."
@@ -222,7 +253,6 @@ class KaggleOrchestrator:
             return
 
         # Prepare CLI environment with credentials
-        worker_dir_abs = os.path.abspath(worker_dir)
         env = os.environ.copy()
         env["KAGGLE_USERNAME"] = username
         env["KAGGLE_KEY"] = key
@@ -306,13 +336,18 @@ class KaggleOrchestrator:
     @classmethod
     def _poll_booting_worker(cls, db, job):
         """Polls Kaggle for the booting worker's status."""
-        username, key, kernel_ref, worker_dir = cls.get_credentials(db, job.user_id)
+        username, key, default_kernel_ref, default_worker_dir = cls.get_credentials(db, job.user_id)
         if not username or not key:
             job.status = "failed"
             job.message = "Chưa cấu hình tài khoản Kaggle."
             job.error_message = "Kaggle username or key missing during boot poll."
             db.commit()
             return
+
+        if job.worker_id == "worker_2":
+            kernel_ref = f"{username}/omnivoice-worker-2"
+        else:
+            kernel_ref = f"{username}/omnivoice-worker-1"
 
         env = os.environ.copy()
         env["KAGGLE_USERNAME"] = username
@@ -335,6 +370,9 @@ class KaggleOrchestrator:
                     job.error_message = f"Kaggle CLI status failed consecutively: {err_msg}"
                     db.commit()
                     cls._consecutive_poll_failures.pop(job.id, None)
+                    # Shut down the worker session in DB
+                    from app.services.worker_session_service import WorkerSessionService
+                    WorkerSessionService.shutdown_worker(db, job.worker_id, f"Kaggle status check failed: {err_msg}")
                 return
 
             cls._consecutive_poll_failures[job.id] = 0
@@ -361,12 +399,18 @@ class KaggleOrchestrator:
                 job.message = "Kaggle Worker gặp lỗi khi khởi động."
                 job.error_message = f"Kaggle boot error: {status_output}"
                 db.commit()
+                # Shut down the worker session in DB
+                from app.services.worker_session_service import WorkerSessionService
+                WorkerSessionService.shutdown_worker(db, job.worker_id, f"Kaggle boot error: {status_output}")
             elif "cancel" in status_lower or "complete" in status_lower or "stop" in status_lower:
                 cls._unknown_status_count.pop(job.id, None)
                 job.status = "failed"
                 job.message = "Kaggle Worker đã dừng hoặc bị hủy."
                 job.error_message = f"Kaggle boot error: {status_output}"
                 db.commit()
+                # Shut down the worker session in DB
+                from app.services.worker_session_service import WorkerSessionService
+                WorkerSessionService.shutdown_worker(db, job.worker_id, f"Kaggle stopped/cancelled: {status_output}")
             else:
                 print(f"[KaggleOrchestrator] Warning: unknown Kaggle status: {status_output}")
                 cls._unknown_status_count[job.id] = cls._unknown_status_count.get(job.id, 0) + 1

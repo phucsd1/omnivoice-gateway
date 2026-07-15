@@ -7,8 +7,11 @@ from datetime import datetime
 from app.models import TTSJob, VoiceDesignPreview, VoiceSample
 from app.utils.ids import generate_id
 from app.config import settings
-from app.services.audio_service import AudioService
+import threading
+from sqlalchemy import or_, and_
 from app.services.kaggle_orchestrator import KaggleOrchestrator
+
+_job_allocation_lock = threading.Lock()
 
 class JobService:
     @staticmethod
@@ -222,26 +225,35 @@ class JobService:
     @staticmethod
     def get_next_job(db: Session, worker_id: str, user_id: str = None) -> Optional[TTSJob]:
         """Locks the oldest queued job for the requested worker and updates status to preparing_input."""
-        # Find queued, starting_worker, or queued_kaggle status jobs
-        query = db.query(TTSJob).filter(
-            TTSJob.status.in_(["queued", "starting_worker", "queued_kaggle"])
-        )
-        if user_id:
-            query = query.filter(TTSJob.user_id == user_id)
-            
-        job = query.order_by(TTSJob.created_at.asc()).first()
+        with _job_allocation_lock:
+            # Find jobs that are:
+            # - General queued (no worker_id/starting restriction) OR
+            # - Assigned to this specific worker during its booting state
+            query = db.query(TTSJob).filter(
+                or_(
+                    TTSJob.status == "queued",
+                    and_(
+                        TTSJob.status.in_(["starting_worker", "queued_kaggle"]),
+                        TTSJob.worker_id == worker_id
+                    )
+                )
+            )
+            if user_id:
+                query = query.filter(TTSJob.user_id == user_id)
+                
+            job = query.order_by(TTSJob.created_at.asc()).first()
 
-        if not job:
-            return None
+            if not job:
+                return None
 
-        # Lock the job
-        job.status = "preparing_input"
-        job.worker_id = worker_id
-        job.message = "Đang chuẩn bị dữ liệu đầu vào trên Worker..."
-        job.started_at = datetime.utcnow()
-        db.commit()
-        db.refresh(job)
-        return job
+            # Lock the job
+            job.status = "preparing_input"
+            job.worker_id = worker_id
+            job.message = "Đang chuẩn bị dữ liệu đầu vào trên Worker..."
+            job.started_at = datetime.utcnow()
+            db.commit()
+            db.refresh(job)
+            return job
 
     @staticmethod
     def update_job_status(db: Session, job_id: str, status: str, message: str = None, progress: int = 0, error_message: str = None) -> TTSJob:

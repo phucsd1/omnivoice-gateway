@@ -106,8 +106,17 @@ class KaggleNotebookBuilder:
             worker_token = settings.WORKER_TOKEN or "default_secure_worker_token_12345"
 
         if is_daemon:
-            import uuid
-            worker_id = f"kaggle_worker_{uuid.uuid4().hex[:6]}"
+            worker_id = None
+            if job:
+                if isinstance(job, dict):
+                    worker_id = job.get("worker_id")
+                else:
+                    worker_id = getattr(job, "worker_id", None)
+            if not worker_id:
+                if "worker-2" in worker_dir or "worker_2" in worker_dir:
+                    worker_id = "worker_2"
+                else:
+                    worker_id = "worker_1"
             idle_timeout = settings.WORKER_IDLE_TIMEOUT_SECONDS
             if db:
                 from app.models import SystemSetting
@@ -1181,8 +1190,21 @@ if __name__ == '__main__':
                 if u_acc and u_acc.value.strip():
                     accelerator = u_acc.value.strip()
         
-        # Extract slug from sanitized kernel_ref
-        slug = kernel_ref.split("/")[-1] if "/" in kernel_ref else settings.KAGGLE_KERNEL_SLUG
+        # Construct dynamic slug and directory based on worker_id
+        worker_id = None
+        if job:
+            if isinstance(job, dict):
+                worker_id = job.get("worker_id")
+            else:
+                worker_id = getattr(job, "worker_id", None)
+                
+        if worker_id == "worker_2":
+            slug = "omnivoice-worker-2"
+            worker_dir = f"{worker_dir}-2"
+        else:
+            slug = "omnivoice-worker-1"
+            worker_dir = f"{worker_dir}-1"
+            
         title = slug.replace("-", " ").title()
 
         worker_dir_abs = KaggleNotebookBuilder.ensure_worker_dir(worker_dir)
