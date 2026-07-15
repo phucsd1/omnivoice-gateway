@@ -74,6 +74,7 @@ def _build_job_response(job: TTSJob) -> JobStatusResponse:
         progress=job.progress,
         audio_url=audio_url,
         error_message=job.error_message,
+        worker_id=job.worker_id,
         job_type=job.job_type,
         text=job.text,
         created_at=job.created_at,
