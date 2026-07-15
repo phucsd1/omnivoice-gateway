@@ -490,15 +490,15 @@ def main():
                     dst_file = os.path.join(temp_model_dir, filename)
                     if not os.path.exists(dst_file):
                         try:
-                            log(f"Downloading {filename} from Hugging Face...")
-                            res = requests.get(f"https://huggingface.co/k2-fsa/OmniVoice/resolve/main/{filename}", timeout=30)
+                            log(f"Downloading {{filename}} from Hugging Face...")
+                            res = requests.get(f"https://huggingface.co/k2-fsa/OmniVoice/resolve/main/{{filename}}", timeout=30)
                             if res.status_code == 200:
                                 with open(dst_file, "wb") as out_f:
                                     out_f.write(res.content)
                             else:
-                                log(f"Warning: Failed to download {filename} (status: {res.status_code})")
+                                log(f"Warning: Failed to download {{filename}} (status: {{res.status_code}})")
                         except Exception as dl_err:
-                            log(f"Warning: Failed to download {filename}: {dl_err}")
+                            log(f"Warning: Failed to download {{filename}}: {{dl_err}}")
                 model_dir = temp_model_dir
 
             model = OmniVoice.from_pretrained(
@@ -1032,17 +1032,17 @@ def main():
                     dst_file = os.path.join(temp_model_dir, filename)
                     if not os.path.exists(dst_file):
                         try:
-                            print(f"Downloading {filename} from Hugging Face...")
+                            print(f"Downloading {{filename}} from Hugging Face...")
                             sys.stdout.flush()
-                            res = requests.get(f"https://huggingface.co/k2-fsa/OmniVoice/resolve/main/{filename}", timeout=30)
+                            res = requests.get(f"https://huggingface.co/k2-fsa/OmniVoice/resolve/main/{{filename}}", timeout=30)
                             if res.status_code == 200:
                                 with open(dst_file, "wb") as out_f:
                                     out_f.write(res.content)
                             else:
-                                print(f"Warning: Failed to download {filename} (status: {res.status_code})")
+                                print(f"Warning: Failed to download {{filename}} (status: {{res.status_code}})")
                                 sys.stdout.flush()
                         except Exception as dl_err:
-                            print(f"Warning: Failed to download {filename}: {dl_err}")
+                            print(f"Warning: Failed to download {{filename}}: {{dl_err}}")
                             sys.stdout.flush()
                 model_dir = temp_model_dir
 
