@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
     global last_request_time
     last_request_time = time.time()
 
-    # Startup actions
+    # Startup actions (triggered rebuild)
     print("[Main] Initializing OmniVoice On-Demand Gateway...")
     AudioService.ensure_directories()
     
