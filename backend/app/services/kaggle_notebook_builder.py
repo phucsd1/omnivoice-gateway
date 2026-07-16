@@ -105,6 +105,15 @@ class KaggleNotebookBuilder:
         if not worker_token:
             worker_token = settings.WORKER_TOKEN or "default_secure_worker_token_12345"
 
+        hf_token = ""
+        if db:
+            from app.models import SystemSetting
+            db_hf = db.query(SystemSetting).filter(SystemSetting.key == "hf_token").first()
+            if db_hf and db_hf.value.strip():
+                hf_token = db_hf.value.strip()
+        if not hf_token:
+            hf_token = settings.HF_TOKEN
+
         if is_daemon:
             worker_id = None
             if job:
@@ -145,6 +154,8 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "0"
 os.environ["HF_HUB_DISABLE_XET"] = "1"
 os.environ["HF_HUB_ETAG_TIMEOUT"] = "15"
+os.environ["HF_TOKEN"] = {repr(hf_token)}
+os.environ["HUGGING_FACE_HUB_TOKEN"] = {repr(hf_token)}
 warnings.filterwarnings("ignore")
 
 def ensure_dependencies():
@@ -495,20 +506,41 @@ def main():
                         except Exception:
                             import shutil
                             shutil.copy2(src_file, dst_file)
-                # Download missing tokenizer files from Hugging Face Hub
+                # Download missing tokenizer files from Hugging Face Hub (or ModelScope fallback)
                 for filename in ["tokenizer.json", "tokenizer_config.json"]:
                     dst_file = os.path.join(temp_model_dir, filename)
                     if not os.path.exists(dst_file):
+                        success = False
+                        # 1. Try Hugging Face first
                         try:
                             log(f"Downloading {{filename}} from Hugging Face...")
                             res = requests.get(f"https://huggingface.co/k2-fsa/OmniVoice/resolve/main/{{filename}}", timeout=30)
                             if res.status_code == 200:
                                 with open(dst_file, "wb") as out_f:
                                     out_f.write(res.content)
+                                success = True
+                                log(f"Successfully downloaded {{filename}} from Hugging Face.")
                             else:
-                                log(f"Warning: Failed to download {{filename}} (status: {{res.status_code}})")
+                                log(f"Warning: Failed to download {{filename}} from HF (status: {{res.status_code}})")
                         except Exception as dl_err:
-                            log(f"Warning: Failed to download {{filename}}: {{dl_err}}")
+                            log(f"Warning: Failed to download {{filename}} from HF: {{dl_err}}")
+                        
+                        # 2. Try ModelScope fallback
+                        if not success:
+                            try:
+                                log(f"Attempting to download {{filename}} from ModelScope...")
+                                from modelscope.hub.file_download import model_file_download
+                                cache_file = model_file_download("k2-fsa/OmniVoice", file_path=filename)
+                                if cache_file and os.path.exists(cache_file):
+                                    import shutil
+                                    shutil.copy2(cache_file, dst_file)
+                                    success = True
+                                    log(f"Successfully retrieved {{filename}} from ModelScope.")
+                            except Exception as ms_dl_err:
+                                log(f"Warning: Failed to download {{filename}} from ModelScope: {{ms_dl_err}}")
+                                
+                        if not success:
+                            raise FileNotFoundError(f"Tokenizer file '{{filename}}' is missing and could not be downloaded from Hugging Face or ModelScope. Aborting.")
                 model_dir = temp_model_dir
 
             model = OmniVoice.from_pretrained(
@@ -875,6 +907,8 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "0"
 os.environ["HF_HUB_DISABLE_XET"] = "1"
 os.environ["HF_HUB_ETAG_TIMEOUT"] = "15"
+os.environ["HF_TOKEN"] = {repr(hf_token)}
+os.environ["HUGGING_FACE_HUB_TOKEN"] = {repr(hf_token)}
 warnings.filterwarnings("ignore")
 
 def ensure_dependencies():
@@ -1047,10 +1081,12 @@ def main():
                             os.symlink(src_file, dst_file)
                         except Exception:
                             shutil.copy2(src_file, dst_file)
-                # Download missing tokenizer files from Hugging Face Hub
+                # Download missing tokenizer files from Hugging Face Hub (or ModelScope fallback)
                 for filename in ["tokenizer.json", "tokenizer_config.json"]:
                     dst_file = os.path.join(temp_model_dir, filename)
                     if not os.path.exists(dst_file):
+                        success = False
+                        # 1. Try Hugging Face first
                         try:
                             print(f"Downloading {{filename}} from Hugging Face...")
                             sys.stdout.flush()
@@ -1058,12 +1094,35 @@ def main():
                             if res.status_code == 200:
                                 with open(dst_file, "wb") as out_f:
                                     out_f.write(res.content)
+                                success = True
+                                print(f"Successfully downloaded {{filename}} from Hugging Face.")
+                                sys.stdout.flush()
                             else:
-                                print(f"Warning: Failed to download {{filename}} (status: {{res.status_code}})")
+                                print(f"Warning: Failed to download {{filename}} from HF (status: {{res.status_code}})")
                                 sys.stdout.flush()
                         except Exception as dl_err:
-                            print(f"Warning: Failed to download {{filename}}: {{dl_err}}")
+                            print(f"Warning: Failed to download {{filename}} from HF: {{dl_err}}")
                             sys.stdout.flush()
+                        
+                        # 2. Try ModelScope fallback
+                        if not success:
+                            try:
+                                print(f"Attempting to download {{filename}} from ModelScope...")
+                                sys.stdout.flush()
+                                from modelscope.hub.file_download import model_file_download
+                                cache_file = model_file_download("k2-fsa/OmniVoice", file_path=filename)
+                                if cache_file and os.path.exists(cache_file):
+                                    import shutil
+                                    shutil.copy2(cache_file, dst_file)
+                                    success = True
+                                    print(f"Successfully retrieved {{filename}} from ModelScope.")
+                                    sys.stdout.flush()
+                            except Exception as ms_dl_err:
+                                print(f"Warning: Failed to download {{filename}} from ModelScope: {{ms_dl_err}}")
+                                sys.stdout.flush()
+                                
+                        if not success:
+                            raise FileNotFoundError(f"Tokenizer file '{{filename}}' is missing and could not be downloaded from Hugging Face or ModelScope. Aborting.")
                 model_dir = temp_model_dir
 
             model = OmniVoice.from_pretrained(

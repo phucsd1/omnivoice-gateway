@@ -59,6 +59,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
     kaggle_idle_timeout_seconds: 1800,
     kaggle_worker_dir: "",
     ui_layout: "modern",
+    hf_token: "",
   });
 
   const fetchUsers = async () => {
@@ -691,6 +692,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
                 className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary"
                 min="0"
                 required
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5 md:col-span-2">
+              <label className="text-xs font-semibold text-muted-foreground">Hugging Face Access Token (Quyền đọc/Ghi tùy chọn - Đẩy nhanh tốc độ tải cấu hình/weights)</label>
+              <input
+                type="password"
+                value={settingsData.hf_token || ""}
+                onChange={(e) => setSettingsData({ ...settingsData, hf_token: e.target.value })}
+                placeholder={settingsData.hf_token ? "•••••••••••••••• (Đã thiết lập - Nhập mới tự lưu)" : "Nhập HF Token (hf_...)"}
+                className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary"
               />
             </div>
 

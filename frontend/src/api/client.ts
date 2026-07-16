@@ -145,6 +145,7 @@ export interface SystemSettingsResponse {
   kaggle_idle_timeout_seconds: number;
   kaggle_worker_dir: string;
   ui_layout: string;
+  hf_token: string;
 }
 
 export interface SystemSettingsUpdateRequest {
@@ -165,6 +166,7 @@ export interface SystemSettingsUpdateRequest {
   kaggle_idle_timeout_seconds?: number;
   kaggle_worker_dir?: string;
   ui_layout?: string;
+  hf_token?: string;
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {

@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     KAGGLE_ACCELERATOR: str = "NvidiaTeslaT4"
     KAGGLE_TIMEOUT_SECONDS: int = 3600
     KAGGLE_WORKER_DIR: str = "../kaggle_worker"
+    
+    HF_TOKEN: str = ""
 
     
     # SMTP Settings

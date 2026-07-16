@@ -81,6 +81,7 @@ class SystemSettingsResponse(BaseModel):
     kaggle_idle_timeout_seconds: int
     kaggle_worker_dir: str
     ui_layout: str
+    hf_token: str
 
 class SystemSettingsUpdateRequest(BaseModel):
     worker_mode: Optional[str] = None
@@ -100,6 +101,7 @@ class SystemSettingsUpdateRequest(BaseModel):
     kaggle_idle_timeout_seconds: Optional[int] = None
     kaggle_worker_dir: Optional[str] = None
     ui_layout: Optional[str] = None
+    hf_token: Optional[str] = None
 
 class AdminStatsResponse(BaseModel):
     total_users: int
@@ -331,6 +333,7 @@ def get_system_settings_admin(
 
     kaggle_worker_dir = get_setting("kaggle_worker_dir", settings.KAGGLE_WORKER_DIR)
     ui_layout = get_setting("ui_layout", "modern")
+    hf_token = get_setting("hf_token", settings.HF_TOKEN)
 
     return SystemSettingsResponse(
         worker_mode=worker_mode,
@@ -349,7 +352,8 @@ def get_system_settings_admin(
         kaggle_timeout_seconds=kaggle_timeout_seconds,
         kaggle_idle_timeout_seconds=kaggle_idle_timeout_seconds,
         kaggle_worker_dir=kaggle_worker_dir,
-        ui_layout=ui_layout
+        ui_layout=ui_layout,
+        hf_token=hf_token
     )
 
 @router.post("/settings", response_model=dict)
@@ -412,6 +416,8 @@ def update_system_settings_admin(
             save_setting("kaggle_idle_timeout_seconds", payload.kaggle_idle_timeout_seconds)
         if payload.kaggle_worker_dir is not None:
             save_setting("kaggle_worker_dir", payload.kaggle_worker_dir)
+        if payload.hf_token is not None:
+            save_setting("hf_token", payload.hf_token)
         
         db.commit()
         return {"status": "success", "message": "Cập nhật cấu hình hệ thống thành công."}
