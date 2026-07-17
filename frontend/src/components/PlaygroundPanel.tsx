@@ -606,7 +606,6 @@ export const PlaygroundPanel: React.FC = () => {
                 <option value="clone_voice">Sử dụng giọng mẫu (Clone)</option>
                 <option value="auto_voice">Auto Voice (Random)</option>
                 <option value="voice_design">Voice Design Direct (Instruct)</option>
-                <option value="asr">Nhận dạng giọng nói (Speech-to-Text - ASR)</option>
               </select>
             </div>
 

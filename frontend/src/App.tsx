@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Sparkles, Radio, RefreshCw, Layers, LogOut, Server, KeyRound, BookOpen, Sun, Moon, Monitor, Volume2, Menu, X, Mic } from "lucide-react";
+import { Sparkles, Radio, RefreshCw, Layers, LogOut, Server, KeyRound, BookOpen, Sun, Moon, Monitor, Volume2, Menu, X, Mic, Sliders } from "lucide-react";
 import { api } from "./api/client";
 
 import { VoiceSampleUpload } from "./components/VoiceSampleUpload";
@@ -14,11 +14,12 @@ import { JobHistoryPanel } from "./components/JobHistoryPanel";
 import { VoiceLibraryPanel } from "./components/VoiceLibraryPanel";
 import { AudioPlayer } from "./components/AudioPlayer";
 import { PlaygroundPanel } from "./components/PlaygroundPanel";
+import { ASRPanel } from "./components/ASRPanel";
 
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem("VITE_JWT_TOKEN"));
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"workspace" | "voice-lab" | "library" | "history" | "docs" | "admin" | "playground" >(() => {
+  const [activeTab, setActiveTab] = useState<"workspace" | "voice-lab" | "library" | "history" | "docs" | "admin" | "playground" | "asr" >(() => {
     return window.location.hash === "#/docs" ? "docs" : "workspace";
   });
   
@@ -70,7 +71,7 @@ function App() {
     };
   }, []);
 
-  const navigateToTab = (tab: "workspace" | "voice-lab" | "library" | "history" | "docs" | "admin" | "playground") => {
+  const navigateToTab = (tab: "workspace" | "voice-lab" | "library" | "history" | "docs" | "admin" | "playground" | "asr") => {
     setActiveTab(tab);
     setSidebarOpen(false);
     if (tab === "docs") {
@@ -249,6 +250,18 @@ function App() {
           </button>
 
           <button
+            onClick={() => navigateToTab("asr")}
+            className={`w-full px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2.5 cursor-pointer ${
+              activeTab === "asr"
+                ? "bg-secondary text-foreground shadow-sm font-bold"
+                : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
+            }`}
+          >
+            <Mic className="w-3.5 h-3.5 shrink-0" />
+            <span>Speech to Text</span>
+          </button>
+
+          <button
             onClick={() => navigateToTab("library")}
             className={`w-full px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2.5 cursor-pointer ${
               activeTab === "library"
@@ -268,7 +281,7 @@ function App() {
                 : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
             }`}
           >
-            <Mic className="w-3.5 h-3.5 shrink-0" />
+            <Sliders className="w-3.5 h-3.5 shrink-0" />
             <span>Voice Design</span>
           </button>
 
@@ -581,6 +594,12 @@ function App() {
           {activeTab === "playground" && currentUser?.is_admin && (
             <div className="w-full animate-fadeIn">
               <PlaygroundPanel />
+            </div>
+          )}
+
+          {activeTab === "asr" && (
+            <div className="w-full animate-fadeIn">
+              <ASRPanel />
             </div>
           )}
 
