@@ -321,7 +321,7 @@ generateSpeech();`
 
             {!isLoggedIn ? (
               <p className="text-[10px] text-warning bg-warning/10 border border-warning/20 p-2.5 rounded-lg font-medium leading-relaxed">
-                💡 Bạn chưa đăng nhập. Hãy đăng nhập để hệ thống tự động điền API Key thực tế của bạn vào các đoạn code mẫu.
+                Lưu ý: Bạn chưa đăng nhập. Hãy đăng nhập để hệ thống tự động điền API Key thực tế của bạn vào các đoạn code mẫu.
               </p>
             ) : loadingKeys ? (
               <p className="text-[10px] text-muted-foreground">Đang tải API Key của bạn...</p>
@@ -725,7 +725,7 @@ generateSpeech();`
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-1">
               {/* Expressions */}
               <div className="flex flex-col gap-2 p-3 bg-background/60 border border-border/60 rounded-xl">
-                <span className="text-xs font-bold text-muted-foreground flex items-center gap-1">🎭 Biểu cảm phi ngôn ngữ</span>
+                <span className="text-xs font-bold text-muted-foreground flex items-center gap-1">Biểu cảm phi ngôn ngữ</span>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
                   Nhúng các thẻ biểu cảm trực tiếp vào bất kỳ vị trí nào trong câu để mô phỏng âm thanh tự nhiên của con người.
                 </p>
@@ -750,13 +750,13 @@ generateSpeech();`
 
               {/* Pronunciation correction */}
               <div className="flex flex-col gap-2 p-3 bg-background/60 border border-border/60 rounded-xl">
-                <span className="text-xs font-bold text-muted-foreground flex items-center gap-1">🗣️ Sửa lỗi phát âm (Phonetic Overrides)</span>
+                <span className="text-xs font-bold text-muted-foreground flex items-center gap-1">Sửa lỗi phát âm (Phonetic Overrides)</span>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
                   Nếu mô hình đọc sai tên riêng, thuật ngữ hoặc từ ghép, bạn có thể thay thế cụm từ đó bằng ký tự phiên âm đặc biệt.
                 </p>
                 <div className="flex flex-col gap-2 mt-1">
                   <div>
-                    <span className="text-[10px] text-foreground font-bold">🇺🇸 Phiên âm tiếng Anh (CMU Dictionary):</span>
+                    <span className="text-[10px] text-foreground font-bold">Phiên âm tiếng Anh (CMU Dictionary):</span>
                     <p className="text-[11px] text-muted-foreground mt-0.5 font-normal">
                       Sử dụng âm tiết chuẩn CMU viết hoa, bọc trong dấu ngoặc vuông.
                     </p>
@@ -765,7 +765,7 @@ generateSpeech();`
                     </div>
                   </div>
                   <div>
-                    <span className="text-[10px] text-foreground font-bold">🇨🇳 Phiên âm tiếng Trung (Pinyin + Tone):</span>
+                    <span className="text-[10px] text-foreground font-bold">Phiên âm tiếng Trung (Pinyin + Tone):</span>
                     <p className="text-[11px] text-muted-foreground mt-0.5 font-normal">
                       Sử dụng chữ Pinyin viết hoa đính kèm số thanh điệu (1-4).
                     </p>
@@ -854,7 +854,7 @@ generateSpeech();`
 
               {/* Explanations */}
               <div className="text-[11px] text-muted-foreground space-y-2 mt-1 border-t border-border pt-4">
-                <p className="font-semibold text-foreground">💡 Lưu ý quan trọng khi tích hợp hệ thống:</p>
+                <p className="font-semibold text-foreground">Lưu ý quan trọng khi tích hợp hệ thống:</p>
                 <ul className="list-disc pl-4 space-y-2">
                   <li>
                     <strong>Xử lý hàng đợi:</strong> Vì worker GPU cần khởi động hoặc bận xử lý yêu cầu song song, trạng thái có thể ở trạng thái <code className="text-primary/90">queued</code> hoặc <code className="text-primary/90">starting_worker</code> trước khi chuyển qua <code className="text-primary/90">running</code>. Vui lòng thiết lập cơ chế kiểm tra tiến trình lặp lại (Polling) như mẫu code Python/NodeJS ở trên.
