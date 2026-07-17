@@ -138,9 +138,6 @@ input[type="range"].seekbar {
   appearance: none;
   height: 6px;
   cursor: pointer;
-  border-top: 4px solid transparent;
-  border-bottom: 4px solid transparent;
-  background-clip: content-box;
   border-radius: 9999px;
   background-color: var(--slider-track);
   transition: all 0.15s ease;
