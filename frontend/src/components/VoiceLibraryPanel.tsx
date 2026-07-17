@@ -215,8 +215,8 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({
                   onClick={() => handleToggleTag(tag)}
                   className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all cursor-pointer border ${
                     selectedTags.includes(tag)
-                      ? "bg-primary text-white border-primary shadow-sm shadow-primary/20"
-                      : `${getTagColor(tag)} border hover:brightness-95 dark:hover:brightness-110`
+                      ? `${getTagColor(tag)} border-current shadow-sm`
+                      : "bg-secondary/40 border-border/70 text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
                   }`}
                 >
                   {tag}
@@ -232,8 +232,8 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({
               onClick={() => handleToggleTag(tag)}
               className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all cursor-pointer border ${
                 selectedTags.includes(tag)
-                  ? "bg-primary text-white border-primary shadow-sm shadow-primary/20"
-                  : "bg-zinc-50 dark:bg-zinc-800/40 border-zinc-200/60 dark:border-zinc-700/60 text-zinc-600 dark:text-zinc-400 hover:brightness-95 dark:hover:brightness-110"
+                  ? "bg-zinc-200 dark:bg-zinc-700 border-zinc-400 dark:border-zinc-500 text-zinc-800 dark:text-zinc-200 shadow-sm"
+                  : "bg-secondary/40 border-border/70 text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
               }`}
             >
               {tag}
@@ -551,8 +551,8 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({
                       }}
                       className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer border ${
                         editTags.includes(tag)
-                          ? "bg-primary text-white border-primary"
-                          : `${getTagColor(tag)} border hover:brightness-95 dark:hover:brightness-110`
+                          ? `${getTagColor(tag)} border-current shadow-sm`
+                          : "bg-secondary/40 border-border/70 text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
                       }`}
                     >
                       {tag}
