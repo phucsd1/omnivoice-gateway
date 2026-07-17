@@ -636,11 +636,11 @@ def main():
                 local_ref_path = None
                 ref_audio_url = job.get("ref_audio_url")
                 
-                if job_type == "clone_voice" and ref_audio_url:
+                if job_type in ["clone_voice", "asr"] and ref_audio_url:
                     make_request(
                         "POST",
                         f"/v1/internal/jobs/{{job_id}}/status",
-                        json={{"status": "preparing_input", "message": "Đang tải tệp âm thanh tham chiếu...", "progress": 45}}
+                        json={{"status": "preparing_input", "message": "Đang tải tệp âm thanh...", "progress": 45}}
                     )
                     
                     # Securely download voice sample file using the parsed URL path
@@ -655,9 +655,41 @@ def main():
                         with open(local_ref_path, "wb") as f:
                             for chunk in res.iter_content(chunk_size=8192):
                                 f.write(chunk)
-                        log(f"Downloaded reference voice sample to {{local_ref_path}}")
+                        log(f"Downloaded audio to {{local_ref_path}}")
                     else:
-                        raise Exception(f"Failed to download reference audio from gateway: {{res.status_code}} - {{res.text}}")
+                        raise Exception(f"Failed to download audio from gateway: {{res.status_code}} - {{res.text}}")
+
+                # Handle ASR job type directly
+                if job_type == "asr":
+                    make_request(
+                        "POST",
+                        f"/v1/internal/jobs/{{job_id}}/status",
+                        json={{"status": "transcribing", "message": "Đang nhận dạng giọng nói...", "progress": 70}}
+                    )
+                    
+                    log(f"Transcribing audio {{local_ref_path}}...")
+                    asr_res = model._asr_pipe(local_ref_path, return_timestamps="word")
+                    transcribed_text = asr_res.get("text", "").strip()
+                    chunks = asr_res.get("chunks", [])
+                    
+                    import json
+                    chunks_json = json.dumps(chunks)
+                    
+                    log(f"ASR complete. Text: {{transcribed_text}}")
+                    
+                    if local_ref_path and os.path.exists(local_ref_path):
+                        os.remove(local_ref_path)
+                        
+                    upload_res = make_request(
+                        "POST",
+                        f"/v1/internal/jobs/{{job_id}}/asr",
+                        json={{"text": transcribed_text, "alignment": chunks_json}}
+                    )
+                    if upload_res.status_code == 200:
+                        log(f"Successfully uploaded job {{job_id}} ASR results.")
+                    else:
+                        raise Exception(f"Failed to upload ASR result to gateway: {{upload_res.status_code}} - {{upload_res.text}}")
+                    continue
 
                 make_request(
                     "POST",
@@ -990,8 +1022,8 @@ def main():
     sys.stdout.flush()
     
     local_ref_path = None
-    if JOB_TYPE == "clone_voice" and REF_AUDIO_URL:
-        print(f"Downloading reference voice sample from {{REF_AUDIO_URL}}...")
+    if JOB_TYPE in ["clone_voice", "asr"] and REF_AUDIO_URL:
+        print(f"Downloading audio from {{REF_AUDIO_URL}}...")
         sys.stdout.flush()
         headers = {{}}
         if WORKER_TOKEN:
@@ -1142,6 +1174,43 @@ def main():
     print("Generating audio...")
     sys.stdout.flush()
     try:
+        if JOB_TYPE == "asr":
+            if not local_ref_path:
+                raise Exception("Missing audio path for ASR")
+            print(f"Transcribing audio {{local_ref_path}}...")
+            sys.stdout.flush()
+            
+            asr_res = model._asr_pipe(local_ref_path, return_timestamps="word")
+            transcribed_text = asr_res.get("text", "").strip()
+            chunks = asr_res.get("chunks", [])
+            
+            import json
+            chunks_json = json.dumps(chunks)
+            
+            print(f"ASR complete. Text: {{transcribed_text}}")
+            sys.stdout.flush()
+            
+            if local_ref_path and os.path.exists(local_ref_path):
+                os.remove(local_ref_path)
+                
+            headers = {{}}
+            if WORKER_TOKEN:
+                headers["Authorization"] = f"Bearer {{WORKER_TOKEN}}"
+                
+            res = requests.post(
+                f"{{PUBLIC_API_URL}}/v1/internal/jobs/{{JOB_ID}}/asr",
+                headers=headers,
+                json={{"text": transcribed_text, "alignment": chunks_json}}
+            )
+            if res.status_code == 200:
+                print("ASR result uploaded successfully.")
+                sys.stdout.flush()
+                sys.exit(0)
+            else:
+                print(f"Failed to upload ASR result: {{res.status_code}} - {{res.text}}")
+                sys.stdout.flush()
+                sys.exit(1)
+
         generate_args = {{
             "text": TEXT
         }}

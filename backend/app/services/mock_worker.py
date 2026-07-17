@@ -62,6 +62,43 @@ class MockWorker:
         job_id = job.id
         print(f"[MockWorker] Picked up job {job_id} of type {job.job_type}")
         
+        # Check if job is ASR
+        if job.job_type == "asr":
+            # Step 1: Loading Model (30%)
+            MockWorker._update_job(db, job_id, "loading_model", "Đang tải mô hình ASR (Giả lập)...", 30)
+            time.sleep(1.5)
+            
+            # Step 2: Transcribing (70%)
+            MockWorker._update_job(db, job_id, "transcribing", "Đang nhận dạng giọng nói (Giả lập)...", 70)
+            time.sleep(2.0)
+            
+            # Step 3: Complete
+            try:
+                mock_text = "Xin chào mọi người. Chào mừng các bạn đã đến với OmniVoice Gateway Playground."
+                words = mock_text.split()
+                
+                # Mock word-level timestamps (Karaoke chunks)
+                import json
+                mock_chunks = []
+                curr_time = 0.5
+                for w in words:
+                    # clean word
+                    clean_w = w.strip(".,!?\"'")
+                    dur = 0.35 + (0.05 * (len(clean_w) % 3))
+                    mock_chunks.append({
+                        "text": w + " ",
+                        "timestamp": [round(curr_time, 2), round(curr_time + dur, 2)]
+                    })
+                    curr_time += dur + 0.08
+                
+                JobService.complete_asr_job(db, job_id, mock_text, alignment=json.dumps(mock_chunks))
+                print(f"[MockWorker] ASR job {job_id} completed successfully. Text: {mock_text}")
+            except Exception as e:
+                error_msg = f"Mock ASR processing failed: {e}"
+                JobService.update_job_status(db, job_id, "failed", "Lỗi nhận dạng âm thanh giả lập", 100, error_msg)
+                print(f"[MockWorker] ASR job {job_id} failed: {error_msg}")
+            return
+
         # Step 1: Preparing Input / Booting Worker (10%)
         MockWorker._update_job(db, job_id, "booting_kaggle", "Đang khởi động Kaggle Worker (Giả lập)...", 10)
         time.sleep(1.5)

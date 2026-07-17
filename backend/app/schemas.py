@@ -186,6 +186,11 @@ class WorkerJobStatusUpdateRequest(BaseModel):
     progress: int = 0
     error_message: Optional[str] = None
 
+class WorkerASRResultRequest(BaseModel):
+    text: str
+    alignment: Optional[Any] = None
+    duration: Optional[float] = None
+
 class WorkerJobPayload(BaseModel):
     job_id: str
     job_type: str

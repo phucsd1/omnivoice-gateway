@@ -12,7 +12,8 @@ from app.schemas import (
     WorkerShutdownRequest,
     WorkerJobStatusUpdateRequest,
     WorkerNextJobResponse,
-    WorkerJobPayload
+    WorkerJobPayload,
+    WorkerASRResultRequest
 )
 from app.security import verify_worker_token
 from app.services.worker_session_service import WorkerSessionService
@@ -172,6 +173,36 @@ async def upload_job_output(
         "status": "completed",
         "audio_url": audio_url
     }
+
+@router.post("/jobs/{job_id}/asr")
+def upload_asr_result(
+    job_id: str,
+    payload: WorkerASRResultRequest,
+    db: Session = Depends(get_db)
+):
+    """Receives transcribed text and timestamps from the worker and completes the ASR job."""
+    try:
+        alignment_str = None
+        if payload.alignment is not None:
+            if isinstance(payload.alignment, str):
+                alignment_str = payload.alignment
+            else:
+                import json
+                alignment_str = json.dumps(payload.alignment)
+
+        JobService.complete_asr_job(
+            db=db,
+            job_id=job_id,
+            text=payload.text,
+            alignment=alignment_str,
+            duration=payload.duration
+        )
+        return {"status": "success"}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
 
 @router.post("/workers/shutdown")
 def worker_shutdown(payload: WorkerShutdownRequest, db: Session = Depends(get_db)):

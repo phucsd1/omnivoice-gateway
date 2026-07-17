@@ -367,3 +367,58 @@ class JobService:
         db.refresh(preview)
         
         return sample
+
+    @staticmethod
+    def create_asr_job(db: Session, ref_audio_path: str, user_id: str = None) -> TTSJob:
+        """Creates an ASR (Speech-to-Text) job in queued state."""
+        job_id = generate_id("job")
+        
+        db_job = TTSJob(
+            id=job_id,
+            user_id=user_id,
+            job_type="asr",
+            ref_audio_path=ref_audio_path,
+            status="queued",
+            message="Đã nhận yêu cầu ASR. Đang chờ Worker..."
+        )
+        db.add(db_job)
+        db.commit()
+        db.refresh(db_job)
+
+        # Trigger Kaggle orchestrator to ensure notebook is running
+        try:
+            KaggleOrchestrator.ensure_worker_running(db)
+        except Exception as e:
+            print(f"[JobService] Warning triggering worker: {e}")
+
+        return db_job
+
+    @staticmethod
+    def complete_asr_job(db: Session, job_id: str, text: str, alignment: Optional[str] = None, duration: Optional[float] = None) -> TTSJob:
+        """Completes an ASR (Speech-to-Text) job, saving the transcribed text and word chunks."""
+        job = db.query(TTSJob).filter(TTSJob.id == job_id).first()
+        if not job:
+            raise ValueError(f"Không tìm thấy Job {job_id}")
+
+        job.status = "completed"
+        job.message = "Hoàn tất nhận dạng giọng nói"
+        job.progress = 100
+        job.text = text
+        job.completed_at = datetime.utcnow()
+        if duration is not None:
+            job.duration = duration
+        
+        # Save alignment as JSON string if not already
+        import json
+        if alignment:
+            try:
+                # Ensure it is valid JSON
+                if isinstance(alignment, str):
+                    json.loads(alignment)
+                    job.alignment = alignment
+            except Exception:
+                pass
+        
+        db.commit()
+        db.refresh(job)
+        return job

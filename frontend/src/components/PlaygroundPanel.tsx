@@ -24,7 +24,9 @@ import type { JobStatusResponse, VoiceSampleResponse, OmniVoiceParams } from "..
 
 export const PlaygroundPanel: React.FC = () => {
   // TTS State
-  const [mode, setMode] = useState<"clone_voice" | "auto_voice" | "voice_design">("clone_voice");
+  const [mode, setMode] = useState<"clone_voice" | "auto_voice" | "voice_design" | "asr">("clone_voice");
+  const [asrFile, setAsrFile] = useState<File | null>(null);
+  const [resultTab, setResultTab] = useState<"text" | "subtitles" | "karaoke">("text");
   const [text, setText] = useState(
     "Hệ thống đang kiểm tra tính năng đồng bộ hóa âm thanh và văn bản. Chúc bạn một ngày tốt lành!"
   );
@@ -176,9 +178,42 @@ export const PlaygroundPanel: React.FC = () => {
     }
   };
 
+  const handleASRSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!asrFile) return;
+
+    setLoading(true);
+    setJobId(null);
+    setJobStatus(null);
+    setErrorMsg(null);
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDurationAudio(0);
+    setResultTab("text");
+
+    try {
+      const res = await api.createASRJob(asrFile);
+      setJobId(res.job_id);
+      localStorage.setItem("VITE_PLAYGROUND_JOB_ID", res.job_id);
+      setJobStatus({
+        job_id: res.job_id,
+        status: res.status,
+        message: res.message,
+        progress: 0,
+        audio_url: null,
+        error_message: null
+      });
+      setIsPolling(true);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Không thể khởi tạo tiến trình ASR.");
+      setLoading(false);
+    }
+  };
+
   const handleClearJob = () => {
     setJobId(null);
     setJobStatus(null);
+    setAsrFile(null);
     localStorage.removeItem("VITE_PLAYGROUND_JOB_ID");
   };
 
@@ -338,7 +373,7 @@ export const PlaygroundPanel: React.FC = () => {
       audio.removeEventListener("ended", handleEnded);
       stopPreciseTracking();
     };
-  }, [jobStatus?.audio_url]);
+  }, [authenticatedUrl]);
 
   // Volume & Speed Sync
   useEffect(() => {
@@ -425,14 +460,103 @@ export const PlaygroundPanel: React.FC = () => {
     return `${mm}:${ss}.${mss}`;
   };
 
-  // Parse alignment array
-  const alignmentList = Array.isArray(jobStatus?.alignment) ? jobStatus.alignment : [];
-  
+  const handleDownloadSRT = () => {
+    if (subtitleSegments.length === 0) return;
+    
+    const formatTimeSRT = (seconds: number) => {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = Math.floor(seconds % 60);
+      const ms = Math.floor((seconds % 1) * 1000);
+      
+      const hh = h < 10 ? `0${h}` : `${h}`;
+      const mm = m < 10 ? `0${m}` : `${m}`;
+      const ss = s < 10 ? `0${s}` : `${s}`;
+      const mss = ms < 10 ? `00${ms}` : ms < 100 ? `0${ms}` : `${ms}`;
+      
+      return `${hh}:${mm}:${ss},${mss}`;
+    };
+
+    const srtContent = subtitleSegments
+      .map((seg, idx) => {
+        return `${idx + 1}\n${formatTimeSRT(seg.start)} --> ${formatTimeSRT(seg.end)}\n${seg.text}\n\n`;
+      })
+      .join("")
+      .trim();
+
+    const blob = new Blob([srtContent], { type: "text/srt;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `subtitles_${jobId}.srt`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Parse and normalize alignment array (works for both TTS and ASR layouts)
+  const alignmentList = React.useMemo(() => {
+    if (!jobStatus?.alignment || !Array.isArray(jobStatus.alignment)) return [];
+    return jobStatus.alignment.map((item: any) => {
+      // Normalise ASR chunk layout
+      if (item.timestamp !== undefined && Array.isArray(item.timestamp)) {
+        return {
+          word: item.text || "",
+          start: item.timestamp[0] !== null ? item.timestamp[0] : 0,
+          end: item.timestamp[1] !== null ? item.timestamp[1] : (item.timestamp[0] || 0) + 0.3
+        };
+      }
+      return {
+        word: item.word || "",
+        start: item.start || 0,
+        end: item.end || 0
+      };
+    });
+  }, [jobStatus]);
+
+  // Group word timings into sentence segments for the subtitle tab
+  const subtitleSegments = React.useMemo(() => {
+    if (alignmentList.length === 0) return [];
+    
+    const segments: { text: string; start: number; end: number }[] = [];
+    let currentSegmentWords: string[] = [];
+    let segmentStart = alignmentList[0].start;
+    
+    alignmentList.forEach((item, index) => {
+      currentSegmentWords.push(item.word);
+      const trimmedWord = item.word.trim();
+      
+      const isPunctuationEnd = /[.!?]$/.test(trimmedWord);
+      const isPause = index < alignmentList.length - 1 && (alignmentList[index + 1].start - item.end > 1.2);
+      const isTooLong = currentSegmentWords.length >= 12;
+      
+      if (isPunctuationEnd || isPause || isTooLong || index === alignmentList.length - 1) {
+        segments.push({
+          text: currentSegmentWords.join("").trim(),
+          start: segmentStart,
+          end: item.end
+        });
+        if (index < alignmentList.length - 1) {
+          segmentStart = alignmentList[index + 1].start;
+          currentSegmentWords = [];
+        }
+      }
+    });
+    
+    return segments;
+  }, [alignmentList]);
+
   // Audio playback authenticated URL
   const token = localStorage.getItem("VITE_JWT_TOKEN");
-  const authenticatedUrl = jobStatus?.audio_url 
-    ? `${api.getApiBaseUrl()}${jobStatus.audio_url}${jobStatus.audio_url.includes("?") ? "&" : "?"}token=${token || ""}`
-    : "";
+  const authenticatedUrl = React.useMemo(() => {
+    if (!jobStatus) return "";
+    if (jobStatus.job_type === "asr") {
+      return api.getASRAudioUrl(jobStatus.job_id);
+    }
+    return jobStatus.audio_url 
+      ? `${api.getApiBaseUrl()}${jobStatus.audio_url}${jobStatus.audio_url.includes("?") ? "&" : "?"}token=${token || ""}`
+      : "";
+  }, [jobStatus, token]);
 
   return (
     <div className="w-full flex flex-col gap-6">
@@ -466,11 +590,11 @@ export const PlaygroundPanel: React.FC = () => {
               Thông số thử nghiệm
             </span>
             <span className="text-[10px] bg-emerald-500/10 text-success border border-success/20 px-2 py-0.5 rounded-full font-bold">
-              with_alignment: ON
+              {mode === "asr" ? "ASR: WHISPER" : "with_alignment: ON"}
             </span>
           </div>
 
-          <form onSubmit={handleGenerate} className="flex flex-col gap-4">
+          <form onSubmit={mode === "asr" ? handleASRSubmit : handleGenerate} className="flex flex-col gap-4">
             {/* Mode selection */}
             <div className="flex flex-col gap-1.5">
               <label className="text-fluid-xs font-bold text-muted-foreground uppercase tracking-wider">Voice Mode</label>
@@ -482,209 +606,241 @@ export const PlaygroundPanel: React.FC = () => {
                 <option value="clone_voice">Sử dụng giọng mẫu (Clone)</option>
                 <option value="auto_voice">Auto Voice (Random)</option>
                 <option value="voice_design">Voice Design Direct (Instruct)</option>
+                <option value="asr">Nhận dạng giọng nói (Speech-to-Text - ASR)</option>
               </select>
             </div>
 
-            {/* Reference Sample selector */}
-            {mode === "clone_voice" && (
-              <div className="flex flex-col gap-1.5">
-                <label className="text-fluid-xs font-bold text-muted-foreground uppercase tracking-wider">Mẫu giọng (Voice Sample)</label>
-                <select
-                  value={customVoiceSampleId}
-                  onChange={(e) => handleVoiceChange(e.target.value)}
-                  className="bg-secondary/40 border border-border/70 rounded-xl px-3 h-10 text-fluid-sm font-semibold text-foreground focus:outline-none w-full cursor-pointer shadow-sm"
-                >
-                  <option value="">-- Chọn mẫu giọng --</option>
-                  <optgroup label="Private Voices">
-                    {voiceSamples.filter(s => !s.is_public).map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.name ? `${s.name} (${s.id.substring(0, 8)})` : s.id} {s.duration ? `[${s.duration.toFixed(1)}s]` : ""}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Public Voices">
-                    {voiceSamples.filter(s => s.is_public).map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.name ? `${s.name} (${s.id.substring(0, 8)})` : s.id} {s.duration ? `[${s.duration.toFixed(1)}s]` : ""}
-                      </option>
-                    ))}
-                  </optgroup>
-                </select>
-              </div>
-            )}
-
-            {/* Reference text parameter */}
-            {mode === "clone_voice" && (
-              <div className="flex flex-col gap-1.5">
-                <label className="text-fluid-xs font-bold text-muted-foreground uppercase tracking-wider">Văn bản tham khảo (ref_text)</label>
-                <input
-                  type="text"
-                  value={refText}
-                  onChange={(e) => setRefText(e.target.value)}
-                  placeholder="Whisper tự động nhận diện nếu bỏ trống..."
-                  className="bg-secondary/40 border border-border/70 rounded-xl px-3 h-10 text-fluid-sm text-foreground focus:outline-none w-full font-medium"
-                />
-              </div>
-            )}
-
-            {/* Instruct parameter */}
-            {mode === "voice_design" && (
-              <div className="flex flex-col gap-1.5">
-                <label className="text-fluid-xs font-bold text-muted-foreground uppercase tracking-wider">Mô tả giọng (Instruct Tags - EN)</label>
-                <input
-                  type="text"
-                  value={instruct}
-                  onChange={(e) => setInstruct(e.target.value)}
-                  placeholder="female, young adult, natural, expressiveness..."
-                  className="bg-secondary/40 border border-border/70 rounded-xl px-3 h-10 text-fluid-sm text-foreground focus:outline-none w-full font-mono"
-                />
-              </div>
-            )}
-
-            {/* Text input area */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-fluid-xs font-bold text-muted-foreground uppercase tracking-wider">Văn bản cần kiểm tra</label>
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="Nhập đoạn văn bản cần test đồng bộ voice và chữ..."
-                className="w-full bg-secondary/30 border border-border/70 rounded-xl p-3 text-fluid-sm text-foreground placeholder:text-muted-foreground focus:outline-none resize-none font-medium leading-relaxed min-h-[140px]"
-                maxLength={2000}
-                required
-              />
-            </div>
-
-            {/* Speed & Steps Basic parameters */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase">Tốc độ: {speed.toFixed(1)}x</span>
-                <input
-                  type="range" min="0.5" max="2.0" step="0.1" value={speed}
-                  onChange={(e) => setSpeed(parseFloat(e.target.value))}
-                  className="seekbar w-full"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase">Số Steps: {numStep}</span>
-                <input
-                  type="range" min="10" max="64" step="1" value={numStep}
-                  onChange={(e) => setNumStep(parseInt(e.target.value))}
-                  className="seekbar w-full"
-                />
-              </div>
-            </div>
-
-            {/* Advanced accordian */}
-            <div className="border-t border-border/60 pt-3">
-              <button
-                type="button"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                className="w-full flex items-center justify-between text-fluid-xs text-muted-foreground hover:text-foreground font-bold uppercase tracking-wider transition-colors cursor-pointer select-none"
-              >
-                <span>Tham số nâng cao (Advanced)</span>
-                <span>{showAdvanced ? "▲" : "▼"}</span>
-              </button>
-
-              {showAdvanced && (
-                <div className="flex flex-col gap-4 mt-3 animate-fadeIn">
-                  <div className="grid grid-cols-2 gap-2">
-                    <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground cursor-pointer select-none">
-                      <input
-                        type="checkbox" checked={denoise}
-                        onChange={(e) => setDenoise(e.target.checked)}
-                        className="rounded border-border w-3.5 h-3.5 bg-card text-foreground"
-                      />
-                      <span>Denoise</span>
-                    </label>
-                    <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground cursor-pointer select-none">
-                      <input
-                        type="checkbox" checked={preprocessPrompt}
-                        onChange={(e) => setPreprocessPrompt(e.target.checked)}
-                        className="rounded border-border w-3.5 h-3.5 bg-card text-foreground"
-                      />
-                      <span>Preprocess Ref</span>
-                    </label>
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between text-[9px] font-bold text-muted-foreground uppercase">
-                      <span>Guidance Scale: {guidanceScale.toFixed(1)}</span>
-                    </div>
-                    <input
-                      type="range" min="0.5" max="5.0" step="0.1" value={guidanceScale}
-                      onChange={(e) => setGuidanceScale(parseFloat(e.target.value))}
-                      className="seekbar w-full"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between text-[9px] font-bold text-muted-foreground uppercase">
-                      <span>t_shift: {tShift.toFixed(2)}</span>
-                    </div>
-                    <input
-                      type="range" min="0.01" max="0.50" step="0.01" value={tShift}
-                      onChange={(e) => setTShift(parseFloat(e.target.value))}
-                      className="seekbar w-full"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between text-[9px] font-bold text-muted-foreground uppercase">
-                      <span>Position Temp: {positionTemperature.toFixed(1)}</span>
-                    </div>
-                    <input
-                      type="range" min="0.0" max="10.0" step="0.5" value={positionTemperature}
-                      onChange={(e) => setPositionTemperature(parseFloat(e.target.value))}
-                      className="seekbar w-full"
-                    />
-                  </div>
-
+            {mode !== "asr" ? (
+              <>
+                {/* Reference Sample selector */}
+                {mode === "clone_voice" && (
                   <div className="flex flex-col gap-1.5">
-                    <div className="flex justify-between text-[9px] font-bold text-muted-foreground uppercase">
-                      <span>Language (Ngôn ngữ)</span>
-                    </div>
+                    <label className="text-fluid-xs font-bold text-muted-foreground uppercase tracking-wider">Mẫu giọng (Voice Sample)</label>
                     <select
-                      value={language}
-                      onChange={(e) => setLanguage(e.target.value)}
-                      className="w-full bg-card border border-border rounded-lg text-xs p-1.5 focus:outline-none focus:ring-1 focus:ring-violet-500 text-foreground"
+                      value={customVoiceSampleId}
+                      onChange={(e) => handleVoiceChange(e.target.value)}
+                      className="bg-secondary/40 border border-border/70 rounded-xl px-3 h-10 text-fluid-sm font-semibold text-foreground focus:outline-none w-full cursor-pointer shadow-sm"
                     >
-                      <option value="">Auto Detect (Mặc định)</option>
-                      <option value="vi">Vietnamese (vi)</option>
-                      <option value="en">English (en)</option>
-                      <option value="zh">Chinese (zh)</option>
-                      <option value="ja">Japanese (ja)</option>
-                      <option value="ko">Korean (ko)</option>
-                      <option value="fr">French (fr)</option>
-                      <option value="de">German (de)</option>
-                      <option value="es">Spanish (es)</option>
+                      <option value="">-- Chọn mẫu giọng --</option>
+                      <optgroup label="Private Voices">
+                        {voiceSamples.filter(s => !s.is_public).map(s => (
+                          <option key={s.id} value={s.id}>
+                            {s.name ? `${s.name} (${s.id.substring(0, 8)})` : s.id} {s.duration ? `[${s.duration.toFixed(1)}s]` : ""}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Public Voices">
+                        {voiceSamples.filter(s => s.is_public).map(s => (
+                          <option key={s.id} value={s.id}>
+                            {s.name ? `${s.name} (${s.id.substring(0, 8)})` : s.id} {s.duration ? `[${s.duration.toFixed(1)}s]` : ""}
+                          </option>
+                        ))}
+                      </optgroup>
                     </select>
                   </div>
+                )}
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex justify-between text-[9px] font-bold text-muted-foreground uppercase">
-                        <span>Pad Duration (Độ đệm)</span>
+                {/* Reference text parameter */}
+                {mode === "clone_voice" && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-fluid-xs font-bold text-muted-foreground uppercase tracking-wider">Văn bản tham khảo (ref_text)</label>
+                    <input
+                      type="text"
+                      value={refText}
+                      onChange={(e) => setRefText(e.target.value)}
+                      placeholder="Whisper tự động nhận diện nếu bỏ trống..."
+                      className="bg-secondary/40 border border-border/70 rounded-xl px-3 h-10 text-fluid-sm text-foreground focus:outline-none w-full font-medium"
+                    />
+                  </div>
+                )}
+
+                {/* Instruct parameter */}
+                {mode === "voice_design" && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-fluid-xs font-bold text-muted-foreground uppercase tracking-wider">Mô tả giọng (Instruct Tags - EN)</label>
+                    <input
+                      type="text"
+                      value={instruct}
+                      onChange={(e) => setInstruct(e.target.value)}
+                      placeholder="female, young adult, natural, expressiveness..."
+                      className="bg-secondary/40 border border-border/70 rounded-xl px-3 h-10 text-fluid-sm text-foreground focus:outline-none w-full font-mono"
+                    />
+                  </div>
+                )}
+
+                {/* Text input area */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-fluid-xs font-bold text-muted-foreground uppercase tracking-wider">Văn bản cần kiểm tra</label>
+                  <textarea
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    placeholder="Nhập đoạn văn bản cần test đồng bộ voice và chữ..."
+                    className="w-full bg-secondary/30 border border-border/70 rounded-xl p-3 text-fluid-sm text-foreground placeholder:text-muted-foreground focus:outline-none resize-none font-medium leading-relaxed min-h-[140px]"
+                    maxLength={2000}
+                    required
+                  />
+                </div>
+
+                {/* Speed & Steps Basic parameters */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Tốc độ: {speed.toFixed(1)}x</span>
+                    <input
+                      type="range" min="0.5" max="2.0" step="0.1" value={speed}
+                      onChange={(e) => setSpeed(parseFloat(e.target.value))}
+                      className="seekbar w-full"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Số Steps: {numStep}</span>
+                    <input
+                      type="range" min="10" max="64" step="1" value={numStep}
+                      onChange={(e) => setNumStep(parseInt(e.target.value))}
+                      className="seekbar w-full"
+                    />
+                  </div>
+                </div>
+
+                {/* Advanced accordian */}
+                <div className="border-t border-border/60 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className="w-full flex items-center justify-between text-fluid-xs text-muted-foreground hover:text-foreground font-bold uppercase tracking-wider transition-colors cursor-pointer select-none"
+                  >
+                    <span>Tham số nâng cao (Advanced)</span>
+                    <span>{showAdvanced ? "▲" : "▼"}</span>
+                  </button>
+
+                  {showAdvanced && (
+                    <div className="flex flex-col gap-4 mt-3 animate-fadeIn">
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground cursor-pointer select-none">
+                          <input
+                            type="checkbox" checked={denoise}
+                            onChange={(e) => setDenoise(e.target.checked)}
+                            className="rounded border-border w-3.5 h-3.5 bg-card text-foreground"
+                          />
+                          <span>Denoise</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground cursor-pointer select-none">
+                          <input
+                            type="checkbox" checked={preprocessPrompt}
+                            onChange={(e) => setPreprocessPrompt(e.target.checked)}
+                            className="rounded border-border w-3.5 h-3.5 bg-card text-foreground"
+                          />
+                          <span>Preprocess Ref</span>
+                        </label>
                       </div>
-                      <input
-                        type="number" min="0" max="2.0" step="0.05" placeholder="Mặc định" value={padDuration}
-                        onChange={(e) => setPadDuration(e.target.value)}
-                        className="bg-card border border-border rounded-lg text-xs p-1.5 focus:outline-none focus:ring-1 focus:ring-violet-500 text-foreground w-full"
-                      />
+
+                      <div className="flex flex-col gap-1">
+                        <div className="flex justify-between text-[9px] font-bold text-muted-foreground uppercase">
+                          <span>Guidance Scale: {guidanceScale.toFixed(1)}</span>
+                        </div>
+                        <input
+                          type="range" min="0.5" max="5.0" step="0.1" value={guidanceScale}
+                          onChange={(e) => setGuidanceScale(parseFloat(e.target.value))}
+                          className="seekbar w-full"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <div className="flex justify-between text-[9px] font-bold text-muted-foreground uppercase">
+                          <span>t_shift: {tShift.toFixed(2)}</span>
+                        </div>
+                        <input
+                          type="range" min="0.01" max="0.50" step="0.01" value={tShift}
+                          onChange={(e) => setTShift(parseFloat(e.target.value))}
+                          className="seekbar w-full"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <div className="flex justify-between text-[9px] font-bold text-muted-foreground uppercase">
+                          <span>Position Temp: {positionTemperature.toFixed(1)}</span>
+                        </div>
+                        <input
+                          type="range" min="0.0" max="10.0" step="0.5" value={positionTemperature}
+                          onChange={(e) => setPositionTemperature(parseFloat(e.target.value))}
+                          className="seekbar w-full"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex justify-between text-[9px] font-bold text-muted-foreground uppercase">
+                          <span>Language (Ngôn ngữ)</span>
+                        </div>
+                        <select
+                          value={language}
+                          onChange={(e) => setLanguage(e.target.value)}
+                          className="w-full bg-card border border-border rounded-lg text-xs p-1.5 focus:outline-none focus:ring-1 focus:ring-violet-500 text-foreground"
+                        >
+                          <option value="">Auto Detect (Mặc định)</option>
+                          <option value="vi">Vietnamese (vi)</option>
+                          <option value="en">English (en)</option>
+                          <option value="zh">Chinese (zh)</option>
+                          <option value="ja">Japanese (ja)</option>
+                          <option value="ko">Korean (ko)</option>
+                          <option value="fr">French (fr)</option>
+                          <option value="de">German (de)</option>
+                          <option value="es">Spanish (es)</option>
+                        </select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex justify-between text-[9px] font-bold text-muted-foreground uppercase">
+                            <span>Pad Duration (Độ đệm)</span>
+                          </div>
+                          <input
+                            type="number" min="0" max="2.0" step="0.05" placeholder="Mặc định" value={padDuration}
+                            onChange={(e) => setPadDuration(e.target.value)}
+                            className="bg-card border border-border rounded-lg text-xs p-1.5 focus:outline-none focus:ring-1 focus:ring-violet-500 text-foreground w-full"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex justify-between text-[9px] font-bold text-muted-foreground uppercase">
+                            <span>Fade Duration (Làm mượt)</span>
+                          </div>
+                          <input
+                            type="number" min="0" max="1.0" step="0.05" placeholder="Mặc định" value={fadeDuration}
+                            onChange={(e) => setFadeDuration(e.target.value)}
+                            className="bg-card border border-border rounded-lg text-xs p-1.5 focus:outline-none focus:ring-1 focus:ring-violet-500 text-foreground w-full"
+                          />
+                        </div>
+                      </div>
                     </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col gap-4 animate-fadeIn">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-fluid-xs font-bold text-muted-foreground uppercase tracking-wider">Tệp âm thanh cần nhận dạng (Audio File)</label>
+                  <div className="border-2 border-dashed border-border/85 hover:border-primary/50 transition-all rounded-2xl p-8 flex flex-col items-center justify-center text-center gap-3 bg-secondary/10 hover:bg-secondary/20 relative cursor-pointer min-h-[160px]">
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          setAsrFile(e.target.files[0]);
+                        }
+                      }}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    />
+                    <Volume2 className="w-9 h-9 text-muted-foreground/60" />
                     <div className="flex flex-col gap-1">
-                      <div className="flex justify-between text-[9px] font-bold text-muted-foreground uppercase">
-                        <span>Fade Duration (Làm mượt)</span>
-                      </div>
-                      <input
-                        type="number" min="0" max="1.0" step="0.05" placeholder="Mặc định" value={fadeDuration}
-                        onChange={(e) => setFadeDuration(e.target.value)}
-                        className="bg-card border border-border rounded-lg text-xs p-1.5 focus:outline-none focus:ring-1 focus:ring-violet-500 text-foreground w-full"
-                      />
+                      <span className="text-fluid-xs font-bold text-foreground leading-normal">
+                        {asrFile ? asrFile.name : "Kéo thả hoặc click để chọn tệp âm thanh"}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground font-semibold">
+                        Hỗ trợ WAV, MP3, M4A, FLAC (Lên đến 15MB)
+                      </span>
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {errorMsg && (
               <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl text-fluid-sm font-semibold flex gap-1.5 items-start">
@@ -695,9 +851,9 @@ export const PlaygroundPanel: React.FC = () => {
 
             <button
               type="submit"
-              disabled={loading || !text}
+              disabled={loading || (mode === "asr" ? !asrFile : !text)}
               className={`w-full h-11 rounded-xl font-bold text-fluid-sm transition-all duration-150 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer shadow-md ${
-                !loading && text
+                !loading && (mode === "asr" ? asrFile : text)
                   ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:brightness-105 border-none shadow-lg shadow-indigo-600/10"
                   : "bg-secondary text-muted-foreground cursor-not-allowed"
               }`}
@@ -705,12 +861,12 @@ export const PlaygroundPanel: React.FC = () => {
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin text-white shrink-0" />
-                  <span>Đang tổng hợp & lập lịch API...</span>
+                  <span>{mode === "asr" ? "Đang nhận dạng giọng nói..." : "Đang tổng hợp & lập lịch API..."}</span>
                 </>
               ) : (
                 <>
                   <PlayCircle className="w-4 h-4 text-white" />
-                  <span>Gửi test & Căn thời gian (TTS API)</span>
+                  <span>{mode === "asr" ? "Bắt đầu nhận dạng giọng nói (ASR)" : "Gửi test & Căn thời gian (TTS API)"}</span>
                 </>
               )}
             </button>
@@ -807,40 +963,172 @@ export const PlaygroundPanel: React.FC = () => {
                 </div>
               </div>
 
-              {/* Karaoke Display Area */}
-              <div className="p-6 md:p-8 min-h-[180px] max-h-[360px] overflow-y-auto bg-background/25 leading-loose text-justify relative select-none">
-                {alignmentList.length > 0 ? (
-                  <div className="flex flex-wrap gap-x-1.5 gap-y-2.5 items-center">
-                    {alignmentList.map((item: any, index: number) => {
-                      const isActive = currentTime >= item.start && currentTime <= item.end;
-                      const isPast = currentTime > item.end;
-                      
-                      return (
-                        <button
-                          key={index}
-                          type="button"
-                          onClick={() => handleWordClick(item.start, item.end)}
-                          className={`inline-block py-0.5 px-1.5 rounded-md text-fluid-base transition-all duration-100 cursor-pointer border select-none ${
-                            isActive
-                              ? "bg-primary/20 border-primary/40 text-primary font-black scale-110 shadow-sm animate-pulse"
-                              : isPast
-                              ? "bg-secondary/20 border-transparent text-muted-foreground/50 font-medium scale-95"
-                              : "bg-transparent border-transparent text-foreground hover:bg-secondary/40 hover:border-border font-medium"
-                          }`}
-                          title={`Nhấp để phát âm riêng từ này (Từ ${item.start}s - ${item.end}s)`}
-                        >
-                          {item.word}
-                        </button>
-                      );
-                    })}
+              {/* Tab Selector */}
+              <div className="flex border-b border-border bg-secondary/15 px-4 pt-2 gap-2 select-none">
+                <button
+                  type="button"
+                  onClick={() => setResultTab("text")}
+                  className={`px-4 py-2 text-xs font-bold transition-all border-b-2 rounded-t-lg cursor-pointer flex items-center gap-1.5 ${
+                    resultTab === "text"
+                      ? "border-primary text-primary bg-background/50"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  Văn bản
+                </button>
+                {alignmentList.length > 0 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setResultTab("subtitles")}
+                      className={`px-4 py-2 text-xs font-bold transition-all border-b-2 rounded-t-lg cursor-pointer flex items-center gap-1.5 ${
+                        resultTab === "subtitles"
+                          ? "border-primary text-primary bg-background/50"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <AlignLeft className="w-3.5 h-3.5" />
+                      Phụ đề (SRT)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setResultTab("karaoke")}
+                      className={`px-4 py-2 text-xs font-bold transition-all border-b-2 rounded-t-lg cursor-pointer flex items-center gap-1.5 ${
+                        resultTab === "karaoke"
+                          ? "border-primary text-primary bg-background/50"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Karaoke
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Tab Content Display Area */}
+              <div className="p-6 md:p-8 min-h-[220px] max-h-[380px] overflow-y-auto bg-background/25 leading-loose text-justify relative">
+                {resultTab === "text" && (
+                  <div className="flex flex-col gap-4">
+                    <textarea
+                      readOnly
+                      value={jobStatus?.text || ""}
+                      className="w-full min-h-[120px] bg-transparent border-0 text-fluid-base text-foreground font-medium focus:outline-none resize-none leading-relaxed"
+                    />
+                    <div className="flex justify-end gap-2 select-none">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(jobStatus?.text || "");
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-secondary/80 border border-border rounded-xl text-fluid-xs font-bold text-foreground cursor-pointer transition-colors"
+                      >
+                        {copied ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-success" />
+                            <span>Đã sao chép</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Sao chép văn bản</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-center text-muted-foreground py-10 gap-2">
-                    <Info className="w-5 h-5" />
-                    <span className="text-xs font-semibold">
-                      API hoàn tất nhưng không trả về thông tin Alignment.<br/>
-                      Kiểm tra log của worker hoặc restart notebook.
-                    </span>
+                )}
+
+                {resultTab === "subtitles" && (
+                  <div className="flex flex-col gap-3 animate-fadeIn">
+                    <div className="flex justify-end select-none mb-1">
+                      <button
+                        type="button"
+                        onClick={handleDownloadSRT}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-xl text-fluid-xs font-bold text-primary cursor-pointer transition-colors"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Tải phụ đề (.srt)
+                      </button>
+                    </div>
+
+                    {subtitleSegments.length > 0 ? (
+                      <div className="flex flex-col gap-2.5">
+                        {subtitleSegments.map((seg, idx) => {
+                          const isCurrent = currentTime >= seg.start && currentTime <= seg.end;
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                if (audioRef.current) {
+                                  playWordRangeRef.current = null;
+                                  audioRef.current.currentTime = seg.start;
+                                  setCurrentTime(seg.start);
+                                  audioRef.current.play().catch(err => console.error(err));
+                                }
+                              }}
+                              className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
+                                isCurrent
+                                  ? "bg-primary/10 border-primary/30 shadow-sm"
+                                  : "bg-card/40 border-border/60 hover:bg-secondary/40 hover:border-border"
+                              }`}
+                            >
+                              <span className={`text-fluid-sm font-semibold leading-relaxed flex-grow ${isCurrent ? "text-primary font-bold" : "text-foreground/95"}`}>
+                                {seg.text}
+                              </span>
+                              <span className="text-[10px] font-mono font-bold text-muted-foreground bg-secondary/80 px-2 py-0.5 rounded-md self-start sm:self-center tabular-nums">
+                                {formatTime(seg.start)} &rarr; {formatTime(seg.end)}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="w-full flex flex-col items-center justify-center text-center text-muted-foreground py-10 gap-2 select-none">
+                        <Info className="w-5 h-5" />
+                        <span className="text-xs font-semibold">Không có dữ liệu phụ đề.</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {resultTab === "karaoke" && (
+                  <div className="animate-fadeIn">
+                    {alignmentList.length > 0 ? (
+                      <div className="flex flex-wrap gap-x-1.5 gap-y-2.5 items-center select-none">
+                        {alignmentList.map((item: any, index: number) => {
+                          const isActive = currentTime >= item.start && currentTime <= item.end;
+                          const isPast = currentTime > item.end;
+                          
+                          return (
+                            <button
+                              key={index}
+                              type="button"
+                              onClick={() => handleWordClick(item.start, item.end)}
+                              className={`inline-block py-0.5 px-1.5 rounded-md text-fluid-base transition-all duration-100 cursor-pointer border ${
+                                isActive
+                                  ? "bg-primary/20 border-primary/40 text-primary font-black scale-110 shadow-sm animate-pulse"
+                                  : isPast
+                                  ? "bg-secondary/20 border-transparent text-muted-foreground/50 font-medium scale-95"
+                                  : "bg-transparent border-transparent text-foreground hover:bg-secondary/40 hover:border-border font-medium"
+                              }`}
+                              title={`Nhấp để phát âm riêng từ này (Từ ${item.start}s - ${item.end}s)`}
+                            >
+                              {item.word}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="w-full flex flex-col items-center justify-center text-center text-muted-foreground py-10 gap-2 select-none">
+                        <Info className="w-5 h-5" />
+                        <span className="text-xs font-semibold">Không có dữ liệu căn chỉnh.</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

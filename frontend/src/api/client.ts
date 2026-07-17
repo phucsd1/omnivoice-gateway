@@ -289,6 +289,21 @@ export const api = {
     });
   },
   
+  createASRJob: async (file: File): Promise<TTSJobResponse> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return request<TTSJobResponse>("/v1/asr", {
+      method: "POST",
+      body: formData,
+    });
+  },
+
+  getASRAudioUrl: (jobId: string): string => {
+    const token = localStorage.getItem("VITE_JWT_TOKEN");
+    const baseUrl = getApiBaseUrl();
+    return `${baseUrl}/v1/asr/jobs/${jobId}/audio?token=${token || ""}`;
+  },
+  
   getJobStatus: async (jobId: string): Promise<JobStatusResponse> => {
     return request<JobStatusResponse>(`/v1/jobs/${jobId}?t=${Date.now()}`);
   },
