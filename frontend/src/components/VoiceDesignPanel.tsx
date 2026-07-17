@@ -272,18 +272,18 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({
         {/* Voice request */}
         <div className="flex flex-col gap-1.5">
           <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
-            Mô tả giọng nói (Tiếng Việt)
+            Mô tả giọng nói (Tiếng Việt hoặc English Tags)
           </label>
           <input
             type="text"
             value={voiceRequest}
             onChange={(e) => setVoiceRequest(e.target.value)}
-            placeholder="Ví dụ: giọng nữ trẻ trầm nhẹ nhàng tự nhiên..."
+            placeholder="Ví dụ: giọng nữ trẻ trầm thì thầm hoặc 'female, young adult, low pitch, whisper'..."
             className="bg-background border border-border/40 rounded-xl px-2.5 py-2 text-[11px] text-foreground focus:outline-none focus:border-primary/30 transition-all font-semibold w-full"
           />
           {layout !== "modern" && (
             <span className="text-[9px] text-muted-foreground font-medium leading-tight">
-              * Hệ thống tự phân tích: &quot;nữ/nam&quot;, &quot;trẻ&quot;, &quot;trầm/thấp&quot;, &quot;nhẹ nhàng/thì thầm&quot;...
+              * Tự động dịch mô tả tiếng Việt (nữ/nam, trẻ/già, trầm/cao, thì thầm, cười, giọng Mỹ/Anh) hoặc nhập chuỗi tags tiếng Anh chuẩn của OmniVoice.
             </span>
           )}
         </div>

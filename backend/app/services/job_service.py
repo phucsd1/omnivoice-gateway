@@ -18,8 +18,25 @@ class JobService:
     def map_vietnamese_request_to_instruct(voice_request: str) -> str:
         """
         Maps a Vietnamese voice design description into valid OmniVoice English instruct tags.
+        If the input is already an English instruct sequence (e.g. comma-separated tags), it is preserved.
         """
-        req_lower = voice_request.lower()
+        req_lower = voice_request.lower().strip()
+        
+        # 1. If it doesn't contain Vietnamese diacritics and matches typical English keywords, pass it through directly
+        vietnamese_chars = "àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệđìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ"
+        has_vietnamese = any(c in vietnamese_chars for c in req_lower)
+        
+        english_keywords = ["male", "female", "child", "young", "adult", "middle", "elderly", "pitch", "whisper", "accent", "laughter", "giggle"]
+        has_english_keyword = any(kw in req_lower for kw in english_keywords)
+        
+        if not has_vietnamese and (has_english_keyword or "," in req_lower):
+            # Clean and return the comma-separated English instruct tags
+            parts = [p.strip() for p in voice_request.split(",") if p.strip()]
+            if parts:
+                return ", ".join(parts)
+            return req_lower
+
+        # 2. Otherwise, map Vietnamese description to standard English instruct tags
         instructs = []
 
         # Gender
@@ -49,8 +66,18 @@ class JobService:
             instructs.append("moderate pitch")
 
         # Style
-        if "thì thầm" in req_lower or "nhẹ nhàng" in req_lower:
+        if "thì thầm" in req_lower or "nhẹ nhàng" in req_lower or "nói nhỏ" in req_lower:
             instructs.append("whisper")
+        if "cười" in req_lower:
+            instructs.append("laughter")
+
+        # Accents
+        if "giọng mỹ" in req_lower or "tiếng mỹ" in req_lower or "accent mỹ" in req_lower:
+            instructs.append("american accent")
+        elif "giọng anh" in req_lower or "tiếng anh" in req_lower or "accent anh" in req_lower:
+            instructs.append("british accent")
+        elif "giọng ấn" in req_lower or "accent ấn" in req_lower:
+            instructs.append("indian accent")
 
         # Fallback defaults if empty
         if not instructs:
