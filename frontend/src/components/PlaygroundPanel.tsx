@@ -322,6 +322,18 @@ export const PlaygroundPanel: React.FC = () => {
     }
   };
 
+  // Audio playback authenticated URL
+  const token = localStorage.getItem("VITE_JWT_TOKEN");
+  const authenticatedUrl = React.useMemo(() => {
+    if (!jobStatus) return "";
+    if (jobStatus.job_type === "asr") {
+      return api.getASRAudioUrl(jobStatus.job_id);
+    }
+    return jobStatus.audio_url 
+      ? `${api.getApiBaseUrl()}${jobStatus.audio_url}${jobStatus.audio_url.includes("?") ? "&" : "?"}token=${token || ""}`
+      : "";
+  }, [jobStatus, token]);
+
   // Audio Event Bindings
   useEffect(() => {
     const audio = audioRef.current;
@@ -545,18 +557,6 @@ export const PlaygroundPanel: React.FC = () => {
     
     return segments;
   }, [alignmentList]);
-
-  // Audio playback authenticated URL
-  const token = localStorage.getItem("VITE_JWT_TOKEN");
-  const authenticatedUrl = React.useMemo(() => {
-    if (!jobStatus) return "";
-    if (jobStatus.job_type === "asr") {
-      return api.getASRAudioUrl(jobStatus.job_id);
-    }
-    return jobStatus.audio_url 
-      ? `${api.getApiBaseUrl()}${jobStatus.audio_url}${jobStatus.audio_url.includes("?") ? "&" : "?"}token=${token || ""}`
-      : "";
-  }, [jobStatus, token]);
 
   return (
     <div className="w-full flex flex-col gap-6">
