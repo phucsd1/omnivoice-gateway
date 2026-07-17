@@ -619,6 +619,67 @@ generateSpeech();`
             </div>
           </div>
 
+          {/* ElevenLabs Compatibility API Documentation */}
+          <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-4 shadow-xl">
+            <div className="flex items-center gap-2 border-b border-border pb-2">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <h3 className="font-bold text-xs text-foreground uppercase tracking-wider">
+                Tương thích ElevenLabs (ElevenLabs Compatibility API)
+              </h3>
+            </div>
+            
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              OmniVoice Gateway cung cấp các API tương thích trực tiếp với chuẩn của ElevenLabs. Bạn có thể sử dụng các thư viện hoặc SDK ElevenLabs để lấy danh sách giọng đọc và phát thử mẫu giọng trực tiếp từ máy chủ.
+            </p>
+
+            <div className="flex flex-col gap-4 mt-1">
+              {/* Endpoint 1 */}
+              <div className="flex gap-4 border-b border-border/40 pb-3">
+                <div className="bg-primary/10 text-primary font-black text-[10px] w-12 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 uppercase">
+                  GET
+                </div>
+                <div className="flex flex-col gap-1 min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="bg-success/15 border border-success/20 text-success text-[10px] font-black px-2 py-0.5 rounded">
+                      AUTH
+                    </span>
+                    <span className="font-mono text-xs text-foreground select-all">/v1/voices</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
+                    Lấy toàn bộ danh sách giọng nói khả dụng (gồm giọng cá nhân của bạn và các giọng công khai) theo đúng định dạng dữ liệu của ElevenLabs.
+                  </p>
+                </div>
+              </div>
+
+              {/* Endpoint 2 */}
+              <div className="flex gap-4">
+                <div className="bg-primary/10 text-primary font-black text-[10px] w-12 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 uppercase">
+                  GET
+                </div>
+                <div className="flex flex-col gap-1 min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="bg-primary/15 border border-primary/20 text-primary text-[10px] font-black px-2 py-0.5 rounded">
+                      OPTIONAL AUTH
+                    </span>
+                    <span className="font-mono text-xs text-foreground select-all">/v1/voices/{"{voice_id}"}/previews</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
+                    Phát trực tiếp tệp âm thanh nghe thử (preview) của giọng đọc tương ứng.
+                  </p>
+                  <div className="text-[11px] text-muted-foreground mt-1 bg-background/50 border border-border/40 p-2.5 rounded-lg space-y-1">
+                    <span className="font-bold text-foreground">Cách sử dụng cho thẻ &lt;audio&gt;:</span>
+                    <p className="text-[10px] text-muted-foreground leading-relaxed mt-0.5">
+                      Đối với giọng riêng tư, bạn có thể truyền Token qua URL query parameter <code className="text-primary font-mono">?token=YOUR_API_KEY</code> để phát trực tiếp trên trình duyệt.
+                    </p>
+                    <pre className="font-mono text-[9px] text-primary/90 mt-1 leading-normal overflow-x-auto whitespace-pre">
+{`<audio src="${baseUrl}/v1/voices/YOUR_VOICE_ID/previews?token=${activeKey}" controls />`}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Word-Level Alignment Documentation */}
           <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-3 shadow-xl">
             <div className="flex items-center gap-2 border-b border-border pb-2">

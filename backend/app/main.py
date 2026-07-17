@@ -284,3 +284,7 @@ app.include_router(settings_router.router)
 app.include_router(audio.router)
 app.include_router(compat.router)
 
+# Mount ElevenLabs compatibility router
+from app.routers.compat import elevenlabs_compat_router
+app.include_router(elevenlabs_compat_router)
+

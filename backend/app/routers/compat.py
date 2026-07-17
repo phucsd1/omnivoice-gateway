@@ -8,7 +8,7 @@ import re
 import asyncio
 import zipfile
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File, BackgroundTasks, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
@@ -460,3 +460,212 @@ def download_batch_zip(
         media_type="application/zip",
         filename=f"batch_{batch_id}.zip"
     )
+
+# ElevenLabs Compatibility API Router
+elevenlabs_compat_router = APIRouter(prefix="/v1", tags=["ElevenLabs Compatibility API"])
+
+@elevenlabs_compat_router.get("/voices")
+def list_voices_compat(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_user_or_api_key)
+):
+    """
+    Lists available voices in ElevenLabs-compatible format.
+    Includes user's private voice samples and all public voice samples.
+    """
+    samples = db.query(VoiceSample).filter(
+        (VoiceSample.user_id == current_user.id) | (VoiceSample.is_public == True)
+    ).all()
+    
+    voices = []
+    base_url = str(request.base_url).rstrip("/")
+    
+    # Try resolving auth token string from query params or headers to append to preview_url
+    token_str = request.query_params.get("token")
+    auth_header = request.headers.get("Authorization")
+    if not token_str and auth_header and auth_header.startswith("Bearer "):
+        token_str = auth_header.split(" ")[1]
+        
+    for s in samples:
+        accent = "vietnamese"
+        gender = "unknown"
+        age = "adult"
+        
+        # Parse tags
+        tags_list = [t.strip().lower() for t in s.tags.split(",")] if s.tags else []
+        for t in tags_list:
+            if "nam" in t or "male" in t:
+                gender = "male"
+            elif "nữ" in t or "female" in t:
+                gender = "female"
+            elif "trẻ" in t or "young" in t:
+                age = "young"
+            elif "già" in t or "old" in t or "lớn tuổi" in t or "trung niên" in t:
+                age = "middle_aged"
+                
+        # For private voices, append authentication token to preview_url for direct browser playback
+        if not s.is_public and token_str:
+            preview_url = f"{base_url}/v1/voices/{s.id}/previews?token={token_str}"
+        else:
+            preview_url = f"{base_url}/v1/voices/{s.id}/previews"
+            
+        voices.append({
+            "voice_id": s.id,
+            "name": s.name or f"Voice {s.id[:8]}",
+            "samples": None,
+            "category": "cloned" if not s.is_public else "public",
+            "fine_tuning": {
+                "is_allowed_to_fine_tune": False,
+                "state": "not_started",
+                "verification_failures": [],
+                "verification_attempts_count": 0,
+                "manual_verification_requested": False,
+                "language": "vi"
+            },
+            "labels": {
+                "accent": accent,
+                "gender": gender,
+                "age": age,
+                "description": s.ref_text or "Giọng nhân bản từ OmniVoice Gateway"
+            },
+            "preview_url": preview_url,
+            "available_for_tiers": [],
+            "settings": None,
+            "sharing": None,
+            "high_quality_base_model_ids": []
+        })
+        
+    return {"voices": voices}
+
+@elevenlabs_compat_router.get("/voices/{voice_id}")
+def get_voice_compat(
+    voice_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_user_or_api_key)
+):
+    """
+    Retrieves detailed metadata of a specific voice sample in ElevenLabs-compatible format.
+    """
+    s = db.query(VoiceSample).filter(VoiceSample.id == voice_id).first()
+    if not s:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Không tìm thấy giọng đọc.")
+        
+    if not s.is_public and s.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bạn không có quyền truy cập vào giọng đọc riêng tư này.")
+        
+    base_url = str(request.base_url).rstrip("/")
+    token_str = request.query_params.get("token")
+    auth_header = request.headers.get("Authorization")
+    if not token_str and auth_header and auth_header.startswith("Bearer "):
+        token_str = auth_header.split(" ")[1]
+        
+    accent = "vietnamese"
+    gender = "unknown"
+    age = "adult"
+    
+    tags_list = [t.strip().lower() for t in s.tags.split(",")] if s.tags else []
+    for t in tags_list:
+        if "nam" in t or "male" in t:
+            gender = "male"
+        elif "nữ" in t or "female" in t:
+            gender = "female"
+        elif "trẻ" in t or "young" in t:
+            age = "young"
+        elif "già" in t or "old" in t or "lớn tuổi" in t or "trung niên" in t:
+            age = "middle_aged"
+            
+    if not s.is_public and token_str:
+        preview_url = f"{base_url}/v1/voices/{s.id}/previews?token={token_str}"
+    else:
+        preview_url = f"{base_url}/v1/voices/{s.id}/previews"
+        
+    return {
+        "voice_id": s.id,
+        "name": s.name or f"Voice {s.id[:8]}",
+        "samples": None,
+        "category": "cloned" if not s.is_public else "public",
+        "fine_tuning": {
+            "is_allowed_to_fine_tune": False,
+            "state": "not_started",
+            "verification_failures": [],
+            "verification_attempts_count": 0,
+            "manual_verification_requested": False,
+            "language": "vi"
+        },
+        "labels": {
+            "accent": accent,
+            "gender": gender,
+            "age": age,
+            "description": s.ref_text or "Giọng nhân bản từ OmniVoice Gateway"
+        },
+        "preview_url": preview_url,
+        "available_for_tiers": [],
+        "settings": None,
+        "sharing": None,
+        "high_quality_base_model_ids": []
+    }
+
+@elevenlabs_compat_router.get("/voices/{voice_id}/previews")
+def get_voice_preview(
+    voice_id: str,
+    request: Request,
+    token: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Serves the raw WAV audio file of a voice sample as preview.
+    Allows unauthenticated access for public voices.
+    For private voices, accepts authorization headers or query 'token' parameter.
+    """
+    # 1. Fetch voice sample
+    sample = db.query(VoiceSample).filter(VoiceSample.id == voice_id).first()
+    if not sample:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Không tìm thấy giọng đọc.")
+        
+    # 2. Check auth if private
+    if not sample.is_public:
+        auth_token = token
+        auth_header = request.headers.get("Authorization")
+        if not auth_token and auth_header and auth_header.startswith("Bearer "):
+            auth_token = auth_header.split(" ")[1]
+            
+        if not auth_token:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Yêu cầu xác thực tài khoản để truy cập giọng đọc riêng tư.")
+            
+        user = None
+        
+        # Try JWT decode
+        try:
+            from jose import jwt
+            payload = jwt.decode(auth_token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+            username = payload.get("sub")
+            if username:
+                user = db.query(User).filter(User.username == username).first()
+        except Exception:
+            pass
+            
+        if not user:
+            # Try ApiKey table
+            from app.models import ApiKey
+            api_key_obj = db.query(ApiKey).filter(ApiKey.key == auth_token).first()
+            if api_key_obj:
+                user = db.query(User).filter(User.id == api_key_obj.user_id).first()
+                
+        if not user:
+            # Try User.api_key (legacy)
+            user = db.query(User).filter(User.api_key == auth_token).first()
+            
+        if not user or not user.is_approved:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Mã xác thực không hợp lệ hoặc tài khoản chưa được duyệt.")
+            
+        if sample.user_id != user.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bạn không có quyền truy cập vào giọng đọc riêng tư này.")
+            
+    # 3. Serve WAV file
+    if not sample.file_path or not os.path.exists(sample.file_path):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tệp âm thanh nghe thử không tồn tại trên Gateway.")
+        
+    return FileResponse(sample.file_path, media_type="audio/wav")
+
