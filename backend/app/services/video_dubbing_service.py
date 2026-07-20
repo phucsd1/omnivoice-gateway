@@ -44,26 +44,27 @@ class VideoDubbingService:
         err_ytdlp = None
         err_pytubefix = None
 
-        # Method 1: yt-dlp (Fastest, uses android_vr player client, downloads in 2s)
+        # Method 1: yt-dlp (iOS/Android client, 360p progressive MP4)
         try:
-            print("[VideoDubbingService] Attempting YouTube download via yt-dlp...")
+            print("[VideoDubbingService] Attempting YouTube download via yt-dlp (iOS/Android client)...")
             VideoDubbingService.ensure_dependencies()
             import yt_dlp
             outtmpl = os.path.join(output_dir, "input_video.%(ext)s")
             ydl_opts = {
-                'format': '18/best[height<=720]/best',
+                'format': '18/worst[ext=mp4]/best[height<=480]',
                 'outtmpl': outtmpl,
                 'quiet': True,
                 'no_warnings': True,
                 'nocheckcertificate': True,
                 'legacy_server_connect': True,
-                'socket_timeout': 30,
-                'retries': 3,
-                'fragment_retries': 3,
-                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'socket_timeout': 20,
+                'retries': 2,
+                'fragment_retries': 2,
+                'concurrent_fragment_downloads': 4,
+                'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_vr', 'web_embedded', 'tv']
+                        'player_client': ['ios', 'android', 'mweb']
                     }
                 }
             }
@@ -83,16 +84,16 @@ class VideoDubbingService:
             err_ytdlp = e
             print(f"[VideoDubbingService] yt-dlp download failed ({e}), trying pytubefix fallback...")
 
-        # Method 2: pytubefix fallback
+        # Method 2: pytubefix fallback (iOS client)
         try:
-            print("[VideoDubbingService] Attempting YouTube download via pytubefix fallback...")
+            print("[VideoDubbingService] Attempting YouTube download via pytubefix (iOS client)...")
             try:
                 from pytubefix import YouTube
             except ImportError:
                 subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "pytubefix"])
                 from pytubefix import YouTube
             
-            yt = YouTube(url)
+            yt = YouTube(url, client='IOS')
             title = yt.title or "YouTube Video"
             stream = yt.streams.filter(progressive=True, file_extension='mp4').first()
             if not stream:
