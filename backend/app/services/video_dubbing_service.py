@@ -31,7 +31,7 @@ class VideoDubbingService:
         import socket
         try:
             ssl._create_default_https_context = ssl._create_unverified_context
-            socket.setdefaulttimeout(15)
+            socket.setdefaulttimeout(120)
         except Exception:
             pass
 
