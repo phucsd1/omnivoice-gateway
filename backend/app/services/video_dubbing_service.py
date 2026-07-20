@@ -38,9 +38,47 @@ class VideoDubbingService:
         os.makedirs(output_dir, exist_ok=True)
         target_path = os.path.join(output_dir, "input_video.mp4")
 
-        # Method 1: pytubefix (Fastest & direct progressive MP4 download)
+        # Method 1: yt-dlp (Fastest, uses android_vr player client, downloads in 2s)
         try:
-            print("[VideoDubbingService] Attempting YouTube download via pytubefix...")
+            print("[VideoDubbingService] Attempting YouTube download via yt-dlp...")
+            VideoDubbingService.ensure_dependencies()
+            import yt_dlp
+            outtmpl = os.path.join(output_dir, "input_video.%(ext)s")
+            ydl_opts = {
+                'format': '18/best[height<=720]/best',
+                'outtmpl': outtmpl,
+                'quiet': True,
+                'no_warnings': True,
+                'nocheckcertificate': True,
+                'legacy_server_connect': True,
+                'socket_timeout': 30,
+                'retries': 3,
+                'fragment_retries': 3,
+                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['android_vr', 'web_embedded', 'tv']
+                    }
+                }
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                video_title = info.get('title', 'YouTube Video')
+                filename = ydl.prepare_filename(info)
+                base, _ = os.path.splitext(filename)
+                for ext in ['.mp4', '.mkv', '.webm']:
+                    if os.path.exists(base + ext) and os.path.getsize(base + ext) > 0:
+                        print(f"[VideoDubbingService] yt-dlp download success: {video_title}")
+                        return base + ext, video_title
+                if os.path.exists(filename) and os.path.getsize(filename) > 0:
+                    print(f"[VideoDubbingService] yt-dlp download success: {video_title}")
+                    return filename, video_title
+        except Exception as e:
+            print(f"[VideoDubbingService] yt-dlp download failed ({e}), trying pytubefix fallback...")
+
+        # Method 2: pytubefix fallback
+        try:
+            print("[VideoDubbingService] Attempting YouTube download via pytubefix fallback...")
             try:
                 from pytubefix import YouTube
             except ImportError:
@@ -59,45 +97,9 @@ class VideoDubbingService:
                     print(f"[VideoDubbingService] pytubefix download success: {title}")
                     return target_path, title
         except Exception as e:
-            print(f"[VideoDubbingService] pytubefix download failed ({e}), falling back to yt-dlp...")
+            print(f"[VideoDubbingService] pytubefix download failed: {e}")
 
-        # Method 2: yt-dlp fallback with progressive format 18/best
-        try:
-            VideoDubbingService.ensure_dependencies()
-            import yt_dlp
-            outtmpl = os.path.join(output_dir, "input_video.%(ext)s")
-            ydl_opts = {
-                'format': '18/best[height<=720]/best',
-                'outtmpl': outtmpl,
-                'quiet': True,
-                'no_warnings': True,
-                'nocheckcertificate': True,
-                'legacy_server_connect': True,
-                'socket_timeout': 15,
-                'retries': 2,
-                'fragment_retries': 2,
-                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['tv', 'android_vr', 'web_embedded']
-                    }
-                }
-            }
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                video_title = info.get('title', 'YouTube Video')
-                filename = ydl.prepare_filename(info)
-                base, _ = os.path.splitext(filename)
-                for ext in ['.mp4', '.mkv', '.webm']:
-                    if os.path.exists(base + ext) and os.path.getsize(base + ext) > 0:
-                        return base + ext, video_title
-                if os.path.exists(filename) and os.path.getsize(filename) > 0:
-                    return filename, video_title
-        except Exception as e:
-            print(f"[VideoDubbingService] yt-dlp download failed: {e}")
-            raise Exception(f"Không thể tải video từ YouTube: {e}")
-
-        raise Exception("Không thể tải video từ YouTube.")
+        raise Exception("Không thể tải video từ YouTube. Vui lòng kiểm tra lại đường dẫn.")
 
     @staticmethod
     def extract_audio_ffmpeg(video_path: str, output_audio_path: str) -> float:
