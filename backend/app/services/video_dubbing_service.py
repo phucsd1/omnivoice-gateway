@@ -51,20 +51,19 @@ class VideoDubbingService:
             import yt_dlp
             outtmpl = os.path.join(output_dir, "input_video.%(ext)s")
             ydl_opts = {
-                'format': '18/worst[ext=mp4]/best[height<=480]',
+                'format': '18/best[height<=480]/best',
                 'outtmpl': outtmpl,
                 'quiet': True,
                 'no_warnings': True,
                 'nocheckcertificate': True,
                 'legacy_server_connect': True,
-                'socket_timeout': 20,
-                'retries': 2,
-                'fragment_retries': 2,
-                'concurrent_fragment_downloads': 4,
-                'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+                'socket_timeout': 30,
+                'retries': 3,
+                'fragment_retries': 3,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['ios', 'android', 'mweb']
+                        'player_client': ['android', 'android_vr', 'tv'],
+                        'player_skip': ['js', 'configs', 'webpage']
                     }
                 }
             }
