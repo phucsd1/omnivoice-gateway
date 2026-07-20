@@ -78,9 +78,9 @@ def run_dubbing_pipeline(job_id: str):
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(VideoDubbingService.download_youtube_video, job.source_url, job_dir)
                 try:
-                    video_path, title = future.result(timeout=35)
+                    video_path, title = future.result(timeout=55)
                 except concurrent.futures.TimeoutError:
-                    raise Exception("Tải video từ YouTube vượt quá 35 giây. Vui lòng thử lại hoặc dùng video MP4.")
+                    raise Exception("Tải video từ YouTube vượt quá 55 giây. Vui lòng thử lại hoặc dùng video MP4.")
                 
             job.input_file_path = video_path
             db.commit()

@@ -28,7 +28,7 @@ class VideoDubbingService:
     def download_youtube_video(url: str, output_dir: str) -> Tuple[str, str]:
         """
         Downloads a YouTube video and returns (video_path, title).
-        Uses CLI subprocess yt-dlp first with strict timeout, falls back to Python yt_dlp library, then pytubefix.
+        Uses yt-dlp with android_vr client (fast progressive MP4 format 18).
         """
         os.makedirs(output_dir, exist_ok=True)
         target_path = os.path.join(output_dir, "input_video.mp4")
@@ -37,20 +37,20 @@ class VideoDubbingService:
         err_ytdlp = None
         err_pytubefix = None
 
-        # Method 1: Subprocess CLI yt-dlp (Fully isolated process, strict 40s timeout, force IPv4)
+        # Method 1: Subprocess CLI yt-dlp with android_vr client (Isolated process, force IPv4)
         try:
-            print("[VideoDubbingService] Attempting YouTube download via CLI subprocess yt-dlp...")
+            print("[VideoDubbingService] Attempting YouTube download via CLI subprocess yt-dlp (android_vr client)...")
             cmd = [
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
                 "-4",
                 "-f", "18/best[height<=480]/best",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
-                "--socket-timeout", "15",
-                "--extractor-args", "youtube:player_client=android;player_skip=js,configs,webpage",
+                "--socket-timeout", "20",
+                "--extractor-args", "youtube:player_client=android_vr,android,web",
                 url
             ]
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=40)
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=50)
             if res.returncode == 0:
                 for ext in ['.mp4', '.mkv', '.webm']:
                     candidate = os.path.join(output_dir, f"input_video{ext}")
@@ -64,9 +64,9 @@ class VideoDubbingService:
             err_sub = e
             print(f"[VideoDubbingService] CLI yt-dlp exception: {e}")
 
-        # Method 2: Python yt_dlp module (Force IPv4)
+        # Method 2: Python yt_dlp module with android_vr client
         try:
-            print("[VideoDubbingService] Attempting YouTube download via Python yt_dlp...")
+            print("[VideoDubbingService] Attempting YouTube download via Python yt_dlp (android_vr client)...")
             import yt_dlp
             outtmpl = os.path.join(output_dir, "input_video.%(ext)s")
             ydl_opts = {
@@ -74,12 +74,11 @@ class VideoDubbingService:
                 'outtmpl': outtmpl,
                 'quiet': True,
                 'no_warnings': True,
-                'socket_timeout': 15,
+                'socket_timeout': 20,
                 'source_address': '0.0.0.0',
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android'],
-                        'player_skip': ['js', 'configs', 'webpage']
+                        'player_client': ['android_vr', 'android', 'web']
                     }
                 }
             }
