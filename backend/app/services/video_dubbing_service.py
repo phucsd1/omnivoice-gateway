@@ -41,6 +41,9 @@ class VideoDubbingService:
         os.makedirs(output_dir, exist_ok=True)
         target_path = os.path.join(output_dir, "input_video.mp4")
 
+        err_ytdlp = None
+        err_pytubefix = None
+
         # Method 1: yt-dlp (Fastest, uses android_vr player client, downloads in 2s)
         try:
             print("[VideoDubbingService] Attempting YouTube download via yt-dlp...")
@@ -77,6 +80,7 @@ class VideoDubbingService:
                     print(f"[VideoDubbingService] yt-dlp download success: {video_title}")
                     return filename, video_title
         except Exception as e:
+            err_ytdlp = e
             print(f"[VideoDubbingService] yt-dlp download failed ({e}), trying pytubefix fallback...")
 
         # Method 2: pytubefix fallback
@@ -100,9 +104,10 @@ class VideoDubbingService:
                     print(f"[VideoDubbingService] pytubefix download success: {title}")
                     return target_path, title
         except Exception as e:
+            err_pytubefix = e
             print(f"[VideoDubbingService] pytubefix download failed: {e}")
 
-        raise Exception("Không thể tải video từ YouTube. Vui lòng kiểm tra lại đường dẫn.")
+        raise Exception(f"Không thể tải video từ YouTube: (yt-dlp: {err_ytdlp}) | (pytubefix: {err_pytubefix})")
 
     @staticmethod
     def extract_audio_ffmpeg(video_path: str, output_audio_path: str) -> float:
