@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_HOURS: int = 24
     
-    DATABASE_URL: str = "sqlite:///./omnivoice_gateway.db"
+    DATABASE_URL: str = "sqlite:///./storage/omnivoice_gateway.db"
     STORAGE_DIR: str = "./storage"
     ALLOW_REGISTRATION: bool = True
     

@@ -54,25 +54,21 @@ if resolved_db_url.startswith("sqlite"):
     if not test_db_writable(resolved_db_url):
         print(f"[Database Init] Warning: Default database path {resolved_db_url} is not writable.")
         
-        # Fallback 1: Try /data/db subdirectory if not already tried and /data is writable
-        if "/data" in resolved_db_url and "/data/db" not in resolved_db_url:
-            fallback_1 = "sqlite:////data/db/omnivoice_gateway.db?nolock=1"
-            print(f"[Database Init] Attempting fallback 1: {fallback_1}")
-            if test_db_writable(fallback_1):
-                resolved_db_url = fallback_1
-                print(f"[Database Init] Success: Using fallback 1")
-            
-        # Fallback 2 (if 1 failed or wasn't applicable): Try /tmp/
-        if resolved_db_url == settings.DATABASE_URL:
+        # Fallback 1: Try ./storage/ directory
+        fallback_storage = "sqlite:///./storage/omnivoice_gateway.db"
+        print(f"[Database Init] Attempting fallback 1: {fallback_storage}")
+        if test_db_writable(fallback_storage):
+            resolved_db_url = fallback_storage
+            print(f"[Database Init] Success: Using fallback 1 ({fallback_storage})")
+        else:
+            # Fallback 2: Try /tmp/
             fallback_2 = "sqlite:////tmp/omnivoice_gateway.db"
             print(f"[Database Init] Attempting fallback 2: {fallback_2}")
             if test_db_writable(fallback_2):
                 resolved_db_url = fallback_2
                 print(f"[Database Init] Success: Using fallback 2")
             else:
-                # Fallback 3: Local fallback file
                 fallback_3 = "sqlite:///./omnivoice_gateway_fallback.db"
-                print(f"[Database Init] Attempting fallback 3: {fallback_3}")
                 resolved_db_url = fallback_3
                 print(f"[Database Init] Using fallback 3")
         
