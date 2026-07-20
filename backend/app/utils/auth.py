@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 import bcrypt
-from fastapi import Depends, HTTPException, status, Query
+from fastapi import Depends, HTTPException, status, Query, Header
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
@@ -63,14 +63,19 @@ def get_current_user(token: Optional[str] = Depends(oauth2_scheme), db: Session 
 def get_user_or_api_key(
     token: Optional[str] = Depends(oauth2_scheme),
     token_query: Optional[str] = Query(None, alias="token"),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    x_ov_api_key: Optional[str] = Header(None, alias="X-OV-API-Key"),
     db: Session = Depends(get_db)
 ) -> User:
     """
     Authenticates either via JWT Token (Authorization: Bearer <JWT>)
     OR via User Static API Key (Authorization: Bearer <API_KEY>) from ApiKey table.
     Allows query parameter fallback for browsers (?token=...)
+    Also supports custom headers X-API-Key / X-OV-API-Key.
     """
-    auth_token = token or token_query
+    auth_token = x_api_key or x_ov_api_key or token or token_query
+    if auth_token and auth_token.startswith("Bearer "):
+        auth_token = auth_token.split(" ", 1)[1]
     
     if not auth_token:
         raise HTTPException(

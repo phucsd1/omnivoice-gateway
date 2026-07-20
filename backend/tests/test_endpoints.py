@@ -305,4 +305,30 @@ def test_batch_jobs_status():
     assert batch_res_empty.json() == {}
 
 
+def test_custom_headers_authentication():
+    # 1. Login to get JWT token
+    login_res = client.post("/v1/auth/login", json={
+        "username": "test_user_123",
+        "password": "password_123"
+    })
+    assert login_res.status_code == 200
+    token = login_res.json()["access_token"]
+
+    # 2. Test authenticating via X-API-Key header (without Bearer prefix)
+    res_x_api_key = client.get("/v1/jobs", headers={"X-API-Key": token})
+    assert res_x_api_key.status_code == 200
+
+    # 3. Test authenticating via X-OV-API-Key header (with Bearer prefix)
+    res_x_ov_api_key = client.get("/v1/jobs", headers={"X-OV-API-Key": f"Bearer {token}"})
+    assert res_x_ov_api_key.status_code == 200
+
+    # 4. Test priority: X-API-Key with valid token, while Authorization header contains dummy HF token
+    res_priority = client.get("/v1/jobs", headers={
+        "Authorization": "Bearer hf_dummy_token_value_here",
+        "X-API-Key": token
+    })
+    assert res_priority.status_code == 200
+
+
+
 

@@ -214,11 +214,18 @@ async def log_api_usage(request: Request, call_next):
     response = await call_next(request)
     duration_ms = (time.time() - start_time) * 1000
     
-    # Try resolving user from Authorization header token
+    # Try resolving user from X-API-Key, X-OV-API-Key or Authorization header token
     user_id = None
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header.split(" ")[1]
+    token = None
+    x_key = request.headers.get("x-api-key") or request.headers.get("x-ov-api-key")
+    if x_key:
+        token = x_key.split(" ", 1)[1] if x_key.startswith("Bearer ") else x_key
+    else:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+            
+    if token:
         from app.database import SessionLocal
         from app.models import User, ApiKey
         from jose import jwt
