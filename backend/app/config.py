@@ -40,8 +40,9 @@ class Settings(BaseSettings):
     # LLM Settings
     LLM_PROVIDER: str = "gemini"  # "gemini" or "openai" or "none"
     LLM_API_KEY: str = ""
-    LLM_MODEL: str = "gemini-1.5-flash"
+    LLM_MODEL: str = "gemini-2.5-flash"
     LLM_CUSTOM_ENDPOINT: str = ""
+    LLM_THINKING_EFFORT: str = "none"  # "none", "low", "medium", "high"
 
     # SMTP Settings
     SMTP_HOST: str = "smtp.gmail.com"

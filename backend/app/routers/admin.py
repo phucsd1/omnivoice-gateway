@@ -86,6 +86,7 @@ class SystemSettingsResponse(BaseModel):
     llm_api_key: str
     llm_model: str
     llm_custom_endpoint: str
+    llm_thinking_effort: str
 
 class SystemSettingsUpdateRequest(BaseModel):
     worker_mode: Optional[str] = None
@@ -110,6 +111,7 @@ class SystemSettingsUpdateRequest(BaseModel):
     llm_api_key: Optional[str] = None
     llm_model: Optional[str] = None
     llm_custom_endpoint: Optional[str] = None
+    llm_thinking_effort: Optional[str] = None
 
 class AdminStatsResponse(BaseModel):
     total_users: int
@@ -346,6 +348,7 @@ def get_system_settings_admin(
     llm_api_key = get_setting("llm_api_key", settings.LLM_API_KEY)
     llm_model = get_setting("llm_model", settings.LLM_MODEL)
     llm_custom_endpoint = get_setting("llm_custom_endpoint", settings.LLM_CUSTOM_ENDPOINT)
+    llm_thinking_effort = get_setting("llm_thinking_effort", settings.LLM_THINKING_EFFORT)
 
     return SystemSettingsResponse(
         worker_mode=worker_mode,
@@ -369,7 +372,8 @@ def get_system_settings_admin(
         llm_provider=llm_provider,
         llm_api_key=llm_api_key,
         llm_model=llm_model,
-        llm_custom_endpoint=llm_custom_endpoint
+        llm_custom_endpoint=llm_custom_endpoint,
+        llm_thinking_effort=llm_thinking_effort
     )
 
 @router.post("/settings", response_model=dict)
@@ -442,6 +446,8 @@ def update_system_settings_admin(
             save_setting("llm_model", payload.llm_model)
         if payload.llm_custom_endpoint is not None:
             save_setting("llm_custom_endpoint", payload.llm_custom_endpoint)
+        if payload.llm_thinking_effort is not None:
+            save_setting("llm_thinking_effort", payload.llm_thinking_effort)
         
         db.commit()
         return {"status": "success", "message": "Cập nhật cấu hình hệ thống thành công."}
@@ -453,6 +459,68 @@ def update_system_settings_admin(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Lỗi ghi cấu hình hệ thống: {e}"
         )
+
+class ScanModelsRequest(BaseModel):
+    provider: Optional[str] = "gemini"
+    api_key: Optional[str] = None
+    custom_endpoint: Optional[str] = None
+
+@router.post("/llm/scan-models", response_model=dict)
+def scan_llm_models_admin(
+    payload: ScanModelsRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """Scans and fetches available LLM models from Gemini / OpenAI / Custom Endpoint."""
+    provider = payload.provider or "gemini"
+    
+    def get_setting(key: str, default: str) -> str:
+        entry = db.query(SystemSetting).filter(SystemSetting.key == key).first()
+        return entry.value if entry else default
+
+    api_key = payload.api_key or get_setting("llm_api_key", settings.LLM_API_KEY)
+    custom_endpoint = payload.custom_endpoint or get_setting("llm_custom_endpoint", settings.LLM_CUSTOM_ENDPOINT)
+
+    import requests
+    models_found = []
+
+    try:
+        if provider == "gemini":
+            if not api_key:
+                raise HTTPException(status_code=400, detail="Vui lòng nhập API Key để quét danh sách Gemini models.")
+            url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+            res = requests.get(url, timeout=15)
+            res.raise_for_status()
+            data = res.json()
+            raw_models = data.get("models", [])
+            for m in raw_models:
+                name = m.get("name", "").replace("models/", "")
+                methods = m.get("supportedGenerationMethods", [])
+                if "generateContent" in methods:
+                    models_found.append(name)
+                    
+        elif provider in ["openai", "custom"]:
+            url = custom_endpoint if (provider == "custom" and custom_endpoint) else "https://api.openai.com/v1/models"
+            if url.endswith("/chat/completions"):
+                url = url.replace("/chat/completions", "/models")
+            elif not url.endswith("/models"):
+                url = url.rstrip("/") + "/models"
+
+            headers = {}
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
+            
+            res = requests.get(url, headers=headers, timeout=15)
+            res.raise_for_status()
+            data = res.json()
+            raw_models = data.get("data", [])
+            for m in raw_models:
+                if isinstance(m, dict) and "id" in m:
+                    models_found.append(m["id"])
+                    
+        return {"status": "success", "models": models_found, "count": len(models_found)}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Lỗi khi quét danh sách Model: {str(e)}")
 
 # Stats & Logs
 @router.get("/stats", response_model=AdminStatsResponse)

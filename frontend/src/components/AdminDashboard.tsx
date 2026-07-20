@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Users, Activity, BarChart3, ArrowLeft, Trash2, ShieldCheck, ShieldAlert, CheckCircle, RefreshCw, Clock, Globe, Settings, UserPlus, Pencil, KeyRound, Plus, Eye, EyeOff, Save, X } from "lucide-react";
+import { Users, Activity, BarChart3, ArrowLeft, Trash2, ShieldCheck, ShieldAlert, CheckCircle, RefreshCw, Clock, Globe, Settings, UserPlus, Pencil, KeyRound, Plus, Eye, EyeOff, Save, X, Search, Loader2 } from "lucide-react";
 import { api } from "../api/client";
 import type { UserAdminResponse, AdminStatsResponse, ApiLogResponse, AdminApiKeyResponse } from "../api/client";
 
@@ -60,7 +60,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
     kaggle_worker_dir: "",
     ui_layout: "modern",
     hf_token: "",
+    llm_provider: "gemini",
+    llm_api_key: "",
+    llm_model: "gemini-2.5-flash",
+    llm_custom_endpoint: "",
+    llm_thinking_effort: "none"
   });
+
+  const [scanningModels, setScanningModels] = useState(false);
+  const [scannedModels, setScannedModels] = useState<string[]>([]);
+  const [scanMsg, setScanMsg] = useState<string | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -99,6 +108,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
     } catch (err: any) {
       console.error(err);
       setStatusMsg({ type: "error", text: err.message || "Lỗi tải cấu hình hệ thống." });
+    }
+  };
+
+  const handleScanModels = async () => {
+    setScanningModels(true);
+    setScanMsg(null);
+    try {
+      const res = await api.scanLlmModels(
+        settingsData.llm_provider,
+        settingsData.llm_api_key,
+        settingsData.llm_custom_endpoint
+      );
+      if (res.models && res.models.length > 0) {
+        setScannedModels(res.models);
+        setScanMsg(`Đã tìm thấy ${res.count} mô hình khả dụng!`);
+      } else {
+        setScanMsg("Không tìm thấy mô hình nào.");
+      }
+    } catch (err: any) {
+      setScanMsg(err.message || "Lỗi quét danh sách mô hình.");
+    } finally {
+      setScanningModels(false);
     }
   };
 
@@ -706,8 +737,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
               />
             </div>
 
-            <h3 className="md:col-span-2 text-sm font-bold text-foreground border-b border-border pb-2 mt-4">
-              Cấu hình Dịch Thuật LLM (Dùng cho Video Dubbing & Phụ Đề)
+            <h3 className="md:col-span-2 text-sm font-bold text-foreground border-b border-border pb-2 mt-4 flex items-center justify-between">
+              <span>Cấu hình Dịch Thuật LLM (Dùng cho Video Dubbing & Phụ Đề)</span>
+              <span className="text-[10px] font-normal text-muted-foreground">Cấu hình trung tâm duy nhất tại Admin Portal</span>
             </h3>
 
             <div className="flex flex-col gap-1.5">
@@ -715,23 +747,60 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
               <select
                 value={settingsData.llm_provider || "gemini"}
                 onChange={(e) => setSettingsData({ ...settingsData, llm_provider: e.target.value })}
-                className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary"
+                className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary font-medium"
               >
-                <option value="gemini">Google Gemini (Khuyên dùng - Miễn phí/Tốc độ cao)</option>
-                <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
-                <option value="custom">Custom REST Endpoint (Ollama / Local LLM)</option>
+                <option value="gemini">Google Gemini API (Khuyên dùng - Miễn phí/Tốc độ cao)</option>
+                <option value="openai">OpenAI API (GPT-4o / GPT-4o-mini)</option>
+                <option value="custom">Custom REST Endpoint (Ollama / Local LLM / vLLM)</option>
               </select>
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-muted-foreground">Mô hình (LLM Model Name)</label>
-              <input
-                type="text"
-                value={settingsData.llm_model || "gemini-2.5-flash"}
-                onChange={(e) => setSettingsData({ ...settingsData, llm_model: e.target.value })}
-                placeholder="gemini-2.5-flash hoặc gpt-4o-mini"
-                className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary"
-              />
+              <div className="flex justify-between items-center">
+                <label className="text-xs font-semibold text-muted-foreground">Mô hình (LLM Model Name)</label>
+                <button
+                  type="button"
+                  onClick={handleScanModels}
+                  disabled={scanningModels}
+                  className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                >
+                  {scanningModels ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span>Đang quét...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-3 h-3" />
+                      <span>Quét danh sách Model</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {scannedModels.length > 0 ? (
+                <select
+                  value={settingsData.llm_model || ""}
+                  onChange={(e) => setSettingsData({ ...settingsData, llm_model: e.target.value })}
+                  className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary font-mono"
+                >
+                  {scannedModels.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={settingsData.llm_model || "gemini-2.5-flash"}
+                  onChange={(e) => setSettingsData({ ...settingsData, llm_model: e.target.value })}
+                  placeholder="gemini-2.5-flash hoặc gpt-4o-mini"
+                  className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary font-mono"
+                />
+              )}
+
+              {scanMsg && (
+                <span className="text-[10px] font-semibold text-primary">{scanMsg}</span>
+              )}
             </div>
 
             <div className="flex flex-col gap-1.5 md:col-span-2">
@@ -745,18 +814,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
               />
             </div>
 
-            {settingsData.llm_provider === "custom" && (
-              <div className="flex flex-col gap-1.5 md:col-span-2">
-                <label className="text-xs font-semibold text-muted-foreground">Custom Endpoint URL</label>
-                <input
-                  type="text"
-                  value={settingsData.llm_custom_endpoint || ""}
-                  onChange={(e) => setSettingsData({ ...settingsData, llm_custom_endpoint: e.target.value })}
-                  placeholder="https://my-local-llm.com/v1/chat/completions"
-                  className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary"
-                />
-              </div>
-            )}
+            <div className="flex flex-col gap-1.5 md:col-span-2">
+              <label className="text-xs font-semibold text-muted-foreground">Custom Endpoint URL (Dành cho Ollama / vLLM / OpenAI-compatible proxy)</label>
+              <input
+                type="text"
+                value={settingsData.llm_custom_endpoint || ""}
+                onChange={(e) => setSettingsData({ ...settingsData, llm_custom_endpoint: e.target.value })}
+                placeholder="https://my-local-llm.com/v1/chat/completions (Bỏ trống nếu dùng OpenAI/Gemini mặc định)"
+                className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary font-mono"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5 md:col-span-2">
+              <label className="text-xs font-semibold text-muted-foreground">Cấu hình Thinking / Reasoning Effort (Dành cho Mô hình Suy Luận)</label>
+              <select
+                value={settingsData.llm_thinking_effort || "none"}
+                onChange={(e) => setSettingsData({ ...settingsData, llm_thinking_effort: e.target.value })}
+                className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary font-medium"
+              >
+                <option value="none">Tắt (None - Dịch trực tiếp tốc độ cao nhất)</option>
+                <option value="low">Thấp (Low - Thinking budget ~1,024 tokens)</option>
+                <option value="medium">Trung bình (Medium - Thinking budget ~2,048 tokens)</option>
+                <option value="high">Cao (High - Thinking budget ~4,096 tokens)</option>
+              </select>
+              <span className="text-[10px] text-muted-foreground">Áp dụng ngân sách suy luận (Thinking Budget) cho các dòng mô hình như Gemini 2.5 Flash Thinking, Claude 3.7 Sonnet, DeepSeek R1 hoặc OpenAI o1/o3.</span>
+            </div>
 
             <div className="md:col-span-2 flex justify-end gap-3 mt-4">
               <button

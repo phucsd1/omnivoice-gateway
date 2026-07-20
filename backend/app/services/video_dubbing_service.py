@@ -83,6 +83,7 @@ class VideoDubbingService:
             "api_key": get_setting("llm_api_key", settings.LLM_API_KEY),
             "model": get_setting("llm_model", settings.LLM_MODEL),
             "custom_endpoint": get_setting("llm_custom_endpoint", settings.LLM_CUSTOM_ENDPOINT),
+            "thinking_effort": get_setting("llm_thinking_effort", settings.LLM_THINKING_EFFORT),
         }
 
     @staticmethod
@@ -99,8 +100,9 @@ class VideoDubbingService:
         api_key = llm_config["api_key"]
         model = llm_config["model"]
         custom_endpoint = llm_config["custom_endpoint"]
+        thinking_effort = llm_config.get("thinking_effort", "none")
 
-        if provider == "none" or not api_key:
+        if provider == "none" or (not api_key and provider != "custom"):
             # Fallback mock translation if no LLM configured
             translated = []
             for seg in subtitles:
@@ -124,32 +126,42 @@ class VideoDubbingService:
             if provider == "gemini":
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
                 headers = {"Content-Type": "application/json"}
+                gen_config: Dict[str, Any] = {"responseMimeType": "application/json"}
+                
+                # Apply Gemini Thinking / Reasoning Config if enabled
+                if thinking_effort and thinking_effort != "none":
+                    budget_map = {"low": 1024, "medium": 2048, "high": 4096}
+                    budget = budget_map.get(thinking_effort, 1024)
+                    gen_config["thinkingConfig"] = {"thinkingBudget": budget}
+
                 payload = {
                     "contents": [{"parts": [{"text": prompt}]}],
-                    "generationConfig": {
-                        "responseMimeType": "application/json"
-                    }
+                    "generationConfig": gen_config
                 }
-                res = requests.post(url, headers=headers, json=payload, timeout=30)
+                res = requests.post(url, headers=headers, json=payload, timeout=45)
                 res.raise_for_status()
                 res_data = res.json()
                 text_out = res_data["candidates"][0]["content"]["parts"][0]["text"]
             
-            elif provider == "openai":
-                url = custom_endpoint or "https://api.openai.com/v1/chat/completions"
+            elif provider in ["openai", "custom"]:
+                url = custom_endpoint if (provider == "custom" and custom_endpoint) else "https://api.openai.com/v1/chat/completions"
                 headers = {
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {api_key}"
+                    "Content-Type": "application/json"
                 }
-                payload = {
+                if api_key:
+                    headers["Authorization"] = f"Bearer {api_key}"
+                    
+                payload: Dict[str, Any] = {
                     "model": model,
                     "messages": [
                         {"role": "system", "content": "You are a professional JSON subtitle translator."},
                         {"role": "user", "content": prompt}
-                    ],
-                    "response_format": {"type": "json_object"}
+                    ]
                 }
-                res = requests.post(url, headers=headers, json=payload, timeout=30)
+                if thinking_effort and thinking_effort != "none":
+                    payload["reasoning_effort"] = thinking_effort
+                
+                res = requests.post(url, headers=headers, json=payload, timeout=45)
                 res.raise_for_status()
                 res_data = res.json()
                 text_out = res_data["choices"][0]["message"]["content"]

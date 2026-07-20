@@ -150,6 +150,7 @@ export interface SystemSettingsResponse {
   llm_api_key?: string;
   llm_model?: string;
   llm_custom_endpoint?: string;
+  llm_thinking_effort?: string;
 }
 
 export interface SystemSettingsUpdateRequest {
@@ -175,6 +176,7 @@ export interface SystemSettingsUpdateRequest {
   llm_api_key?: string;
   llm_model?: string;
   llm_custom_endpoint?: string;
+  llm_thinking_effort?: string;
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -513,6 +515,20 @@ export const api = {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
+    });
+  },
+
+  scanLlmModels: async (provider?: string, apiKey?: string, customEndpoint?: string): Promise<{ status: string; models: string[]; count: number }> => {
+    return request<{ status: string; models: string[]; count: number }>("/v1/admin/llm/scan-models", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        provider: provider || "gemini",
+        api_key: apiKey || null,
+        custom_endpoint: customEndpoint || null
+      }),
     });
   },
 

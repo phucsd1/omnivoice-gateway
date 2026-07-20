@@ -50,13 +50,9 @@ export default function DubbingStudio() {
   const [error, setError] = useState<string | null>(null);
 
   // LLM Config state
-  const [showLlmConfig, setShowLlmConfig] = useState(false);
   const [llmProvider, setLlmProvider] = useState("gemini");
-  const [llmApiKey, setLlmApiKey] = useState("");
   const [llmModel, setLlmModel] = useState("gemini-2.5-flash");
   const [llmCustomEndpoint, setLlmCustomEndpoint] = useState("");
-  const [savingLlm, setSavingLlm] = useState(false);
-  const [llmSavedMsg, setLlmSavedMsg] = useState<string | null>(null);
 
   // Subtitle editor state
   const [originalSubs, setOriginalSubs] = useState<SubtitleSegment[]>([]);
@@ -86,29 +82,8 @@ export default function DubbingStudio() {
       if (settings.llm_provider) setLlmProvider(settings.llm_provider);
       if (settings.llm_model) setLlmModel(settings.llm_model);
       if (settings.llm_custom_endpoint) setLlmCustomEndpoint(settings.llm_custom_endpoint);
-      if (settings.llm_api_key) setLlmApiKey(settings.llm_api_key);
     } catch {
       // Non-admin fallback or ignore
-    }
-  };
-
-  const handleSaveLlmSettings = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavingLlm(true);
-    setLlmSavedMsg(null);
-    try {
-      await api.adminUpdateSystemSettings({
-        llm_provider: llmProvider,
-        llm_api_key: llmApiKey,
-        llm_model: llmModel,
-        llm_custom_endpoint: llmCustomEndpoint
-      });
-      setLlmSavedMsg("Đã lưu cấu hình LLM thành công!");
-      setTimeout(() => setLlmSavedMsg(null), 3000);
-    } catch (err: any) {
-      setError(err.message || "Lỗi cập nhật cấu hình LLM.");
-    } finally {
-      setSavingLlm(false);
     }
   };
 
@@ -466,78 +441,23 @@ export default function DubbingStudio() {
                   </select>
                 </div>
 
-                {/* Inline LLM API Key Setting Button */}
+                {/* LLM Admin Info Badge */}
                 <div className="p-3.5 bg-secondary/30 rounded-xl border border-border flex flex-col gap-2">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-1.5">
-                      <Key className="w-3.5 h-3.5 text-primary" />
-                      <span className="text-xs font-bold text-foreground">Cấu hình LLM AI Key</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowLlmConfig(!showLlmConfig)}
-                      className="text-[10px] text-primary font-bold hover:underline cursor-pointer"
-                    >
-                      {showLlmConfig ? "Ẩn cài đặt" : "Cấu hình ngay"}
-                    </button>
+                  <div className="flex items-center gap-1.5">
+                    <Key className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-xs font-bold text-foreground">Cấu hình Mô hình Dịch AI (LLM)</span>
                   </div>
-                  
-                  <span className="text-[10px] text-muted-foreground">
-                    Model đang dùng: <strong className="text-foreground">{llmProvider.toUpperCase()} ({llmModel})</strong>
+                  <div className="text-[10px] text-muted-foreground flex flex-col gap-1">
+                    <span>Provider: <strong className="text-foreground">{llmProvider.toUpperCase()}</strong></span>
+                    <span>Model: <strong className="text-foreground">{llmModel}</strong></span>
+                    {llmCustomEndpoint && (
+                      <span className="truncate">Endpoint: <strong className="text-foreground font-mono">{llmCustomEndpoint}</strong></span>
+                    )}
+                  </div>
+                  <span className="text-[9px] text-primary/80 italic mt-1">
+                    💡 Quản lý API Key, Quét Model & Thinking Effort tại Admin Portal -&gt; System Settings.
                   </span>
                 </div>
-
-                {/* LLM Config Accordion */}
-                {showLlmConfig && (
-                  <form onSubmit={handleSaveLlmSettings} className="p-4 bg-background border border-border rounded-xl flex flex-col gap-3">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase">LLM Provider</label>
-                      <select
-                        value={llmProvider}
-                        onChange={(e) => setLlmProvider(e.target.value)}
-                        className="bg-card border border-border rounded-lg p-2 text-xs text-foreground"
-                      >
-                        <option value="gemini">Google Gemini</option>
-                        <option value="openai">OpenAI</option>
-                        <option value="custom">Custom Endpoint</option>
-                      </select>
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase">Model Name</label>
-                      <input
-                        type="text"
-                        value={llmModel}
-                        onChange={(e) => setLlmModel(e.target.value)}
-                        className="bg-card border border-border rounded-lg p-2 text-xs text-foreground"
-                        placeholder="gemini-2.5-flash"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase">API Key</label>
-                      <input
-                        type="password"
-                        value={llmApiKey}
-                        onChange={(e) => setLlmApiKey(e.target.value)}
-                        className="bg-card border border-border rounded-lg p-2 text-xs text-foreground"
-                        placeholder="Nhập API Key Dịch Thuật..."
-                      />
-                    </div>
-
-                    {llmSavedMsg && (
-                      <div className="text-[10px] text-emerald-500 font-bold">{llmSavedMsg}</div>
-                    )}
-
-                    <button
-                      type="submit"
-                      disabled={savingLlm}
-                      className="py-2 bg-primary text-primary-foreground font-bold text-xs rounded-lg hover:brightness-105 transition-colors cursor-pointer"
-                    >
-                      {savingLlm ? "Đang lưu..." : "Lưu Cấu Hình LLM"}
-                    </button>
-                  </form>
-                )}
 
                 <div className="p-3.5 bg-secondary/20 rounded-xl border border-border/50 text-[11px] text-muted-foreground flex flex-col gap-1.5">
                   <span className="font-bold text-foreground">Quy trình tự động gồm:</span>
