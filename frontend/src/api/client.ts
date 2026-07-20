@@ -189,6 +189,48 @@ export interface PaginatedJobsResponse {
   total_pages: number;
 }
 
+export interface LLMProfile {
+  id: string;
+  name: string;
+  provider: string;
+  api_key?: string;
+  model: string;
+  custom_endpoint?: string;
+  thinking_effort: string;
+  is_active: boolean;
+  last_test_status: string;
+  last_test_message?: string;
+  last_tested_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LLMProfileCreateRequest {
+  name: string;
+  provider?: string;
+  api_key?: string;
+  model?: string;
+  custom_endpoint?: string;
+  thinking_effort?: string;
+  is_active?: boolean;
+}
+
+export interface LLMProfileUpdateRequest {
+  name?: string;
+  provider?: string;
+  api_key?: string;
+  model?: string;
+  custom_endpoint?: string;
+  thinking_effort?: string;
+  is_active?: boolean;
+}
+
+export interface TestLLMProfileResponse {
+  status: string;
+  message: string;
+  latency_ms?: number;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${getApiBaseUrl()}${path}`;
   
@@ -362,6 +404,44 @@ export const api = {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
+    });
+  },
+
+  listLlmProfiles: async (): Promise<LLMProfile[]> => {
+    return request<LLMProfile[]>("/v1/admin/llm-profiles");
+  },
+
+  createLlmProfile: async (payload: LLMProfileCreateRequest): Promise<LLMProfile> => {
+    return request<LLMProfile>("/v1/admin/llm-profiles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  },
+
+  updateLlmProfile: async (profileId: string, payload: LLMProfileUpdateRequest): Promise<LLMProfile> => {
+    return request<LLMProfile>(`/v1/admin/llm-profiles/${profileId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  },
+
+  deleteLlmProfile: async (profileId: string): Promise<{ status: string; message: string }> => {
+    return request<{ status: string; message: string }>(`/v1/admin/llm-profiles/${profileId}`, {
+      method: "DELETE",
+    });
+  },
+
+  activateLlmProfile: async (profileId: string): Promise<LLMProfile> => {
+    return request<LLMProfile>(`/v1/admin/llm-profiles/${profileId}/activate`, {
+      method: "POST",
+    });
+  },
+
+  testLlmProfile: async (profileId: string): Promise<TestLLMProfileResponse> => {
+    return request<TestLLMProfileResponse>(`/v1/admin/llm-profiles/${profileId}/test`, {
+      method: "POST",
     });
   },
 

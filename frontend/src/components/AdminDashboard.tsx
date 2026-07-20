@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Users, Activity, BarChart3, ArrowLeft, Trash2, ShieldCheck, ShieldAlert, CheckCircle, RefreshCw, Clock, Globe, Settings, UserPlus, Pencil, KeyRound, Plus, Eye, EyeOff, Save, X, Search, Loader2 } from "lucide-react";
+import { Users, Activity, BarChart3, ArrowLeft, Trash2, ShieldCheck, ShieldAlert, CheckCircle, RefreshCw, Clock, Globe, Settings, UserPlus, Pencil, KeyRound, Plus, Eye, EyeOff, Save, X, Search, Loader2, Bot, Zap, Check, AlertCircle, FlaskConical, Radio } from "lucide-react";
 import { api } from "../api/client";
-import type { UserAdminResponse, AdminStatsResponse, ApiLogResponse, AdminApiKeyResponse } from "../api/client";
+import type { UserAdminResponse, AdminStatsResponse, ApiLogResponse, AdminApiKeyResponse, LLMProfile } from "../api/client";
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -9,13 +9,29 @@ interface AdminDashboardProps {
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettingsChanged }) => {
-  const [activeTab, setActiveTab] = useState<"users" | "stats" | "logs" | "settings">("users");
+  const [activeTab, setActiveTab] = useState<"users" | "stats" | "logs" | "llm" | "settings">("users");
   const [users, setUsers] = useState<UserAdminResponse[]>([]);
   const [stats, setStats] = useState<AdminStatsResponse | null>(null);
   const [logs, setLogs] = useState<ApiLogResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // LLM Profiles States
+  const [llmProfiles, setLlmProfiles] = useState<LLMProfile[]>([]);
+  const [loadingLlm, setLoadingLlm] = useState(false);
+  const [testingProfileId, setTestingProfileId] = useState<string | null>(null);
+
+  // LLM Profile Modal States (Create/Edit)
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [profName, setProfName] = useState("");
+  const [profProvider, setProfProvider] = useState<"gemini" | "openai" | "custom">("gemini");
+  const [profApiKey, setProfApiKey] = useState("");
+  const [profModel, setProfModel] = useState("gemini-2.5-flash");
+  const [profCustomEndpoint, setProfCustomEndpoint] = useState("");
+  const [profThinkingEffort, setProfThinkingEffort] = useState("none");
+  const [profIsActive, setProfIsActive] = useState(false);
 
   // Create User Modal States
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -112,23 +128,138 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
     }
   };
 
-  const handleScanModels = async () => {
+
+
+  const fetchLlmProfiles = async () => {
+    setLoadingLlm(true);
+    try {
+      const res = await api.listLlmProfiles();
+      setLlmProfiles(res);
+    } catch (err: any) {
+      console.error(err);
+      setStatusMsg({ type: "error", text: err.message || "Lỗi tải danh sách LLM Profiles." });
+    } finally {
+      setLoadingLlm(false);
+    }
+  };
+
+  const handleTestLlmProfile = async (profileId: string) => {
+    setTestingProfileId(profileId);
+    try {
+      const res = await api.testLlmProfile(profileId);
+      await fetchLlmProfiles();
+      if (res.status === "success") {
+        setStatusMsg({ type: "success", text: res.message });
+      } else {
+        setStatusMsg({ type: "error", text: res.message });
+      }
+    } catch (err: any) {
+      setStatusMsg({ type: "error", text: err.message || "Lỗi kiểm tra kết nối LLM." });
+    } finally {
+      setTestingProfileId(null);
+    }
+  };
+
+  const handleActivateLlmProfile = async (profileId: string) => {
+    try {
+      await api.activateLlmProfile(profileId);
+      setStatusMsg({ type: "success", text: "Đã kích hoạt Profile LLM mới cho toàn hệ thống!" });
+      await fetchLlmProfiles();
+      onSettingsChanged?.();
+    } catch (err: any) {
+      setStatusMsg({ type: "error", text: err.message || "Lỗi kích hoạt LLM Profile." });
+    }
+  };
+
+  const handleDeleteLlmProfile = async (profileId: string, name: string) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa LLM Profile "${name}" không?`)) return;
+    try {
+      await api.deleteLlmProfile(profileId);
+      setStatusMsg({ type: "success", text: `Đã xóa LLM Profile "${name}".` });
+      await fetchLlmProfiles();
+      onSettingsChanged?.();
+    } catch (err: any) {
+      setStatusMsg({ type: "error", text: err.message || "Lỗi xóa LLM Profile." });
+    }
+  };
+
+  const handleOpenCreateProfileModal = () => {
+    setEditingProfileId(null);
+    setProfName("");
+    setProfProvider("gemini");
+    setProfApiKey("");
+    setProfModel("gemini-2.5-flash");
+    setProfCustomEndpoint("");
+    setProfThinkingEffort("none");
+    setProfIsActive(false);
+    setShowProfileModal(true);
+  };
+
+  const handleOpenEditProfileModal = (p: LLMProfile) => {
+    setEditingProfileId(p.id);
+    setProfName(p.name);
+    setProfProvider(p.provider as any);
+    setProfApiKey(p.api_key || "");
+    setProfModel(p.model);
+    setProfCustomEndpoint(p.custom_endpoint || "");
+    setProfThinkingEffort(p.thinking_effort || "none");
+    setProfIsActive(p.is_active);
+    setShowProfileModal(true);
+  };
+
+  const handleSaveLlmProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profName.trim() || !profModel.trim()) {
+      setStatusMsg({ type: "error", text: "Vui lòng điền đầy đủ Tên Profile và Mã Mô hình." });
+      return;
+    }
+
+    try {
+      if (editingProfileId) {
+        await api.updateLlmProfile(editingProfileId, {
+          name: profName,
+          provider: profProvider,
+          api_key: profApiKey,
+          model: profModel,
+          custom_endpoint: profCustomEndpoint,
+          thinking_effort: profThinkingEffort,
+          is_active: profIsActive,
+        });
+        setStatusMsg({ type: "success", text: "Cập nhật LLM Profile thành công!" });
+      } else {
+        await api.createLlmProfile({
+          name: profName,
+          provider: profProvider,
+          api_key: profApiKey,
+          model: profModel,
+          custom_endpoint: profCustomEndpoint,
+          thinking_effort: profThinkingEffort,
+          is_active: profIsActive,
+        });
+        setStatusMsg({ type: "success", text: "Tạo LLM Profile mới thành công!" });
+      }
+      setShowProfileModal(false);
+      await fetchLlmProfiles();
+      onSettingsChanged?.();
+    } catch (err: any) {
+      setStatusMsg({ type: "error", text: err.message || "Lỗi lưu LLM Profile." });
+    }
+  };
+
+  const handleScanModelsModal = async () => {
     setScanningModels(true);
     setScanMsg(null);
     try {
-      const res = await api.scanLlmModels(
-        settingsData.llm_provider,
-        settingsData.llm_api_key,
-        settingsData.llm_custom_endpoint
-      );
+      const res = await api.scanLlmModels(profProvider, profApiKey, profCustomEndpoint);
       if (res.models && res.models.length > 0) {
         setScannedModels(res.models);
-        setScanMsg(`Đã tìm thấy ${res.count} mô hình khả dụng!`);
+        setProfModel(res.models[0]);
+        setScanMsg(`Đã tìm thấy ${res.models.length} mô hình khả dụng!`);
       } else {
-        setScanMsg("Không tìm thấy mô hình nào.");
+        setScanMsg("Không tìm thấy mô hình nào từ Endpoint / Key.");
       }
     } catch (err: any) {
-      setScanMsg(err.message || "Lỗi quét danh sách mô hình.");
+      setScanMsg(`Lỗi khi quét mô hình: ${err.message}`);
     } finally {
       setScanningModels(false);
     }
@@ -143,6 +274,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
       await fetchStats();
     } else if (activeTab === "logs") {
       await fetchLogs();
+    } else if (activeTab === "llm") {
+      await fetchLlmProfiles();
     } else if (activeTab === "settings") {
       await fetchSystemSettings();
     }
@@ -361,12 +494,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
             </button>
           )}
 
+          {activeTab === "llm" && (
+            <button
+              onClick={handleOpenCreateProfileModal}
+              className="flex items-center gap-1.5 bg-gradient-to-r from-primary to-accent hover:brightness-105 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors cursor-pointer shadow-md shadow-primary/10"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Thêm LLM Profile</span>
+            </button>
+          )}
+
           <button
             onClick={loadData}
-            disabled={loading}
+            disabled={loading || loadingLlm}
             className="flex items-center gap-1.5 bg-background hover:bg-muted disabled:opacity-50 text-xs font-bold px-3.5 py-2 border border-border hover:border-border rounded-xl text-foreground hover:text-foreground transition-colors cursor-pointer"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading || loadingLlm ? "animate-spin" : ""}`} />
             <span>Làm mới</span>
           </button>
         </div>
@@ -386,6 +529,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
           <Users className="w-4 h-4" />
           <span>Người dùng</span>
         </button>
+
+        <button
+          onClick={() => {
+            setActiveTab("llm");
+            setStatusMsg(null);
+            fetchLlmProfiles();
+          }}
+          className={`px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
+            activeTab === "llm" ? "bg-gradient-to-r from-primary to-accent text-white shadow-sm border-none" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Bot className="w-4 h-4" />
+          <span>Cấu hình LLM ({llmProfiles.length})</span>
+        </button>
+
         <button
           onClick={() => {
             setActiveTab("settings");
@@ -444,6 +602,190 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
           <div className="flex-grow flex flex-col items-center justify-center gap-3 text-muted-foreground text-xs py-16">
             <RefreshCw className="w-8 h-8 text-primary animate-spin" />
             <span>Đang tải thông tin quản trị...</span>
+          </div>
+        ) : activeTab === "llm" ? (
+          /* LLM PROFILES TAB */
+          <div className="flex flex-col gap-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 bg-primary/5 border border-primary/20 rounded-2xl">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-primary/10 rounded-2xl text-primary">
+                  <Bot className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                    <span>Quản lý LLM Profiles & Nhà cung cấp</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary font-mono font-bold">
+                      {llmProfiles.length} Profiles
+                    </span>
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Thêm nhiều cấu hình LLM (Gemini, OpenAI, Ollama, Custom Proxy), kiểm tra kết nối realtime và chọn Profile mặc định cho Video Dubbing & Dịch thuật.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={handleOpenCreateProfileModal}
+                className="flex items-center gap-2 bg-gradient-to-r from-primary to-accent hover:brightness-105 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all cursor-pointer shadow-md shadow-primary/20 flex-shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Thêm Profile Mới</span>
+              </button>
+            </div>
+
+            {loadingLlm ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground">
+                <RefreshCw className="w-8 h-8 animate-spin text-primary" />
+                <span className="text-xs font-bold">Đang tải danh sách LLM Profiles...</span>
+              </div>
+            ) : llmProfiles.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3 bg-background/50 border border-dashed border-border rounded-2xl text-muted-foreground">
+                <Bot className="w-10 h-10 opacity-40 text-primary" />
+                <span className="text-xs font-bold">Chưa có LLM Profile nào.</span>
+                <button
+                  onClick={handleOpenCreateProfileModal}
+                  className="text-xs font-bold text-primary hover:underline cursor-pointer"
+                >
+                  + Tạo Profile Đăng ký đầu tiên
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {llmProfiles.map((p) => {
+                  const isTesting = testingProfileId === p.id;
+                  const isSuccess = p.last_test_status === "success";
+                  const isFailed = p.last_test_status === "failed";
+
+                  return (
+                    <div
+                      key={p.id}
+                      className={`p-5 rounded-3xl border flex flex-col justify-between gap-4 transition-all duration-200 relative ${
+                        p.is_active
+                          ? "bg-card border-primary/50 shadow-lg shadow-primary/5 ring-1 ring-primary/30"
+                          : "bg-card/60 border-border/80 hover:border-border"
+                      }`}
+                    >
+                      <div className="flex flex-col gap-3">
+                        {/* Top Header: Badge & Active status */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider font-mono border ${
+                                p.provider === "gemini"
+                                  ? "bg-sky-500/10 text-sky-400 border-sky-500/20"
+                                  : p.provider === "openai"
+                                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                  : "bg-purple-500/10 text-purple-400 border-purple-500/20"
+                              }`}
+                            >
+                              {p.provider === "gemini" ? "Google Gemini" : p.provider === "openai" ? "OpenAI API" : "Custom Proxy"}
+                            </span>
+                            <span className="text-xs font-mono font-semibold text-foreground/80 bg-secondary px-2 py-0.5 rounded-lg border border-border/60 truncate max-w-[140px]" title={p.model}>
+                              {p.model}
+                            </span>
+                          </div>
+
+                          {p.is_active ? (
+                            <span className="flex items-center gap-1.5 px-2.5 py-1 bg-success/15 text-success border border-success/30 rounded-full text-[10px] font-black uppercase tracking-wider">
+                              <Radio className="w-3 h-3 animate-pulse fill-emerald-400" />
+                              Đang dùng (Active)
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleActivateLlmProfile(p.id)}
+                              className="text-[10px] font-bold text-muted-foreground hover:text-primary hover:bg-primary/10 px-2.5 py-1 rounded-full border border-border/60 transition-all cursor-pointer"
+                            >
+                              Đặt làm Mặc định
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Profile Name & Details */}
+                        <div>
+                          <h4 className="font-bold text-sm text-foreground flex items-center gap-2">
+                            <span>{p.name}</span>
+                          </h4>
+                          {p.custom_endpoint && (
+                            <p className="text-[11px] text-muted-foreground font-mono mt-1 truncate" title={p.custom_endpoint}>
+                              Endpoint: {p.custom_endpoint}
+                            </p>
+                          )}
+                          {p.thinking_effort && p.thinking_effort !== "none" && (
+                            <span className="inline-block text-[10px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-md mt-1.5">
+                              Reasoning Effort: {p.thinking_effort.toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Test Connection Result Card */}
+                        <div
+                          className={`p-3 rounded-2xl border text-xs flex flex-col gap-1 ${
+                            isSuccess
+                              ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-400"
+                              : isFailed
+                              ? "bg-rose-500/5 border-rose-500/20 text-rose-400"
+                              : "bg-muted/30 border-border/60 text-muted-foreground"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-[11px] flex items-center gap-1.5">
+                              {isSuccess ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              ) : isFailed ? (
+                                <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                              ) : (
+                                <FlaskConical className="w-3.5 h-3.5 text-muted-foreground" />
+                              )}
+                              {isSuccess ? "Kết nối hoạt động tốt" : isFailed ? "Lỗi kết nối LLM" : "Chưa kiểm tra kết nối"}
+                            </span>
+                            {p.last_tested_at && (
+                              <span className="text-[10px] opacity-70 font-mono">
+                                {new Date(p.last_tested_at).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            )}
+                          </div>
+                          {p.last_test_message && (
+                            <p className="text-[11px] leading-relaxed font-mono truncate" title={p.last_test_message}>
+                              {p.last_test_message}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Actions Footer */}
+                      <div className="flex items-center justify-between pt-3 border-t border-border/50 select-none">
+                        <button
+                          onClick={() => handleTestLlmProfile(p.id)}
+                          disabled={isTesting}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          <Zap className={`w-3.5 h-3.5 ${isTesting ? "animate-spin" : ""}`} />
+                          <span>{isTesting ? "Đang Test..." : "Test Kết nối"}</span>
+                        </button>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleOpenEditProfileModal(p)}
+                            className="p-2 bg-background hover:bg-muted border border-border rounded-xl text-muted-foreground hover:text-foreground transition-all cursor-pointer"
+                            title="Chỉnh sửa Profile"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteLlmProfile(p.id, p.name)}
+                            disabled={llmProfiles.length <= 1}
+                            className="p-2 bg-background hover:bg-destructive/10 border border-border hover:border-destructive/30 rounded-xl text-muted-foreground hover:text-destructive transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Xóa Profile"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ) : activeTab === "users" ? (
           /* USER DIRECTORY TAB */
@@ -761,109 +1103,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
                 placeholder={settingsData.hf_token ? "•••••••••••••••• (Đã thiết lập - Nhập mới tự lưu)" : "Nhập HF Token (hf_...)"}
                 className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary"
               />
-            </div>
-
-            <h3 className="md:col-span-2 text-sm font-bold text-foreground border-b border-border pb-2 mt-4 flex items-center justify-between">
-              <span>Cấu hình Dịch Thuật LLM (Dùng cho Video Dubbing & Phụ Đề)</span>
-              <span className="text-[10px] font-normal text-muted-foreground">Cấu hình trung tâm duy nhất tại Admin Portal</span>
-            </h3>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-muted-foreground">Nhà cung cấp LLM (LLM Provider)</label>
-              <select
-                value={settingsData.llm_provider || "gemini"}
-                onChange={(e) => setSettingsData({ ...settingsData, llm_provider: e.target.value })}
-                className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary font-medium"
-              >
-                <option value="gemini">Google Gemini API (Khuyên dùng - Miễn phí/Tốc độ cao)</option>
-                <option value="openai">OpenAI API (GPT-4o / GPT-4o-mini)</option>
-                <option value="custom">Custom REST Endpoint (Ollama / Local LLM / vLLM)</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between items-center">
-                <label className="text-xs font-semibold text-muted-foreground">Mô hình (LLM Model Name)</label>
-                <button
-                  type="button"
-                  onClick={handleScanModels}
-                  disabled={scanningModels}
-                  className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                >
-                  {scanningModels ? (
-                    <>
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      <span>Đang quét...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Search className="w-3 h-3" />
-                      <span>Quét danh sách Model</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {scannedModels.length > 0 ? (
-                <select
-                  value={settingsData.llm_model || ""}
-                  onChange={(e) => setSettingsData({ ...settingsData, llm_model: e.target.value })}
-                  className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary font-mono"
-                >
-                  {scannedModels.map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  value={settingsData.llm_model || "gemini-2.5-flash"}
-                  onChange={(e) => setSettingsData({ ...settingsData, llm_model: e.target.value })}
-                  placeholder="gemini-2.5-flash hoặc gpt-4o-mini"
-                  className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary font-mono"
-                />
-              )}
-
-              {scanMsg && (
-                <span className="text-[10px] font-semibold text-primary">{scanMsg}</span>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-1.5 md:col-span-2">
-              <label className="text-xs font-semibold text-muted-foreground">API Key Dịch Thuật (Gemini API Key / OpenAI API Key)</label>
-              <input
-                type="password"
-                value={settingsData.llm_api_key || ""}
-                onChange={(e) => setSettingsData({ ...settingsData, llm_api_key: e.target.value })}
-                placeholder={settingsData.llm_api_key ? "•••••••••••••••• (Đã thiết lập - Nhập mới để cập nhật)" : "Nhập API Key Dịch Thuật AI..."}
-                className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5 md:col-span-2">
-              <label className="text-xs font-semibold text-muted-foreground">Custom Endpoint URL (Dành cho Ollama / vLLM / OpenAI-compatible proxy)</label>
-              <input
-                type="text"
-                value={settingsData.llm_custom_endpoint || ""}
-                onChange={(e) => setSettingsData({ ...settingsData, llm_custom_endpoint: e.target.value })}
-                placeholder="https://my-local-llm.com/v1/chat/completions (Bỏ trống nếu dùng OpenAI/Gemini mặc định)"
-                className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary font-mono"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5 md:col-span-2">
-              <label className="text-xs font-semibold text-muted-foreground">Cấu hình Thinking / Reasoning Effort (Dành cho Mô hình Suy Luận)</label>
-              <select
-                value={settingsData.llm_thinking_effort || "none"}
-                onChange={(e) => setSettingsData({ ...settingsData, llm_thinking_effort: e.target.value })}
-                className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary font-medium"
-              >
-                <option value="none">Tắt (None - Dịch trực tiếp tốc độ cao nhất)</option>
-                <option value="low">Thấp (Low - Thinking budget ~1,024 tokens)</option>
-                <option value="medium">Trung bình (Medium - Thinking budget ~2,048 tokens)</option>
-                <option value="high">Cao (High - Thinking budget ~4,096 tokens)</option>
-              </select>
-              <span className="text-[10px] text-muted-foreground">Áp dụng ngân sách suy luận (Thinking Budget) cho các dòng mô hình như Gemini 2.5 Flash Thinking, Claude 3.7 Sonnet, DeepSeek R1 hoặc OpenAI o1/o3.</span>
             </div>
 
             <div className="md:col-span-2 flex justify-end gap-3 mt-4">
@@ -1271,6 +1510,196 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- LLM PROFILE CREATE / EDIT MODAL --- */}
+      {showProfileModal && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-card border border-border rounded-3xl max-w-lg w-full p-6 flex flex-col gap-4 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setShowProfileModal(false)}
+              className="absolute right-5 top-5 text-muted-foreground hover:text-foreground cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 border-b border-border/60 pb-3">
+              <div className="p-2.5 bg-primary/10 rounded-2xl text-primary">
+                <Bot className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-foreground">
+                  {editingProfileId ? "Chỉnh sửa LLM Profile" : "Thêm LLM Profile Mới"}
+                </h3>
+                <p className="text-[10px] text-muted-foreground font-semibold">
+                  Cấu hình mô hình dịch thuật & lồng tiếng cho hệ thống
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveLlmProfile} className="flex flex-col gap-4">
+              {/* Profile Name */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-muted-foreground">Tên gợi nhớ Profile (Profile Name)</label>
+                <input
+                  type="text"
+                  value={profName}
+                  onChange={(e) => setProfName(e.target.value)}
+                  placeholder="Ví dụ: Gemini 2.5 Flash Main, OpenAI GPT-4o Mini, Ollama Local..."
+                  className="bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:outline-none focus:border-primary font-medium"
+                  required
+                />
+              </div>
+
+              {/* Provider Selection */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-muted-foreground">Nhà cung cấp (LLM Provider)</label>
+                <select
+                  value={profProvider}
+                  onChange={(e) => {
+                    const p = e.target.value as any;
+                    setProfProvider(p);
+                    if (p === "gemini" && !profModel.includes("gemini")) setProfModel("gemini-2.5-flash");
+                    else if (p === "openai" && !profModel.includes("gpt")) setProfModel("gpt-4o-mini");
+                  }}
+                  className="bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:outline-none focus:border-primary font-medium cursor-pointer"
+                >
+                  <option value="gemini">Google Gemini API (Tốc độ cao / Miễn phí quota)</option>
+                  <option value="openai">OpenAI API (GPT-4o / GPT-4o-mini)</option>
+                  <option value="custom">Custom Endpoint (Ollama / vLLM / OpenAI Proxy)</option>
+                </select>
+              </div>
+
+              {/* API Key */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-muted-foreground">API Key (Gemini Key / OpenAI Key / Custom Token)</label>
+                <input
+                  type="password"
+                  value={profApiKey}
+                  onChange={(e) => setProfApiKey(e.target.value)}
+                  placeholder="•••••••••••••••• (Để trống nếu endpoint local không yêu cầu key)"
+                  className="bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:outline-none focus:border-primary font-mono"
+                />
+              </div>
+
+              {/* Custom Endpoint URL */}
+              {profProvider === "custom" && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground">Custom Endpoint URL (Ollama / Local / Proxy)</label>
+                  <input
+                    type="text"
+                    value={profCustomEndpoint}
+                    onChange={(e) => setProfCustomEndpoint(e.target.value)}
+                    placeholder="Ví dụ: https://token.v-claw.org/ hoặc http://localhost:11434/v1"
+                    className="bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:outline-none focus:border-primary font-mono"
+                  />
+                </div>
+              )}
+
+              {/* Model Name & Scan Button */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-semibold text-muted-foreground">Mã Mô hình (LLM Model Name)</label>
+                  <button
+                    type="button"
+                    onClick={handleScanModelsModal}
+                    disabled={scanningModels}
+                    className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  >
+                    {scanningModels ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Đang quét...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Search className="w-3 h-3" />
+                        <span>Quét danh sách Model</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {scannedModels.length > 0 ? (
+                  <select
+                    value={profModel}
+                    onChange={(e) => setProfModel(e.target.value)}
+                    className="bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:outline-none focus:border-primary font-mono cursor-pointer"
+                  >
+                    {scannedModels.map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={profModel}
+                    onChange={(e) => setProfModel(e.target.value)}
+                    placeholder="e.g. gemini-2.5-flash, gpt-4o-mini, deepseek-r1"
+                    className="bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:outline-none focus:border-primary font-mono"
+                    required
+                  />
+                )}
+                {scanMsg && (
+                  <span className={`text-[10px] font-semibold ${scanMsg.startsWith("Lỗi") ? "text-destructive" : "text-success"}`}>
+                    {scanMsg}
+                  </span>
+                )}
+              </div>
+
+              {/* Reasoning / Thinking Effort */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-muted-foreground">Reasoning / Thinking Effort (Dành cho dòng Model Suy Luận)</label>
+                <select
+                  value={profThinkingEffort}
+                  onChange={(e) => setProfThinkingEffort(e.target.value)}
+                  className="bg-background border border-border rounded-xl p-2.5 text-xs text-foreground focus:outline-none focus:border-primary font-medium cursor-pointer"
+                >
+                  <option value="none">Tắt (None - Dịch trực tiếp tốc độ cao nhất)</option>
+                  <option value="low">Thấp (Low - Ngân sách suy luận nhỏ ~1k tokens)</option>
+                  <option value="medium">Trung bình (Medium - Ngân sách suy luận vừa ~2k tokens)</option>
+                  <option value="high">Cao (High - Ngân sách suy luận tối đa ~4k tokens)</option>
+                </select>
+              </div>
+
+              {/* Set Active Checkbox */}
+              <div className="flex items-center gap-3 pt-2">
+                <input
+                  type="checkbox"
+                  id="prof_is_active"
+                  checked={profIsActive}
+                  onChange={(e) => setProfIsActive(e.target.checked)}
+                  className="w-4 h-4 rounded text-primary bg-background border-border focus:ring-primary focus:ring-2 cursor-pointer"
+                />
+                <div className="flex flex-col">
+                  <label htmlFor="prof_is_active" className="text-xs font-bold text-foreground cursor-pointer">
+                    Đặt làm Profile đang hoạt động (Active System Profile)
+                  </label>
+                  <span className="text-[10px] text-muted-foreground">
+                    Khi bật, profile này sẽ được dùng làm nhà cung cấp mặc định cho Video Dubbing & Phụ đề.
+                  </span>
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-2 justify-end pt-4 border-t border-border/60">
+                <button
+                  type="button"
+                  onClick={() => setShowProfileModal(false)}
+                  className="px-4 py-2 bg-muted hover:bg-muted/80 text-foreground border border-border text-xs font-semibold rounded-xl cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-gradient-to-r from-primary to-accent hover:brightness-105 text-white font-bold text-xs rounded-xl cursor-pointer shadow-md shadow-primary/20"
+                >
+                  {editingProfileId ? "Cập nhật Profile" : "Lưu Profile Mới"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -9,7 +9,7 @@ import numpy as np
 from typing import List, Dict, Any, Tuple
 from sqlalchemy.orm import Session
 from app.config import settings
-from app.models import SystemSetting
+from app.models import SystemSetting, LLMProfile
 
 class VideoDubbingService:
     @staticmethod
@@ -70,8 +70,18 @@ class VideoDubbingService:
         return info.duration
 
     @staticmethod
-    def get_llm_settings(db: Session) -> Dict[str, str]:
-        """Retrieves LLM configuration from the DB system settings."""
+    def get_llm_settings(db: Session) -> Dict[str, Any]:
+        """Retrieves active LLM Profile or falls back to system settings."""
+        active_profile = db.query(LLMProfile).filter(LLMProfile.is_active == True).first()
+        if active_profile:
+            return {
+                "provider": active_profile.provider,
+                "api_key": active_profile.api_key or "",
+                "model": active_profile.model,
+                "custom_endpoint": active_profile.custom_endpoint or "",
+                "thinking_effort": active_profile.thinking_effort or "none",
+            }
+
         def get_setting(key: str, default: str) -> str:
             entry = db.query(SystemSetting).filter(SystemSetting.key == key).first()
             if entry and entry.value.strip():

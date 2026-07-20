@@ -143,6 +143,24 @@ class SystemSetting(Base):
     value = Column(Text, nullable=False)
 
 
+class LLMProfile(Base):
+    __tablename__ = "llm_profiles"
+
+    id = Column(String(50), primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    provider = Column(String(50), nullable=False, default="gemini")
+    api_key = Column(Text, nullable=True)
+    model = Column(String(100), nullable=False, default="gemini-2.5-flash")
+    custom_endpoint = Column(Text, nullable=True)
+    thinking_effort = Column(String(20), nullable=False, default="none")
+    is_active = Column(Boolean, default=False, nullable=False)
+    last_test_status = Column(String(20), nullable=False, default="untested")
+    last_test_message = Column(Text, nullable=True)
+    last_tested_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class VideoDubbingJob(Base):
     __tablename__ = "video_dubbing_jobs"
 

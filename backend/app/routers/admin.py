@@ -5,9 +5,12 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timedelta
 
+import time
 from app.database import get_db
-from app.models import User, ApiUsageLog, TTSJob, ApiKey, SystemSetting
+from app.models import User, ApiUsageLog, TTSJob, ApiKey, SystemSetting, LLMProfile
+from app.schemas import LLMProfileResponse, LLMProfileCreateRequest, LLMProfileUpdateRequest, TestLLMProfileResponse
 from app.utils.auth import get_current_user, get_password_hash
+from app.utils.ids import generate_id
 from app.config import settings
 
 router = APIRouter(prefix="/v1/admin", tags=["Admin Portal"])
@@ -598,3 +601,176 @@ def list_logs(
         )
         
     return result
+
+
+# --- LLM Profiles Management Endpoints ---
+
+@router.get("/llm-profiles", response_model=List[LLMProfileResponse])
+def list_llm_profiles(
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """List all configured LLM Profiles."""
+    return db.query(LLMProfile).order_by(LLMProfile.is_active.desc(), LLMProfile.created_at.desc()).all()
+
+@router.post("/llm-profiles", response_model=LLMProfileResponse)
+def create_llm_profile(
+    payload: LLMProfileCreateRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """Create a new LLM Profile."""
+    if payload.is_active:
+        db.query(LLMProfile).update({LLMProfile.is_active: False})
+
+    count = db.query(LLMProfile).count()
+    is_act = payload.is_active or (count == 0)
+
+    profile = LLMProfile(
+        id=generate_id("llm"),
+        name=payload.name,
+        provider=payload.provider,
+        api_key=payload.api_key or "",
+        model=payload.model,
+        custom_endpoint=payload.custom_endpoint or "",
+        thinking_effort=payload.thinking_effort or "none",
+        is_active=is_act
+    )
+    db.add(profile)
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+@router.put("/llm-profiles/{profile_id}", response_model=LLMProfileResponse)
+def update_llm_profile(
+    profile_id: str,
+    payload: LLMProfileUpdateRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """Update an existing LLM Profile."""
+    profile = db.query(LLMProfile).filter(LLMProfile.id == profile_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Không tìm thấy LLM Profile.")
+
+    if payload.is_active is True:
+        db.query(LLMProfile).update({LLMProfile.is_active: False})
+
+    if payload.name is not None:
+        profile.name = payload.name
+    if payload.provider is not None:
+        profile.provider = payload.provider
+    if payload.api_key is not None:
+        profile.api_key = payload.api_key
+    if payload.model is not None:
+        profile.model = payload.model
+    if payload.custom_endpoint is not None:
+        profile.custom_endpoint = payload.custom_endpoint
+    if payload.thinking_effort is not None:
+        profile.thinking_effort = payload.thinking_effort
+    if payload.is_active is not None:
+        profile.is_active = payload.is_active
+
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+@router.delete("/llm-profiles/{profile_id}", response_model=dict)
+def delete_llm_profile(
+    profile_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """Delete an LLM Profile."""
+    profile = db.query(LLMProfile).filter(LLMProfile.id == profile_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Không tìm thấy LLM Profile.")
+    
+    was_active = profile.is_active
+    db.delete(profile)
+    db.commit()
+
+    if was_active:
+        remaining = db.query(LLMProfile).first()
+        if remaining:
+            remaining.is_active = True
+            db.commit()
+
+    return {"status": "success", "message": "Xóa LLM Profile thành công."}
+
+@router.post("/llm-profiles/{profile_id}/activate", response_model=LLMProfileResponse)
+def activate_llm_profile(
+    profile_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """Set an LLM Profile as active for the entire system."""
+    profile = db.query(LLMProfile).filter(LLMProfile.id == profile_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Không tìm thấy LLM Profile.")
+
+    db.query(LLMProfile).update({LLMProfile.is_active: False})
+    profile.is_active = True
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+@router.post("/llm-profiles/{profile_id}/test", response_model=TestLLMProfileResponse)
+def test_llm_profile_connection(
+    profile_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """Tests connection to a stored LLM Profile and persists test status to DB."""
+    profile = db.query(LLMProfile).filter(LLMProfile.id == profile_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Không tìm thấy LLM Profile.")
+
+    start_time = time.time()
+    status_str = "failed"
+    msg = ""
+    latency = None
+
+    import requests
+    try:
+        if profile.provider == "gemini":
+            if not profile.api_key:
+                raise ValueError("Chưa nhập Gemini API Key.")
+            url = f"https://generativelanguage.googleapis.com/v1beta/models?key={profile.api_key}"
+            res = requests.get(url, timeout=10)
+            res.raise_for_status()
+            latency = round((time.time() - start_time) * 1000, 1)
+            status_str = "success"
+            msg = f"Kết nối Gemini thành công! Độ trễ: {latency} ms"
+        else:
+            base_url = profile.custom_endpoint.strip() if profile.custom_endpoint else "https://api.openai.com/v1"
+            base_url = base_url.rstrip("/")
+            if not base_url.endswith("/v1") and "/v1/" not in base_url:
+                url = f"{base_url}/v1/models"
+            else:
+                url = f"{base_url}/models"
+            headers = {}
+            if profile.api_key:
+                headers["Authorization"] = f"Bearer {profile.api_key}"
+            res = requests.get(url, headers=headers, timeout=10)
+            res.raise_for_status()
+            latency = round((time.time() - start_time) * 1000, 1)
+            status_str = "success"
+            msg = f"Kết nối Provider {profile.provider.upper()} ({profile.model}) thành công! Độ trễ: {latency} ms"
+
+    except Exception as e:
+        status_str = "failed"
+        msg = f"Lỗi kết nối: {str(e)}"
+        latency = round((time.time() - start_time) * 1000, 1)
+
+    profile.last_test_status = status_str
+    profile.last_test_message = msg
+    profile.last_tested_at = datetime.utcnow()
+    db.commit()
+
+    return TestLLMProfileResponse(
+        status=status_str,
+        message=msg,
+        latency_ms=latency
+    )
+

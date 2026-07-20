@@ -249,6 +249,46 @@ class VideoDubbingJobResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+class LLMProfileResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    name: str
+    provider: str
+    api_key: Optional[str] = None
+    model: str
+    custom_endpoint: Optional[str] = None
+    thinking_effort: str
+    is_active: bool
+    last_test_status: str
+    last_test_message: Optional[str] = None
+    last_tested_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+class LLMProfileCreateRequest(BaseModel):
+    name: str
+    provider: str = "gemini"
+    api_key: Optional[str] = ""
+    model: str = "gemini-2.5-flash"
+    custom_endpoint: Optional[str] = ""
+    thinking_effort: str = "none"
+    is_active: bool = False
+
+class LLMProfileUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    provider: Optional[str] = None
+    api_key: Optional[str] = None
+    model: Optional[str] = None
+    custom_endpoint: Optional[str] = None
+    thinking_effort: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class TestLLMProfileResponse(BaseModel):
+    status: str
+    message: str
+    latency_ms: Optional[float] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 class SubtitleUpdateRequest(BaseModel):

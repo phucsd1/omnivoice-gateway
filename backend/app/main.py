@@ -88,11 +88,34 @@ async def lifespan(app: FastAPI):
             )
             db.add(admin_user)
             db.commit()
-            print("[Main] Default admin account successfully created (admin / admin_password_2026).")
-        else:
-            print("[Main] Default admin account already exists.")
+        # Seed default LLM Profile if none exist
+        from app.models import LLMProfile, SystemSetting
+        if db.query(LLMProfile).count() == 0:
+            def get_setting_val(k, default):
+                s = db.query(SystemSetting).filter(SystemSetting.key == k).first()
+                return s.value if s else default
+            
+            p_provider = get_setting_val("llm_provider", settings.LLM_PROVIDER)
+            p_key = get_setting_val("llm_api_key", settings.LLM_API_KEY)
+            p_model = get_setting_val("llm_model", settings.LLM_MODEL)
+            p_ep = get_setting_val("llm_custom_endpoint", settings.LLM_CUSTOM_ENDPOINT)
+            p_eff = get_setting_val("llm_thinking_effort", settings.LLM_THINKING_EFFORT)
+            
+            default_profile = LLMProfile(
+                id="llm_default_gemini",
+                name="Default Gemini Flash Profile",
+                provider=p_provider or "gemini",
+                api_key=p_key or "",
+                model=p_model or "gemini-2.5-flash",
+                custom_endpoint=p_ep or "",
+                thinking_effort=p_eff or "none",
+                is_active=True
+            )
+            db.add(default_profile)
+            db.commit()
+            print("[Main] Default LLM Profile seeded and activated.")
     except Exception as e:
-        print(f"[Main ERROR] Failed to seed default admin: {e}")
+        print(f"[Main ERROR] Failed to seed default admin or LLM profile: {e}")
     finally:
         db.close()
         
