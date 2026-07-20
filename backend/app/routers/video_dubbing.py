@@ -15,18 +15,19 @@ from app.config import settings
 from app.services.video_dubbing_service import VideoDubbingService
 from app.services.job_service import JobService
 
+from app.database import get_db, SessionLocal
+
 router = APIRouter(prefix="/v1/video-dubbing", tags=["Video Dubbing"])
 
-def run_dubbing_pipeline(job_id: str, db: Session):
+def run_dubbing_pipeline(job_id: str):
     """Background task to run the video dubbing stages (Download -> Extract Audio -> Separate -> Transcribe -> Translate)."""
-    job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id).first()
-    if not job:
-        return
-
-    job_dir = os.path.join(settings.dubbing_dir, job_id)
-    os.makedirs(job_dir, exist_ok=True)
-
+    db = SessionLocal()
     try:
+        job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id).first()
+        if not job:
+            return
+
+        job_dir = os.path.join(settings.dubbing_dir, job_id)
         # Stage 1: Download video if YouTube
         if job.source_type == "youtube":
             job.status = "downloading"
@@ -124,11 +125,17 @@ def run_dubbing_pipeline(job_id: str, db: Session):
             # So the background task ends here, and the next stages (ASR -> LLM) will be triggered when the worker uploads output for this job.
             
     except Exception as e:
-        job.status = "failed"
-        job.progress = 100
-        job.error_message = str(e)
-        job.message = "Có lỗi xảy ra trong quá trình xử lý video."
-        db.commit()
+        print(f"[run_dubbing_pipeline] Error in job {job_id}: {e}")
+        db.rollback()
+        job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id).first()
+        if job:
+            job.status = "failed"
+            job.progress = 100
+            job.error_message = str(e)
+            job.message = f"Có lỗi xảy ra: {str(e)[:100]}"
+            db.commit()
+    finally:
+        db.close()
 
 def trigger_transcription_stage(dub_job_id: str, db: Session):
     """Triggers the transcription ASR stage on Kaggle for the separated vocals."""
@@ -284,7 +291,7 @@ async def create_dubbing_job(
     db.commit()
 
     # Trigger background execution pipeline
-    background_tasks.add_task(run_dubbing_pipeline, job_id, db)
+    background_tasks.add_task(run_dubbing_pipeline, job_id)
 
     return job
 
@@ -373,19 +380,20 @@ def finalize_dubbing_job(
     db.commit()
 
     # Trigger finalization background task
-    background_tasks.add_task(run_finalization_pipeline, job_id, db)
+    background_tasks.add_task(run_finalization_pipeline, job_id)
     return {"status": "success", "message": "Đang tiến hành lồng tiếng và kết xuất video ở nền."}
 
-def run_finalization_pipeline(job_id: str, db: Session):
+def run_finalization_pipeline(job_id: str):
     """Background task to synthesize TTS segments, stitch them, mix with BGM, and mux video."""
-    job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id).first()
-    if not job:
-        return
-
-    job_dir = os.path.join(settings.dubbing_dir, job_id)
-    translated_subs = json.loads(job.translated_subtitles or "[]")
-
+    db = SessionLocal()
     try:
+        job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id).first()
+        if not job:
+            return
+
+        job_dir = os.path.join(settings.dubbing_dir, job_id)
+        translated_subs = json.loads(job.translated_subtitles or "[]")
+
         worker_mode = db.query(SystemSetting).filter(SystemSetting.key == "worker_mode").first()
         mode_val = worker_mode.value.strip() if worker_mode else settings.WORKER_MODE
 
@@ -440,14 +448,18 @@ def run_finalization_pipeline(job_id: str, db: Session):
             db.add(dub_tts_job)
             db.commit()
             
-            # The next step (mixing & muxing) will be triggered when the worker finishes and uploads outputs to gateway!
-            
     except Exception as e:
-        job.status = "failed"
-        job.progress = 100
-        job.error_message = str(e)
-        job.message = "Lỗi trong quá trình lồng tiếng video."
-        db.commit()
+        print(f"[run_finalization_pipeline] Error in job {job_id}: {e}")
+        db.rollback()
+        job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id).first()
+        if job:
+            job.status = "failed"
+            job.progress = 100
+            job.error_message = str(e)
+            job.message = f"Lỗi hoàn tất: {str(e)[:100]}"
+            db.commit()
+    finally:
+        db.close()
 
 # Endpoints to download assets
 @router.get("/jobs/{job_id}/video")
