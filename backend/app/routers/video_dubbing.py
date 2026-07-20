@@ -342,8 +342,10 @@ async def create_dubbing_job(
     db.add(job)
     db.commit()
 
-    # Trigger background execution pipeline
-    background_tasks.add_task(run_dubbing_pipeline, job_id)
+    # Trigger background execution pipeline with isolated daemon thread
+    import threading
+    t = threading.Thread(target=run_dubbing_pipeline, args=(job_id,), daemon=True)
+    t.start()
 
     return job
 
