@@ -62,6 +62,103 @@ class MockWorker:
         job_id = job.id
         print(f"[MockWorker] Picked up job {job_id} of type {job.job_type}")
         
+        # Check if job is separate_audio
+        if job.job_type == "separate_audio":
+            import shutil
+            MockWorker._update_job(db, job_id, "separating_audio", "Đang chạy Demucs tách nhạc và lời (Giả lập)...", 50)
+            time.sleep(2.0)
+            
+            dub_job_id = job_id.replace("sep_", "")
+            job_dir = os.path.join(settings.dubbing_dir, dub_job_id)
+            os.makedirs(job_dir, exist_ok=True)
+            
+            vocals_path = os.path.join(job_dir, "vocals.wav")
+            bgm_path = os.path.join(job_dir, "bgm.wav")
+            
+            # Generate mock files
+            if job.ref_audio_path and os.path.exists(job.ref_audio_path):
+                shutil.copy2(job.ref_audio_path, vocals_path)
+                shutil.copy2(job.ref_audio_path, bgm_path)
+            else:
+                MockWorker._generate_sine_wav(vocals_path, duration_sec=5.0)
+                MockWorker._generate_sine_wav(bgm_path, duration_sec=5.0)
+                
+            from app.models import VideoDubbingJob
+            dub_job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == dub_job_id).first()
+            if dub_job:
+                dub_job.vocals_audio_path = vocals_path
+                dub_job.bgm_audio_path = bgm_path
+                db.commit()
+                
+            JobService.complete_job_output(db, job_id, vocals_path)
+            
+            from app.routers.video_dubbing import trigger_transcription_stage
+            trigger_transcription_stage(dub_job_id, db)
+            return
+
+        # Check if job is dub_segments
+        if job.job_type == "dub_segments":
+            MockWorker._update_job(db, job_id, "generating_tts", "Đang sinh giọng lồng tiếng từng phân đoạn (Giả lập)...", 40)
+            time.sleep(2.0)
+            
+            dub_job_id = job_id.replace("dub_", "")
+            job_dir = os.path.join(settings.dubbing_dir, dub_job_id)
+            segments_dir = os.path.join(job_dir, "segments")
+            os.makedirs(segments_dir, exist_ok=True)
+            
+            import json
+            import soundfile as sf
+            from app.models import VideoDubbingJob
+            
+            dub_job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == dub_job_id).first()
+            if not dub_job:
+                JobService.update_job_status(db, job_id, "failed", "Không tìm thấy VideoDubbingJob", 100, "Missing parent job")
+                return
+                
+            # Compile mock files for segments
+            segments = json.loads(job.text or "[]")
+            segments_payload = []
+            for seg in segments:
+                seg_wav_name = f"segment_{seg['id']}.wav"
+                seg_wav_path = os.path.join(segments_dir, seg_wav_name)
+                # Generate standard sine wav for segment duration
+                dur = seg["end"] - seg["start"]
+                MockWorker._generate_sine_wav(seg_wav_path, duration_sec=dur)
+                segments_payload.append({
+                    "start": seg["start"],
+                    "file_path": seg_wav_path
+                })
+                
+            MockWorker._update_job(db, job_id, "mixing_audio", "Đang lồng ghép giọng nói và nhạc nền (Giả lập)...", 70)
+            time.sleep(1.0)
+            
+            # Load duration
+            orig_info = sf.info(dub_job.original_audio_path)
+            duration = orig_info.duration
+            
+            # Assemble vocal track
+            dubbed_vocals_path = os.path.join(job_dir, "dubbed_vocals.wav")
+            from app.services.video_dubbing_service import VideoDubbingService
+            VideoDubbingService.assemble_dubbed_vocal(segments_payload, dubbed_vocals_path, duration)
+            
+            # Mux
+            output_video_path = os.path.join(job_dir, "output_dubbed.mp4")
+            VideoDubbingService.mix_and_mux_video(
+                video_path=dub_job.input_file_path,
+                bgm_path=dub_job.bgm_audio_path,
+                vocal_path=dubbed_vocals_path,
+                output_path=output_video_path
+            )
+            
+            dub_job.output_video_path = output_video_path
+            dub_job.status = "completed"
+            dub_job.progress = 100
+            dub_job.message = "Lồng tiếng video thành công!"
+            db.commit()
+            
+            JobService.complete_job_output(db, job_id, output_video_path)
+            return
+
         # Check if job is ASR
         if job.job_type == "asr":
             # Step 1: Loading Model (30%)
@@ -86,13 +183,21 @@ class MockWorker:
                     clean_w = w.strip(".,!?\"'")
                     dur = 0.35 + (0.05 * (len(clean_w) % 3))
                     mock_chunks.append({
-                        "text": w + " ",
-                        "timestamp": [round(curr_time, 2), round(curr_time + dur, 2)]
+                        "word": clean_w,
+                        "start": round(curr_time, 2),
+                        "end": round(curr_time + dur, 2)
                     })
                     curr_time += dur + 0.08
                 
-                JobService.complete_asr_job(db, job_id, mock_text, alignment=json.dumps(mock_chunks))
+                alignment_str = json.dumps(mock_chunks)
+                JobService.complete_asr_job(db, job_id, mock_text, alignment=alignment_str)
                 print(f"[MockWorker] ASR job {job_id} completed successfully. Text: {mock_text}")
+                
+                # Video Dubbing ASR callback integration
+                if job_id.startswith("asr_"):
+                    dub_job_id = job_id.replace("asr_", "")
+                    from app.routers.video_dubbing import trigger_translation_stage
+                    trigger_translation_stage(dub_job_id, mock_text, alignment_str, db)
             except Exception as e:
                 error_msg = f"Mock ASR processing failed: {e}"
                 JobService.update_job_status(db, job_id, "failed", "Lỗi nhận dạng âm thanh giả lập", 100, error_msg)

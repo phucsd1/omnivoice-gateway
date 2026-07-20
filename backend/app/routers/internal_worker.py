@@ -147,6 +147,138 @@ async def upload_job_output(
             detail=f"Không tìm thấy Job {job_id}"
         )
 
+    # Special handling for Video Dubbing sub-tasks
+    if job.job_type in ["separate_audio", "dub_segments"]:
+        from app.models import VideoDubbingJob, SystemSetting
+        from app.services.video_dubbing_service import VideoDubbingService
+        import zipfile
+        import soundfile as sf
+        import json
+
+        is_sep = job.job_type == "separate_audio"
+        prefix = "sep_" if is_sep else "dub_"
+        dub_job_id = job_id.replace(prefix, "")
+        
+        dub_job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == dub_job_id).first()
+        if not dub_job:
+            raise HTTPException(status_code=404, detail="Không tìm thấy tác vụ lồng tiếng video tương ứng.")
+
+        job_dir = os.path.join(settings.dubbing_dir, dub_job_id)
+        os.makedirs(job_dir, exist_ok=True)
+        zip_path = os.path.join(job_dir, f"{job_id}.zip")
+
+        try:
+            with open(zip_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            
+            # Unzip contents
+            if is_sep:
+                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                    zip_ref.extractall(job_dir)
+                
+                # Check files exist
+                vocals_path = os.path.join(job_dir, "vocals.wav")
+                bgm_path = os.path.join(job_dir, "bgm.wav")
+                if not os.path.exists(vocals_path) or not os.path.exists(bgm_path):
+                    # Fallback if names differ or not separated
+                    for f_name in os.listdir(job_dir):
+                        if "vocal" in f_name.lower() and f_name.endswith(".wav"):
+                            shutil.move(os.path.join(job_dir, f_name), vocals_path)
+                        elif any(k in f_name.lower() for k in ["bgm", "music", "no_vocal"]) and f_name.endswith(".wav"):
+                            shutil.move(os.path.join(job_dir, f_name), bgm_path)
+                    
+                    if not os.path.exists(vocals_path):
+                        shutil.copy2(dub_job.original_audio_path, vocals_path)
+                    if not os.path.exists(bgm_path):
+                        shutil.copy2(dub_job.original_audio_path, bgm_path)
+
+                dub_job.vocals_audio_path = vocals_path
+                dub_job.bgm_audio_path = bgm_path
+                db.commit()
+
+                # Set job as complete
+                JobService.complete_job_output(db, job_id, zip_path)
+                
+                # Trigger next stage (ASR/Transcription)
+                from app.routers.video_dubbing import trigger_transcription_stage
+                trigger_transcription_stage(dub_job_id, db)
+                
+            else:
+                # final dubbing segments ZIP
+                segments_dir = os.path.join(job_dir, "segments")
+                os.makedirs(segments_dir, exist_ok=True)
+                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                    zip_ref.extractall(segments_dir)
+
+                dub_job.status = "mixing_audio"
+                dub_job.progress = 70
+                dub_job.message = "Đang lồng ghép các đoạn dịch và nhạc nền..."
+                db.commit()
+
+                # Load duration
+                orig_info = sf.info(dub_job.original_audio_path)
+                duration = orig_info.duration
+
+                # Compile vocal track
+                translated_list = json.loads(dub_job.translated_subtitles or "[]")
+                segments_payload = []
+                for seg in translated_list:
+                    # Look for segment WAV in extracted folder
+                    seg_wav_name = f"segment_{seg['id']}.wav"
+                    seg_wav_path = os.path.join(segments_dir, seg_wav_name)
+                    if not os.path.exists(seg_wav_path):
+                        # check if it exists in base segments dir
+                        for root, _, files in os.walk(segments_dir):
+                            for name in files:
+                                if f"_{seg['id']}.wav" in name or name == f"{seg['id']}.wav":
+                                    seg_wav_path = os.path.join(root, name)
+                                    break
+                    
+                    segments_payload.append({
+                        "start": seg["start"],
+                        "file_path": seg_wav_path
+                    })
+
+                dubbed_vocals_path = os.path.join(job_dir, "dubbed_vocals.wav")
+                VideoDubbingService.assemble_dubbed_vocal(segments_payload, dubbed_vocals_path, duration)
+
+                # Mux with video
+                output_video_path = os.path.join(job_dir, "output_dubbed.mp4")
+                dub_job.status = "muxing_video"
+                dub_job.progress = 85
+                db.commit()
+
+                VideoDubbingService.mix_and_mux_video(
+                    video_path=dub_job.input_file_path,
+                    bgm_path=dub_job.bgm_audio_path,
+                    vocal_path=dubbed_vocals_path,
+                    output_path=output_video_path
+                )
+
+                dub_job.output_video_path = output_video_path
+                dub_job.status = "completed"
+                dub_job.progress = 100
+                dub_job.message = "Lồng tiếng video thành công!"
+                db.commit()
+
+                # Set job as complete
+                JobService.complete_job_output(db, job_id, zip_path)
+
+            if os.path.exists(zip_path):
+                os.remove(zip_path)
+
+            return {"status": "completed"}
+            
+        except Exception as e:
+            dub_job.status = "failed"
+            dub_job.progress = 100
+            dub_job.error_message = str(e)
+            dub_job.message = "Có lỗi xảy ra khi xử lý kết quả từ Kaggle."
+            db.commit()
+            if os.path.exists(zip_path):
+                os.remove(zip_path)
+            raise HTTPException(status_code=500, detail=str(e))
+
     # Determine destination folder and path
     if job.job_type == "voice_design_preview" and job.preview_id:
         os.makedirs(settings.previews_dir, exist_ok=True)
@@ -197,6 +329,13 @@ def upload_asr_result(
             alignment=alignment_str,
             duration=payload.duration
         )
+
+        # Video Dubbing ASR callback integration
+        if job_id.startswith("asr_"):
+            dub_job_id = job_id.replace("asr_", "")
+            from app.routers.video_dubbing import trigger_translation_stage
+            trigger_translation_stage(dub_job_id, payload.text, alignment_str, db)
+
         return {"status": "success"}
     except ValueError as e:
         raise HTTPException(

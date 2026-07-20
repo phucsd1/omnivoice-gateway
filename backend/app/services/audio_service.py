@@ -12,6 +12,7 @@ class AudioService:
         os.makedirs(settings.voice_samples_dir, exist_ok=True)
         os.makedirs(settings.previews_dir, exist_ok=True)
         os.makedirs(settings.outputs_dir, exist_ok=True)
+        os.makedirs(settings.dubbing_dir, exist_ok=True)
 
     @staticmethod
     def process_and_save_upload(temp_file_path: str, target_filename: str) -> Tuple[str, float, int]:

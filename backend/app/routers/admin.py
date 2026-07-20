@@ -82,6 +82,10 @@ class SystemSettingsResponse(BaseModel):
     kaggle_worker_dir: str
     ui_layout: str
     hf_token: str
+    llm_provider: str
+    llm_api_key: str
+    llm_model: str
+    llm_custom_endpoint: str
 
 class SystemSettingsUpdateRequest(BaseModel):
     worker_mode: Optional[str] = None
@@ -102,6 +106,10 @@ class SystemSettingsUpdateRequest(BaseModel):
     kaggle_worker_dir: Optional[str] = None
     ui_layout: Optional[str] = None
     hf_token: Optional[str] = None
+    llm_provider: Optional[str] = None
+    llm_api_key: Optional[str] = None
+    llm_model: Optional[str] = None
+    llm_custom_endpoint: Optional[str] = None
 
 class AdminStatsResponse(BaseModel):
     total_users: int
@@ -334,6 +342,10 @@ def get_system_settings_admin(
     kaggle_worker_dir = get_setting("kaggle_worker_dir", settings.KAGGLE_WORKER_DIR)
     ui_layout = get_setting("ui_layout", "modern")
     hf_token = get_setting("hf_token", settings.HF_TOKEN)
+    llm_provider = get_setting("llm_provider", settings.LLM_PROVIDER)
+    llm_api_key = get_setting("llm_api_key", settings.LLM_API_KEY)
+    llm_model = get_setting("llm_model", settings.LLM_MODEL)
+    llm_custom_endpoint = get_setting("llm_custom_endpoint", settings.LLM_CUSTOM_ENDPOINT)
 
     return SystemSettingsResponse(
         worker_mode=worker_mode,
@@ -353,7 +365,11 @@ def get_system_settings_admin(
         kaggle_idle_timeout_seconds=kaggle_idle_timeout_seconds,
         kaggle_worker_dir=kaggle_worker_dir,
         ui_layout=ui_layout,
-        hf_token=hf_token
+        hf_token=hf_token,
+        llm_provider=llm_provider,
+        llm_api_key=llm_api_key,
+        llm_model=llm_model,
+        llm_custom_endpoint=llm_custom_endpoint
     )
 
 @router.post("/settings", response_model=dict)
@@ -418,6 +434,14 @@ def update_system_settings_admin(
             save_setting("kaggle_worker_dir", payload.kaggle_worker_dir)
         if payload.hf_token is not None:
             save_setting("hf_token", payload.hf_token)
+        if payload.llm_provider is not None:
+            save_setting("llm_provider", payload.llm_provider)
+        if payload.llm_api_key is not None:
+            save_setting("llm_api_key", payload.llm_api_key)
+        if payload.llm_model is not None:
+            save_setting("llm_model", payload.llm_model)
+        if payload.llm_custom_endpoint is not None:
+            save_setting("llm_custom_endpoint", payload.llm_custom_endpoint)
         
         db.commit()
         return {"status": "success", "message": "Cập nhật cấu hình hệ thống thành công."}

@@ -37,7 +37,12 @@ class Settings(BaseSettings):
     
     HF_TOKEN: str = ""
 
-    
+    # LLM Settings
+    LLM_PROVIDER: str = "gemini"  # "gemini" or "openai" or "none"
+    LLM_API_KEY: str = ""
+    LLM_MODEL: str = "gemini-1.5-flash"
+    LLM_CUSTOM_ENDPOINT: str = ""
+
     # SMTP Settings
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
@@ -74,6 +79,10 @@ class Settings(BaseSettings):
     @property
     def outputs_dir(self) -> str:
         return os.path.join(self.STORAGE_DIR, "outputs")
+
+    @property
+    def dubbing_dir(self) -> str:
+        return os.path.join(self.STORAGE_DIR, "dubbing")
 
 settings = Settings()
 

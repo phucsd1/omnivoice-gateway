@@ -24,6 +24,7 @@ dist/
 .eslintcache
 
 # Project storage & outputs
+storage/
 backend/storage/
 backend/app/previews/
 backend/app/outputs/

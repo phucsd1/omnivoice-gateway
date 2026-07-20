@@ -1,0 +1,311 @@
+import os
+import sys
+import subprocess
+import shutil
+import json
+import requests
+import soundfile as sf
+import numpy as np
+from typing import List, Dict, Any, Tuple
+from sqlalchemy.orm import Session
+from app.config import settings
+from app.models import SystemSetting
+
+class VideoDubbingService:
+    @staticmethod
+    def ensure_dependencies():
+        """Dynamically ensures yt-dlp is installed for downloading YouTube videos."""
+        try:
+            import yt_dlp
+        except ImportError:
+            print("[VideoDubbingService] Installing yt-dlp dynamically...")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "yt-dlp"])
+
+    @staticmethod
+    def download_youtube_video(url: str, output_dir: str) -> Tuple[str, str]:
+        """
+        Downloads a YouTube video and returns (video_path, title).
+        """
+        VideoDubbingService.ensure_dependencies()
+        import yt_dlp
+        
+        os.makedirs(output_dir, exist_ok=True)
+        outtmpl = os.path.join(output_dir, "input_video.%(ext)s")
+        
+        ydl_opts = {
+            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            'outtmpl': outtmpl,
+            'quiet': True,
+            'no_warnings': True,
+        }
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            video_title = info.get('title', 'YouTube Video')
+            filename = ydl.prepare_filename(info)
+            # Find the actual downloaded file (extension might differ slightly)
+            base, _ = os.path.splitext(filename)
+            for ext in ['.mp4', '.mkv', '.webm']:
+                if os.path.exists(base + ext):
+                    return base + ext, video_title
+            if os.path.exists(filename):
+                return filename, video_title
+            
+            raise Exception("Tệp video đã tải xuống không tồn tại.")
+
+    @staticmethod
+    def extract_audio_ffmpeg(video_path: str, output_audio_path: str) -> float:
+        """
+        Extracts mono WAV audio at 24000Hz from video. Returns the duration in seconds.
+        """
+        cmd = [
+            "ffmpeg", "-y", "-i", video_path,
+            "-vn", "-acodec", "pcm_s16le", "-ar", "24000", "-ac", "1",
+            output_audio_path
+        ]
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        
+        # Read duration using soundfile
+        info = sf.info(output_audio_path)
+        return info.duration
+
+    @staticmethod
+    def get_llm_settings(db: Session) -> Dict[str, str]:
+        """Retrieves LLM configuration from the DB system settings."""
+        def get_setting(key: str, default: str) -> str:
+            entry = db.query(SystemSetting).filter(SystemSetting.key == key).first()
+            if entry and entry.value.strip():
+                return entry.value.strip()
+            return default
+
+        return {
+            "provider": get_setting("llm_provider", settings.LLM_PROVIDER),
+            "api_key": get_setting("llm_api_key", settings.LLM_API_KEY),
+            "model": get_setting("llm_model", settings.LLM_MODEL),
+            "custom_endpoint": get_setting("llm_custom_endpoint", settings.LLM_CUSTOM_ENDPOINT),
+        }
+
+    @staticmethod
+    def translate_subtitles_llm(subtitles: List[Dict[str, Any]], target_language: str, db: Session) -> List[Dict[str, Any]]:
+        """
+        Translates a list of subtitle segments to target language using configured LLM.
+        Expected input schema: [{"id": 1, "start": 1.2, "end": 4.5, "text": "..."}]
+        """
+        if not subtitles:
+            return []
+
+        llm_config = VideoDubbingService.get_llm_settings(db)
+        provider = llm_config["provider"]
+        api_key = llm_config["api_key"]
+        model = llm_config["model"]
+        custom_endpoint = llm_config["custom_endpoint"]
+
+        if provider == "none" or not api_key:
+            # Fallback mock translation if no LLM configured
+            translated = []
+            for seg in subtitles:
+                translated.append({
+                    "id": seg["id"],
+                    "start": seg["start"],
+                    "end": seg["end"],
+                    "text": f"[{target_language}] {seg['text']}"
+                })
+            return translated
+
+        # Create translation prompt
+        prompt = (
+            f"You are a professional video subtitle translator. Translate the following video subtitle segments "
+            f"into {target_language}. Keep the context and style natural. You MUST preserve the exact JSON array structure "
+            f"with the keys 'id', 'start', 'end', and 'text'. Return ONLY the valid JSON array without any explanations or backticks.\n\n"
+            f"Subtitles JSON:\n{json.dumps(subtitles, ensure_ascii=False)}"
+        )
+
+        try:
+            if provider == "gemini":
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+                headers = {"Content-Type": "application/json"}
+                payload = {
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {
+                        "responseMimeType": "application/json"
+                    }
+                }
+                res = requests.post(url, headers=headers, json=payload, timeout=30)
+                res.raise_for_status()
+                res_data = res.json()
+                text_out = res_data["candidates"][0]["content"]["parts"][0]["text"]
+            
+            elif provider == "openai":
+                url = custom_endpoint or "https://api.openai.com/v1/chat/completions"
+                headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {api_key}"
+                }
+                payload = {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": "You are a professional JSON subtitle translator."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "response_format": {"type": "json_object"}
+                }
+                res = requests.post(url, headers=headers, json=payload, timeout=30)
+                res.raise_for_status()
+                res_data = res.json()
+                text_out = res_data["choices"][0]["message"]["content"]
+            
+            else:
+                raise Exception(f"Unsupported LLM provider: {provider}")
+
+            # Clean and parse text
+            text_out = text_out.strip()
+            # If the response contains markdown code block, strip it
+            if text_out.startswith("```"):
+                lines = text_out.splitlines()
+                if lines[0].startswith("```"):
+                    lines = lines[1:]
+                if lines[-1].strip() == "```":
+                    lines = lines[:-1]
+                text_out = "\n".join(lines).strip()
+
+            parsed = json.loads(text_out)
+            # If it's wrapped in an object like {"subtitles": [...]}, extract it
+            if isinstance(parsed, dict):
+                for k, v in parsed.items():
+                    if isinstance(v, list):
+                        parsed = v
+                        break
+            
+            if isinstance(parsed, list):
+                # Validation to ensure timestamps are floats and IDs match
+                final_list = []
+                for i, seg in enumerate(parsed):
+                    orig_seg = subtitles[i] if i < len(subtitles) else subtitles[-1]
+                    final_list.append({
+                        "id": seg.get("id", orig_seg["id"]),
+                        "start": float(seg.get("start", orig_seg["start"])),
+                        "end": float(seg.get("end", orig_seg["end"])),
+                        "text": str(seg.get("text", orig_seg["text"]))
+                    })
+                return final_list
+            
+            raise Exception("LLM returned non-array JSON.")
+
+        except Exception as e:
+            print(f"[VideoDubbingService] LLM Translation failed: {e}. Falling back to mock translation.")
+            # Fallback
+            translated = []
+            for seg in subtitles:
+                translated.append({
+                    "id": seg["id"],
+                    "start": seg["start"],
+                    "end": seg["end"],
+                    "text": f"[{target_language}] {seg['text']}"
+                })
+            return translated
+
+    @staticmethod
+    def assemble_dubbed_vocal(segments: List[Dict[str, Any]], output_vocal_path: str, total_duration: float):
+        """
+        Assembles individual audio segment WAVs into a single output vocal track at their respective timestamps.
+        segments schema: [{"start": 1.2, "file_path": "/path/to/segment.wav"}]
+        """
+        # Initialize an empty array of zeros at 24000Hz
+        duration_samples = int(total_duration * 24000)
+        output_vocal = np.zeros(duration_samples, dtype=np.float32)
+
+        for seg in segments:
+            seg_path = seg.get("file_path")
+            start_time = seg.get("start", 0.0)
+            
+            if not seg_path or not os.path.exists(seg_path):
+                continue
+                
+            try:
+                data, sr = sf.read(seg_path)
+                
+                # Standardize stereo to mono
+                if len(data.shape) > 1:
+                    data = data.mean(axis=1)
+                
+                # Simple resampling if sample rate isn't 24000 (though worker output is 24000)
+                if sr != 24000:
+                    import scipy.signal as signal
+                    num_samples = int(len(data) * 24000 / sr)
+                    data = signal.resample(data, num_samples)
+
+                start_idx = int(start_time * 24000)
+                end_idx = start_idx + len(data)
+                
+                if end_idx > len(output_vocal):
+                    padding = np.zeros(end_idx - len(output_vocal), dtype=np.float32)
+                    output_vocal = np.concatenate([output_vocal, padding])
+                    
+                output_vocal[start_idx:end_idx] = data
+            except Exception as e:
+                print(f"[VideoDubbingService] Failed to insert segment {seg_path} into vocal track: {e}")
+
+        # Save output vocal file
+        os.makedirs(os.path.dirname(output_vocal_path), exist_ok=True)
+        sf.write(output_vocal_path, output_vocal, 24000, format='WAV', subtype='PCM_16')
+
+    @staticmethod
+    def mix_and_mux_video(video_path: str, bgm_path: str, vocal_path: str, output_path: str, vocal_vol: float = 1.2, bgm_vol: float = 0.5):
+        """
+        Mixes vocal track and background music together and remuxes them with the original video track.
+        """
+        # Create a temp file for the mixed audio track
+        temp_dir = os.path.dirname(output_path)
+        temp_mixed_audio = os.path.join(temp_dir, f"temp_mixed_{os.path.basename(output_path)}.wav")
+        
+        # Mix audio tracks using FFmpeg amix
+        mix_cmd = [
+            "ffmpeg", "-y",
+            "-i", vocal_path,
+            "-i", bgm_path,
+            "-filter_complex", f"[0:a]volume={vocal_vol}[vocal];[1:a]volume={bgm_vol}[bgm];[vocal][bgm]amix=inputs=2:duration=first:dropout_transition=0[out]",
+            "-map", "[out]",
+            "-acodec", "pcm_s16le", "-ar", "24000",
+            temp_mixed_audio
+        ]
+        
+        subprocess.run(mix_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        
+        # Mux mixed audio with original video
+        mux_cmd = [
+            "ffmpeg", "-y",
+            "-i", video_path,
+            "-i", temp_mixed_audio,
+            "-map", "0:v:0",
+            "-map", "1:a:0",
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-b:a", "192k",
+            "-shortest",
+            output_path
+        ]
+        
+        subprocess.run(mux_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        
+        # Clean up temporary mixed audio track
+        if os.path.exists(temp_mixed_audio):
+            os.remove(temp_mixed_audio)
+
+    @staticmethod
+    def compile_srt(subtitles: List[Dict[str, Any]]) -> str:
+        """Converts structured JSON subtitle segments into standard SRT format."""
+        def format_time(seconds: float) -> str:
+            hrs = int(seconds // 3600)
+            mins = int((seconds % 3600) // 60)
+            secs = int(seconds % 60)
+            ms = int((seconds % 1) * 1000)
+            return f"{hrs:02d}:{mins:02d}:{secs:02d},{ms:03d}"
+
+        srt_lines = []
+        for i, seg in enumerate(subtitles):
+            srt_lines.append(str(i + 1))
+            srt_lines.append(f"{format_time(seg['start'])} --> {format_time(seg['end'])}")
+            srt_lines.append(seg['text'])
+            srt_lines.append("")
+            
+        return "\n".join(srt_lines)

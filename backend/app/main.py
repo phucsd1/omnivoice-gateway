@@ -11,7 +11,7 @@ from app.services.audio_service import AudioService
 from app.services.mock_worker import MockWorker
 
 # Import all routers
-from app.routers import health, voice_samples, voice_design, tts, jobs, internal_worker, auth, admin, audio, compat, asr
+from app.routers import health, voice_samples, voice_design, tts, jobs, internal_worker, auth, admin, audio, compat, asr, video_dubbing
 from app.routers import settings as settings_router
 
 # Auto-shutdown state
@@ -278,6 +278,7 @@ app.include_router(public_library_router)
 app.include_router(voice_design.router)
 app.include_router(tts.router)
 app.include_router(asr.router)
+app.include_router(video_dubbing.router)
 app.include_router(jobs.router)
 app.include_router(internal_worker.router)
 app.include_router(settings_router.router)

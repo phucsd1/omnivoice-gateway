@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict, field_validator
-from typing import Optional, Any
+from typing import Optional, Any, List
 from datetime import datetime
 import json as _json
 
@@ -217,3 +217,33 @@ class WorkerJobPayload(BaseModel):
 class WorkerNextJobResponse(BaseModel):
     job: Optional[WorkerJobPayload] = None
     message: str
+
+
+class SubtitleSegment(BaseModel):
+    id: int
+    start: float
+    end: float
+    text: str
+
+class VideoDubbingJobResponse(BaseModel):
+    id: str
+    status: str
+    progress: int
+    message: Optional[str] = None
+    source_type: str
+    source_url: Optional[str] = None
+    target_language: str
+    original_subtitles: Optional[List[SubtitleSegment]] = None
+    translated_subtitles: Optional[List[SubtitleSegment]] = None
+    vocals_audio_path: Optional[str] = None
+    bgm_audio_path: Optional[str] = None
+    output_video_url: Optional[str] = None
+    error_message: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class SubtitleUpdateRequest(BaseModel):
+    original_subtitles: Optional[List[SubtitleSegment]] = None
+    translated_subtitles: Optional[List[SubtitleSegment]] = None

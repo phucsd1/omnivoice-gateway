@@ -547,6 +547,46 @@ export const api = {
       method: "DELETE",
     });
   },
+
+  createDubbingJob: async (file?: File, youtubeUrl?: string, targetLanguage?: string): Promise<VideoDubbingJobResponse> => {
+    const formData = new FormData();
+    if (file) formData.append("file", file);
+    if (youtubeUrl) formData.append("youtube_url", youtubeUrl);
+    formData.append("target_language", targetLanguage || "English");
+    return request<VideoDubbingJobResponse>("/v1/video-dubbing", {
+      method: "POST",
+      body: formData,
+    });
+  },
+
+  getDubbingJob: async (jobId: string): Promise<VideoDubbingJobResponse> => {
+    return request<VideoDubbingJobResponse>(`/v1/video-dubbing/jobs/${jobId}?t=${Date.now()}`);
+  },
+
+  updateDubbingSubtitles: async (jobId: string, originalSubtitles?: SubtitleSegment[], translatedSubtitles?: SubtitleSegment[]): Promise<{ status: string; message: string }> => {
+    return request<{ status: string; message: string }>(`/v1/video-dubbing/jobs/${jobId}/subtitles`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        original_subtitles: originalSubtitles || null,
+        translated_subtitles: translatedSubtitles || null
+      }),
+    });
+  },
+
+  finalizeDubbingJob: async (jobId: string): Promise<{ status: string; message: string }> => {
+    return request<{ status: string; message: string }>(`/v1/video-dubbing/jobs/${jobId}/finalize`, {
+      method: "POST",
+    });
+  },
+
+  getDubbingFileUrl: (jobId: string, type: 'video' | 'vocals' | 'bgm' | 'output'): string => {
+    const token = localStorage.getItem("VITE_JWT_TOKEN");
+    const baseUrl = getApiBaseUrl();
+    return `${baseUrl}/v1/video-dubbing/jobs/${jobId}/${type}?token=${token || ""}`;
+  },
 };
 
 export interface UserMeResponse {
@@ -614,4 +654,29 @@ export interface SettingsUpdateRequest {
   kaggle_accelerator?: string;
   kaggle_timeout_seconds?: number;
   kaggle_worker_dir?: string;
+}
+
+export interface SubtitleSegment {
+  id: number;
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface VideoDubbingJobResponse {
+  id: string;
+  status: string;
+  progress: number;
+  message: string | null;
+  source_type: string;
+  source_url: string | null;
+  target_language: string;
+  original_subtitles: SubtitleSegment[] | null;
+  translated_subtitles: SubtitleSegment[] | null;
+  vocals_audio_path: string | null;
+  bgm_audio_path: string | null;
+  output_video_url: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
 }

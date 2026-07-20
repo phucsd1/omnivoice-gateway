@@ -636,7 +636,7 @@ def main():
                 local_ref_path = None
                 ref_audio_url = job.get("ref_audio_url")
                 
-                if job_type in ["clone_voice", "asr"] and ref_audio_url:
+                if job_type in ["clone_voice", "asr", "separate_audio", "dub_segments"] and ref_audio_url:
                     make_request(
                         "POST",
                         f"/v1/internal/jobs/{{job_id}}/status",
@@ -658,6 +658,171 @@ def main():
                         log(f"Downloaded audio to {{local_ref_path}}")
                     else:
                         raise Exception(f"Failed to download audio from gateway: {{res.status_code}} - {{res.text}}")
+
+                # Handle separate_audio job type directly
+                if job_type == "separate_audio":
+                    make_request(
+                        "POST",
+                        f"/v1/internal/jobs/{{job_id}}/status",
+                        json={{"status": "separating_audio", "message": "Đang chạy Demucs tách nhạc và lời...", "progress": 60}}
+                    )
+                    
+                    vocals_path = "vocals.wav"
+                    bgm_path = "bgm.wav"
+                    
+                    try:
+                        import subprocess
+                        import sys
+                        
+                        # Try importing demucs or install
+                        try:
+                            import demucs
+                        except ImportError:
+                            log("Installing demucs dynamically...")
+                            subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "demucs"])
+                            
+                        # Run demucs
+                        log(f"Running demucs on {{local_ref_path}}...")
+                        import os
+                        import shutil
+                        subprocess.run([
+                            "demucs", "--two-stems=vocals",
+                            "-o", "demucs_out",
+                            local_ref_path
+                        ], check=True)
+                        
+                        # Find the output files
+                        extracted_vocals = None
+                        extracted_no_vocals = None
+                        for root, dirs, files in os.walk("demucs_out"):
+                            for file in files:
+                                if file.endswith(".wav"):
+                                    full_p = os.path.join(root, file)
+                                    if "vocals" in file.lower():
+                                        extracted_vocals = full_p
+                                    elif any(k in file.lower() for k in ["no_vocals", "bgm", "music"]):
+                                        extracted_no_vocals = full_p
+                                        
+                        if extracted_vocals and extracted_no_vocals:
+                            shutil.copy2(extracted_vocals, vocals_path)
+                            shutil.copy2(extracted_no_vocals, bgm_path)
+                            log("Demucs audio separation successful.")
+                        else:
+                            raise Exception("Could not locate demucs output files.")
+                            
+                    except Exception as sep_err:
+                        log(f"Warning: Audio separation failed: {{sep_err}}. Falling back to mock separation.")
+                        shutil.copy2(local_ref_path, vocals_path)
+                        shutil.copy2(local_ref_path, bgm_path)
+
+                    # Zip vocals and bgm
+                    zip_path = "separation.zip"
+                    import zipfile
+                    with zipfile.ZipFile(zip_path, 'w') as zipf:
+                        zipf.write(vocals_path, "vocals.wav")
+                        zipf.write(bgm_path, "bgm.wav")
+                        
+                    # Clean up
+                    for path_to_del in [vocals_path, bgm_path, local_ref_path]:
+                        if path_to_del and os.path.exists(path_to_del):
+                            os.remove(path_to_del)
+                    if os.path.exists("demucs_out"):
+                        shutil.rmtree("demucs_out")
+                        
+                    # Upload zip
+                    with open(zip_path, "rb") as zip_f:
+                        files = {{"file": ("separation.zip", zip_f, "application/zip")}}
+                        upload_res = make_request(
+                            "POST",
+                            f"/v1/internal/jobs/{{job_id}}/output",
+                            files=files
+                        )
+                        
+                    if upload_res.status_code == 200:
+                        log(f"Successfully uploaded job {{job_id}} separation output.")
+                    else:
+                        raise Exception(f"Failed to upload separation output: {{upload_res.status_code}} - {{upload_res.text}}")
+                        
+                    if os.path.exists(zip_path):
+                        os.remove(zip_path)
+                    continue
+
+                # Handle dub_segments job type directly
+                if job_type == "dub_segments":
+                    make_request(
+                        "POST",
+                        f"/v1/internal/jobs/{{job_id}}/status",
+                        json={{"status": "generating_tts", "message": "Đang sinh giọng lồng tiếng từng phân đoạn...", "progress": 60}}
+                    )
+                    
+                    import json
+                    import zipfile
+                    
+                    segments = json.loads(job["text"])
+                    zip_path = "dubbed_segments.zip"
+                    
+                    created_files = []
+                    
+                    for seg in segments:
+                        seg_id = seg["id"]
+                        seg_text = seg["text"]
+                        target_dur = seg["end"] - seg["start"]
+                        
+                        log(f"Dubbing segment {{seg_id}}: '{{seg_text}}' (target duration: {{target_dur}}s)")
+                        
+                        # Generate first try
+                        audio_res = model.generate(
+                            text=seg_text,
+                            ref_audio=local_ref_path,
+                        )
+                        
+                        # Check duration
+                        synth_dur = len(audio_res[0]) / 24000.0
+                        log(f"Segment {{seg_id}} synthesized duration: {{synth_dur}}s")
+                        
+                        # If too long, speed it up
+                        if synth_dur > target_dur + 0.2:
+                            speed_val = min(2.5, max(1.1, synth_dur / target_dur))
+                            log(f"Re-generating segment {{seg_id}} with speed={{speed_val}}...")
+                            audio_res = model.generate(
+                                text=seg_text,
+                                ref_audio=local_ref_path,
+                                speed=speed_val
+                            )
+                        
+                        seg_wav_name = f"segment_{seg_id}.wav"
+                        sf.write(seg_wav_name, audio_res[0], 24000, format='WAV', subtype='PCM_16')
+                        created_files.append(seg_wav_name)
+                        
+                    # Zip all
+                    with zipfile.ZipFile(zip_path, 'w') as zipf:
+                        for f_name in created_files:
+                            zipf.write(f_name, f_name)
+                            
+                    # Clean up
+                    for f_name in created_files:
+                        if os.path.exists(f_name):
+                            os.remove(f_name)
+                    if local_ref_path and os.path.exists(local_ref_path):
+                        os.remove(local_ref_path)
+                        
+                    # Upload
+                    with open(zip_path, "rb") as zip_f:
+                        files = {{"file": ("dubbed_segments.zip", zip_f, "application/zip")}}
+                        upload_res = make_request(
+                            "POST",
+                            f"/v1/internal/jobs/{{job_id}}/output",
+                            files=files
+                        )
+                        
+                    if upload_res.status_code == 200:
+                        log(f"Successfully uploaded job {{job_id}} dubbed segments output.")
+                    else:
+                        raise Exception(f"Failed to upload dubbed segments output: {{upload_res.status_code}} - {{upload_res.text}}")
+                        
+                    if os.path.exists(zip_path):
+                        os.remove(zip_path)
+                    continue
 
                 # Handle ASR job type directly
                 if job_type == "asr":

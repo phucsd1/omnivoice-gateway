@@ -142,3 +142,32 @@ class SystemSetting(Base):
     key = Column(String(100), primary_key=True, index=True)
     value = Column(Text, nullable=False)
 
+
+class VideoDubbingJob(Base):
+    __tablename__ = "video_dubbing_jobs"
+
+    id = Column(String(50), primary_key=True, index=True)
+    user_id = Column(String(50), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    status = Column(String(50), nullable=False, default="queued")  # "queued", "downloading", "separating_audio", "transcribing", "translating", "awaiting_review", "generating_tts", "mixing_audio", "muxing_video", "completed", "failed"
+    progress = Column(Integer, default=0)
+    message = Column(Text, nullable=True)
+    
+    source_type = Column(String(50), nullable=False)  # "upload" | "youtube"
+    source_url = Column(Text, nullable=True)
+    target_language = Column(String(50), nullable=False)
+    
+    input_file_path = Column(String(255), nullable=True)
+    original_audio_path = Column(String(255), nullable=True)
+    vocals_audio_path = Column(String(255), nullable=True)
+    bgm_audio_path = Column(String(255), nullable=True)
+    
+    original_subtitles = Column(Text, nullable=True)  # JSON string
+    translated_subtitles = Column(Text, nullable=True)  # JSON string
+    
+    output_video_path = Column(String(255), nullable=True)
+    error_message = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
