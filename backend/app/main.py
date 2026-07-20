@@ -84,10 +84,16 @@ async def lifespan(app: FastAPI):
                 hashed_password=hashed_pwd,
                 is_verified=True,
                 is_admin=True,
+                is_approved=True,
                 api_key=api_key
             )
             db.add(admin_user)
             db.commit()
+        else:
+            if not admin_user.is_verified or not admin_user.is_approved:
+                admin_user.is_verified = True
+                admin_user.is_approved = True
+                db.commit()
         # Seed default LLM Profile if none exist
         from app.models import LLMProfile, SystemSetting
         if db.query(LLMProfile).count() == 0:
