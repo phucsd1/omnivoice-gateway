@@ -27,6 +27,12 @@ class VideoDubbingService:
         Downloads a YouTube video and returns (video_path, title).
         Uses pytubefix first (fast progressive MP4 stream), falls back to yt-dlp format 18.
         """
+        import ssl
+        try:
+            ssl._create_default_https_context = ssl._create_unverified_context
+        except Exception:
+            pass
+
         os.makedirs(output_dir, exist_ok=True)
         target_path = os.path.join(output_dir, "input_video.mp4")
 
