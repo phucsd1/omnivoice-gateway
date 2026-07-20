@@ -763,10 +763,12 @@ def main():
                     
                     created_files = []
                     
-                    for seg in segments:
-                        seg_id = seg["id"]
-                        seg_text = seg["text"]
-                        target_dur = seg["end"] - seg["start"]
+                    for idx, seg in enumerate(segments):
+                        seg_id = seg.get("id", idx + 1) if isinstance(seg, dict) else (idx + 1)
+                        seg_text = seg.get("text", "") if isinstance(seg, dict) else str(seg)
+                        start_t = float(seg.get("start", 0.0)) if isinstance(seg, dict) else 0.0
+                        end_t = float(seg.get("end", start_t + 3.0)) if isinstance(seg, dict) else (start_t + 3.0)
+                        target_dur = max(0.5, end_t - start_t)
                         
                         log(f"Dubbing segment {{seg_id}}: '{{seg_text}}' (target duration: {{target_dur}}s)")
                         
@@ -790,7 +792,7 @@ def main():
                                 speed=speed_val
                             )
                         
-                        seg_wav_name = f"segment_{seg_id}.wav"
+                        seg_wav_name = f"segment_{{seg_id}}.wav"
                         sf.write(seg_wav_name, audio_res[0], 24000, format='WAV', subtype='PCM_16')
                         created_files.append(seg_wav_name)
                         
@@ -951,7 +953,6 @@ def main():
                                 log(f"Successfully aligned {{len(alignment_list)}} original words with Whisper timestamps.")
                     except Exception as whisper_err:
                         log(f"Warning: Precise alignment failed: {{whisper_err}}. Falling back to proportional spacing.")
-                        import traceback
                         log(traceback.format_exc())
                         
                     # Fallback to proportional spacing
