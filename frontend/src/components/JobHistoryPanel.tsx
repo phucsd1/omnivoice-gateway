@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Clock, RefreshCw, Layers, Heart, Lock, Globe, X, ChevronDown, ChevronUp, AlertCircle, CheckCircle, Play, Pause, Zap, Copy, Check, Terminal, Settings, Tag, Trash2 } from "lucide-react";
+import { Clock, RefreshCw, Layers, Heart, Lock, Globe, X, ChevronDown, ChevronUp, AlertCircle, CheckCircle, Play, Pause, Zap, Copy, Check, Terminal, Settings, Tag, Trash2, Search, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { api, type JobStatusResponse } from "../api/client";
 
 interface JobHistoryPanelProps {
@@ -22,6 +22,25 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
+  // Pagination & Filter states
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
+  const [totalJobs, setTotalJobs] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
+
+  // Debounce search query (350ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   // Expanded job IDs state (for long texts)
   const [expandedJobs, setExpandedJobs] = useState<Record<string, boolean>>({});
 
@@ -73,8 +92,16 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
     setLoading(true);
     setErrorMsg(null);
     try {
-      const jobList = await api.listJobs();
-      setJobs(jobList);
+      const res = await api.listJobs({
+        page,
+        page_size: pageSize,
+        job_type: selectedCategory,
+        status_filter: selectedStatus,
+        search: debouncedSearch
+      });
+      setJobs(res.items || []);
+      setTotalJobs(res.total || 0);
+      setTotalPages(res.total_pages || 1);
     } catch (err: any) {
       console.error("Lỗi lấy lịch sử công việc:", err);
       setErrorMsg(err.message || "Không thể tải danh sách lịch sử công việc.");
@@ -98,7 +125,7 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
 
   useEffect(() => {
     loadJobs();
-  }, [refreshTrigger]);
+  }, [refreshTrigger, page, pageSize, selectedCategory, selectedStatus, debouncedSearch]);
 
   const toggleExpand = (jobId: string) => {
     setExpandedJobs(prev => ({
@@ -178,25 +205,101 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
   };
 
   return (
-    <div className="bg-card/90 border border-border backdrop-blur-md rounded-3xl p-6 flex flex-col gap-6 shadow-xl w-full transition-all duration-300">
-      <div className="flex items-center justify-between border-b border-border/60 pb-4 select-none">
+    <div className="bg-card/90 border border-border backdrop-blur-md rounded-3xl p-6 flex flex-col gap-5 shadow-xl w-full transition-all duration-300">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-4 select-none">
         <div className="flex flex-col gap-1">
           <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-            <Clock className="w-5 h-5 text-foreground" />
-            <span>Lịch sử các Tác vụ</span>
+            <Clock className="w-5 h-5 text-primary" />
+            <span>Lịch sử tác vụ</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-bold font-mono">
+              {totalJobs} tác vụ
+            </span>
           </h2>
           <p className="text-xs text-muted-foreground">
-            Xem danh sách các file âm thanh đã tạo trước đó để nghe lại, tải về hoặc lưu giọng.
+            Quản lý, nghe lại, tải về và lưu mẫu giọng đọc từ lịch sử sinh âm thanh.
           </p>
         </div>
-        <button
-          onClick={loadJobs}
-          disabled={loading}
-          className="flex items-center gap-1.5 px-4 py-2 bg-muted hover:bg-muted text-foreground hover:text-foreground disabled:text-muted-foreground border border-border rounded-full text-xs font-bold transition-all cursor-pointer shadow-sm select-none"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-          <span>Làm mới</span>
-        </button>
+
+        <div className="flex items-center gap-3">
+          {/* Search Box */}
+          <div className="relative flex-1 md:w-64">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Tìm theo Mã ID hoặc Nội dung..."
+              className="w-full pl-9 pr-8 py-2 bg-background border border-border rounded-full text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all font-medium"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Refresh button */}
+          <button
+            onClick={loadJobs}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-muted hover:bg-muted/80 text-foreground disabled:text-muted-foreground border border-border rounded-full text-xs font-bold transition-all cursor-pointer shadow-sm select-none flex-shrink-0"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-primary" : ""}`} />
+            <span className="hidden sm:inline">Làm mới</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Filter Toolbar & Category Tabs */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-secondary/20 p-2 rounded-2xl border border-border/50">
+        {/* Category Filter Pills */}
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pb-1 sm:pb-0">
+          {[
+            { id: "all", label: "Tất cả" },
+            { id: "clone_voice", label: "🎙️ Clone Voice" },
+            { id: "auto_voice", label: "⚡ Auto Voice" },
+            { id: "voice_design", label: "✨ Voice Design" },
+            { id: "video_dubbing", label: "🎬 Video Dubbing" }
+          ].map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => {
+                setSelectedCategory(cat.id);
+                setPage(1);
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                selectedCategory === cat.id
+                  ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20"
+                  : "text-muted-foreground hover:text-foreground hover:bg-card/50"
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Status Filter */}
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          <Filter className="w-3.5 h-3.5 text-muted-foreground hidden sm:inline" />
+          <select
+            value={selectedStatus}
+            onChange={(e) => {
+              setSelectedStatus(e.target.value);
+              setPage(1);
+            }}
+            className="bg-card border border-border rounded-xl px-2.5 py-1.5 text-xs text-foreground font-semibold focus:outline-none focus:border-primary cursor-pointer"
+          >
+            <option value="all">Tất cả trạng thái</option>
+            <option value="completed">Hoàn tất</option>
+            <option value="running">Đang xử lý</option>
+            <option value="failed">Thất bại</option>
+          </select>
+        </div>
       </div>
 
       {errorMsg && (
@@ -206,18 +309,42 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
         </div>
       )}
 
+      {/* Content Area */}
       {loading && jobs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
-          <RefreshCw className="w-8 h-8 animate-spin text-primary" />
-          <span className="text-xs font-bold text-muted-foreground">Đang tải lịch sử công việc...</span>
+        /* Skeleton Shimmer Loading Cards */
+        <div className="flex flex-col gap-3 my-2">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="p-4 bg-card border border-border/60 rounded-2xl animate-pulse flex flex-col gap-3">
+              <div className="flex justify-between items-center">
+                <div className="h-4 bg-muted rounded-md w-1/4"></div>
+                <div className="h-4 bg-muted rounded-full w-16"></div>
+              </div>
+              <div className="h-10 bg-muted/60 rounded-xl w-full"></div>
+            </div>
+          ))}
         </div>
       ) : jobs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground bg-background/20 rounded-3xl border border-dashed border-border">
-          <Layers className="w-8 h-8 text-muted-foreground" />
-          <span className="text-xs font-bold text-muted-foreground">Chưa có công việc nào được thực hiện.</span>
+        /* Empty State */
+        <div className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground bg-background/20 rounded-3xl border border-dashed border-border">
+          <Layers className="w-8 h-8 text-muted-foreground opacity-50" />
+          <span className="text-xs font-bold text-muted-foreground">Không tìm thấy tác vụ nào khớp với bộ lọc.</span>
+          {(searchQuery || selectedCategory !== "all" || selectedStatus !== "all") && (
+            <button
+              onClick={() => {
+                setSearchQuery("");
+                setSelectedCategory("all");
+                setSelectedStatus("all");
+                setPage(1);
+              }}
+              className="text-xs font-bold text-primary hover:underline cursor-pointer"
+            >
+              Xóa bộ lọc
+            </button>
+          )}
         </div>
       ) : (
-        <div className="flex flex-col gap-4.5 max-h-[650px] overflow-y-auto pr-1 scrollbar-thin">
+        /* Jobs List */
+        <div className="flex flex-col gap-4 max-h-[600px] overflow-y-auto pr-1 scrollbar-thin">
           {jobs.map((job) => {
             const { label, color } = getJobTypeLabel(job.job_type);
             const isCompleted = job.status === "completed";
@@ -230,7 +357,7 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
               ? `${fullText.substring(0, 120)}...` 
               : fullText;
 
-             const audioUrl = job.audio_url ? `${api.getApiBaseUrl()}${job.audio_url}` : "";
+            const audioUrl = job.audio_url ? `${api.getApiBaseUrl()}${job.audio_url}` : "";
              return (
                <div 
                  key={job.job_id} 
@@ -471,6 +598,59 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination Footer */}
+      {totalJobs > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-border/60 text-xs text-muted-foreground select-none">
+          <div className="flex items-center gap-2">
+            <span>Hiển thị <strong className="text-foreground">{Math.min((page - 1) * pageSize + 1, totalJobs)} - {Math.min(page * pageSize, totalJobs)}</strong> / <strong className="text-foreground">{totalJobs}</strong> tác vụ</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Page Size selector */}
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setPage(1);
+              }}
+              className="bg-card border border-border rounded-xl px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary cursor-pointer font-medium"
+            >
+              <option value={10}>10 tác vụ / trang</option>
+              <option value={15}>15 tác vụ / trang</option>
+              <option value={30}>30 tác vụ / trang</option>
+              <option value={50}>50 tác vụ / trang</option>
+            </select>
+
+            {/* Prev / Next Buttons */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page <= 1 || loading}
+                className="p-1.5 rounded-lg bg-card border border-border text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                title="Trang trước"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              <span className="px-3 py-1 bg-secondary border border-border/60 rounded-lg font-bold text-foreground font-mono text-xs">
+                {page} / {totalPages}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages || loading}
+                className="p-1.5 rounded-lg bg-card border border-border text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                title="Trang tiếp"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -87,13 +87,73 @@ def _build_job_response(job: TTSJob) -> JobStatusResponse:
         params=params_data
     )
 
-@router.get("", response_model=list[JobStatusResponse])
-def list_jobs(response: Response, db: Session = Depends(get_db), current_user: User = Depends(get_user_or_api_key)):
+from typing import Optional, Union, List
+from app.schemas import JobStatusResponse, PaginatedJobsResponse
+
+@router.get("", response_model=Union[PaginatedJobsResponse, List[JobStatusResponse]])
+def list_jobs(
+    response: Response,
+    page: Optional[int] = None,
+    page_size: Optional[int] = 15,
+    job_type: Optional[str] = None,
+    status_filter: Optional[str] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_user_or_api_key)
+):
     """
-    Returns list of all jobs belonging to the current user, ordered by creation time descending.
+    Returns list of jobs belonging to the current user with optional pagination, category filtering, and search.
     """
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    jobs = db.query(TTSJob).filter(TTSJob.user_id == current_user.id).order_by(TTSJob.created_at.desc()).all()
+    
+    query = db.query(TTSJob).filter(TTSJob.user_id == current_user.id)
+
+    # Filtering by job_type (category)
+    if job_type and job_type != "all":
+        if job_type == "clone_voice":
+            query = query.filter(TTSJob.job_type == "clone_voice")
+        elif job_type == "auto_voice":
+            query = query.filter(TTSJob.job_type == "auto_voice")
+        elif job_type == "voice_design":
+            query = query.filter(TTSJob.job_type.in_(["voice_design_preview", "voice_design_tts"]))
+        elif job_type == "video_dubbing":
+            query = query.filter(TTSJob.job_type.in_(["separate_audio", "dub_segments"]))
+            
+    # Filtering by status
+    if status_filter and status_filter != "all":
+        if status_filter == "failed":
+            query = query.filter(TTSJob.status == "failed")
+        elif status_filter == "completed":
+            query = query.filter(TTSJob.status == "completed")
+        elif status_filter == "running":
+            query = query.filter(TTSJob.status.notin_(["completed", "failed"]))
+
+    # Search by job_id or text content
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.filter(
+            (TTSJob.id.ilike(term)) | (TTSJob.text.ilike(term)) | (TTSJob.instruct.ilike(term))
+        )
+
+    query = query.order_by(TTSJob.created_at.desc())
+
+    if page is not None:
+        p = max(1, page)
+        ps = max(1, min(100, page_size or 15))
+        total = query.count()
+        total_pages = (total + ps - 1) // ps if total > 0 else 1
+        jobs = query.offset((p - 1) * ps).limit(ps).all()
+        
+        return PaginatedJobsResponse(
+            items=[_build_job_response(job) for job in jobs],
+            total=total,
+            page=p,
+            page_size=ps,
+            total_pages=total_pages
+        )
+
+    # Legacy unpaginated fallback
+    jobs = query.all()
     return [_build_job_response(job) for job in jobs]
 
 @router.get("/{job_id}", response_model=JobStatusResponse)

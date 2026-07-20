@@ -164,6 +164,13 @@ class JobStatusResponse(BaseModel):
     total_time: Optional[float] = None
     params: Optional[dict[str, Any]] = None
 
+class PaginatedJobsResponse(BaseModel):
+    items: List[JobStatusResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
 # Worker related schemas
 class WorkerRegisterRequest(BaseModel):
     worker_id: str

@@ -179,6 +179,14 @@ export interface SystemSettingsUpdateRequest {
   llm_thinking_effort?: string;
 }
 
+export interface PaginatedJobsResponse {
+  items: JobStatusResponse[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${getApiBaseUrl()}${path}`;
   
@@ -318,8 +326,21 @@ export const api = {
     return request<JobStatusResponse>(`/v1/jobs/${jobId}?t=${Date.now()}`);
   },
   
-  listJobs: async (): Promise<JobStatusResponse[]> => {
-    return request<JobStatusResponse[]>("/v1/jobs");
+  listJobs: async (params?: {
+    page?: number;
+    page_size?: number;
+    job_type?: string;
+    status_filter?: string;
+    search?: string;
+  }): Promise<PaginatedJobsResponse> => {
+    const query = new URLSearchParams();
+    query.set("page", String(params?.page || 1));
+    query.set("page_size", String(params?.page_size || 15));
+    if (params?.job_type && params.job_type !== "all") query.set("job_type", params.job_type);
+    if (params?.status_filter && params.status_filter !== "all") query.set("status_filter", params.status_filter);
+    if (params?.search && params.search.trim()) query.set("search", params.search.trim());
+
+    return request<PaginatedJobsResponse>(`/v1/jobs?${query.toString()}`);
   },
 
   deleteJob: async (jobId: string): Promise<{ status: string; message: string }> => {
