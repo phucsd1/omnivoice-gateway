@@ -33,7 +33,7 @@ class VideoDubbingService:
         outtmpl = os.path.join(output_dir, "input_video.%(ext)s")
         
         ydl_opts = {
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            'format': 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]/best',
             'outtmpl': outtmpl,
             'quiet': True,
             'no_warnings': True,
