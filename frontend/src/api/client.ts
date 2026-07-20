@@ -129,6 +129,7 @@ export interface UserUpdateRequest {
 
 export interface SystemSettingsResponse {
   worker_mode: string;
+  allow_registration: boolean;
   require_admin_approval: boolean;
   smtp_host: string;
   smtp_port: number;
@@ -155,6 +156,7 @@ export interface SystemSettingsResponse {
 
 export interface SystemSettingsUpdateRequest {
   worker_mode?: string;
+  allow_registration?: boolean;
   require_admin_approval?: boolean;
   smtp_host?: string;
   smtp_port?: number;

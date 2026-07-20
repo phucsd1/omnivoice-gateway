@@ -65,6 +65,7 @@ class AdminApiKeyCreateRequest(BaseModel):
 
 class SystemSettingsResponse(BaseModel):
     worker_mode: str
+    allow_registration: bool
     require_admin_approval: bool
     smtp_host: str
     smtp_port: int
@@ -90,6 +91,7 @@ class SystemSettingsResponse(BaseModel):
 
 class SystemSettingsUpdateRequest(BaseModel):
     worker_mode: Optional[str] = None
+    allow_registration: Optional[bool] = None
     require_admin_approval: Optional[bool] = None
     smtp_host: Optional[str] = None
     smtp_port: Optional[int] = None
@@ -307,6 +309,9 @@ def get_system_settings_admin(
 
     worker_mode = get_setting("worker_mode", settings.WORKER_MODE)
     
+    allow_reg_str = get_setting("allow_registration", "true" if settings.ALLOW_REGISTRATION else "false")
+    allow_registration = allow_reg_str.lower() == "true"
+
     req_approval_str = get_setting("require_admin_approval", "false")
     require_admin_approval = req_approval_str.lower() == "true"
     
@@ -352,6 +357,7 @@ def get_system_settings_admin(
 
     return SystemSettingsResponse(
         worker_mode=worker_mode,
+        allow_registration=allow_registration,
         require_admin_approval=require_admin_approval,
         smtp_host=smtp_host,
         smtp_port=smtp_port,
@@ -403,6 +409,9 @@ def update_system_settings_admin(
             if payload.ui_layout not in ["classic", "modern"]:
                 raise HTTPException(status_code=400, detail="ui_layout phải là 'classic' hoặc 'modern'.")
             save_setting("ui_layout", payload.ui_layout)
+
+        if payload.allow_registration is not None:
+            save_setting("allow_registration", "true" if payload.allow_registration else "false")
             
         if payload.require_admin_approval is not None:
             save_setting("require_admin_approval", "true" if payload.require_admin_approval else "false")

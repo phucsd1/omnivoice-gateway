@@ -43,6 +43,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
 
   const [settingsData, setSettingsData] = useState<any>({
     worker_mode: "mock",
+    allow_registration: true,
     require_admin_approval: false,
     smtp_host: "",
     smtp_port: 587,
@@ -593,20 +594,45 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
               </select>
             </div>
 
-            <div className="flex items-center gap-3 pt-4">
+            <h3 className="md:col-span-2 text-sm font-bold text-foreground border-b border-border pb-2 mt-4 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-primary" />
+              <span>Cấu hình Đăng ký & Bảo mật Hệ thống</span>
+            </h3>
+
+            {/* Toggle 1: Cho phép đăng ký mới */}
+            <div className="flex items-start gap-3 p-3.5 bg-background/50 border border-border/60 rounded-2xl">
+              <input
+                type="checkbox"
+                id="allow_registration"
+                checked={settingsData.allow_registration ?? true}
+                onChange={(e) => setSettingsData({ ...settingsData, allow_registration: e.target.checked })}
+                className="w-4 h-4 mt-0.5 rounded text-primary bg-card border-border focus:ring-primary focus:ring-2 cursor-pointer"
+              />
+              <div className="flex flex-col gap-0.5">
+                <label htmlFor="allow_registration" className="text-xs font-bold text-foreground cursor-pointer">
+                  Cho phép đăng ký tài khoản mới
+                </label>
+                <span className="text-[10px] text-muted-foreground leading-relaxed">
+                  Khi bật, người dùng truy cập trang web có thể tự đăng ký tài khoản mới. Khi tắt, cổng đăng ký công khai sẽ bị tạm khóa.
+                </span>
+              </div>
+            </div>
+
+            {/* Toggle 2: Yêu cầu Admin duyệt mới được đăng nhập */}
+            <div className="flex items-start gap-3 p-3.5 bg-background/50 border border-border/60 rounded-2xl">
               <input
                 type="checkbox"
                 id="require_admin_approval"
-                checked={settingsData.require_admin_approval}
+                checked={settingsData.require_admin_approval ?? false}
                 onChange={(e) => setSettingsData({ ...settingsData, require_admin_approval: e.target.checked })}
-                className="w-4 h-4 rounded text-primary bg-card border-border focus:ring-primary focus:ring-2 cursor-pointer"
+                className="w-4 h-4 mt-0.5 rounded text-primary bg-card border-border focus:ring-primary focus:ring-2 cursor-pointer"
               />
-              <div className="flex flex-col">
-                <label htmlFor="require_admin_approval" className="text-xs font-semibold text-foreground cursor-pointer">
-                  Yêu cầu duyệt tài khoản mới
+              <div className="flex flex-col gap-0.5">
+                <label htmlFor="require_admin_approval" className="text-xs font-bold text-foreground cursor-pointer">
+                  Yêu cầu Admin phê duyệt thủ công
                 </label>
-                <span className="text-[10px] text-muted-foreground">
-                  Tất cả đăng ký mới phải được Admin bấm duyệt thủ công trước khi có thể đăng nhập.
+                <span className="text-[10px] text-muted-foreground leading-relaxed">
+                  Tất cả tài khoản mới đăng ký phải được Admin bấm Duyệt (Approve) trong danh sách Người dùng trước khi có thể đăng nhập.
                 </span>
               </div>
             </div>

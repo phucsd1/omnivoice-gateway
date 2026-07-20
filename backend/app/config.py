@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     
     DATABASE_URL: str = "sqlite:///./omnivoice_gateway.db"
     STORAGE_DIR: str = "./storage"
+    ALLOW_REGISTRATION: bool = True
     
     PUBLIC_API_BASE_URL: str = ""
     FRONTEND_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173,https://omnivoice-gateway.pages.dev"

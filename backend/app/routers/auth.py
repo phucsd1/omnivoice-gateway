@@ -77,6 +77,15 @@ class UserMeResponse(BaseModel):
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 def register(payload: UserRegisterRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    # Check if registration feature is enabled
+    from app.models import SystemSetting
+    allow_reg = db.query(SystemSetting).filter(SystemSetting.key == "allow_registration").first()
+    if allow_reg and allow_reg.value.strip().lower() == "false":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tính năng đăng ký tài khoản mới hiện đang bị tạm khóa bởi Quản trị viên."
+        )
+
     # Validate email format
     if not EMAIL_REGEX.match(payload.email):
         raise HTTPException(
