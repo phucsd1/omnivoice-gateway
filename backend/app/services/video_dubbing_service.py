@@ -14,12 +14,12 @@ from app.models import SystemSetting, LLMProfile
 class VideoDubbingService:
     @staticmethod
     def ensure_dependencies():
-        """Dynamically ensures yt-dlp is installed for downloading YouTube videos."""
+        """Dynamically ensures yt-dlp is installed and up-to-date for downloading YouTube videos."""
         try:
             import yt_dlp
         except ImportError:
             print("[VideoDubbingService] Installing yt-dlp dynamically...")
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "yt-dlp"])
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "-U", "-q", "yt-dlp"])
 
     @staticmethod
     def download_youtube_video(url: str, output_dir: str) -> Tuple[str, str]:
@@ -37,6 +37,13 @@ class VideoDubbingService:
             'outtmpl': outtmpl,
             'quiet': True,
             'no_warnings': True,
+            'nocheckcertificate': True,
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android', 'web']
+                }
+            }
         }
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
