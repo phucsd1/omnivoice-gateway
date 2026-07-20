@@ -35,7 +35,11 @@ def run_dubbing_pipeline(job_id: str):
             job.message = "Đang tải video từ YouTube..."
             db.commit()
             
-            video_path, title = VideoDubbingService.download_youtube_video(job.source_url, job_dir)
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(VideoDubbingService.download_youtube_video, job.source_url, job_dir)
+                video_path, title = future.result(timeout=45)
+                
             job.input_file_path = video_path
             db.commit()
 
