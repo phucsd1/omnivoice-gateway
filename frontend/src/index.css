@@ -340,29 +340,29 @@ input[type="range"].seekbar:hover::-moz-range-thumb {
   font-size: var(--font-xl);
 }
 
-.p-fluid-card {
+@utility p-fluid-card {
   padding: var(--space-4);
 }
-.gap-fluid {
+@utility gap-fluid {
   gap: var(--space-3);
 }
-.gap-fluid-sm {
+@utility gap-fluid-sm {
   gap: var(--space-2);
 }
 
-.w-fluid-sidebar {
+@utility w-fluid-sidebar {
   width: var(--sidebar-width);
 }
-.pl-fluid-sidebar {
+@utility pl-fluid-sidebar {
   padding-left: var(--sidebar-width);
 }
-.left-fluid-sidebar {
+@utility left-fluid-sidebar {
   left: var(--sidebar-width);
 }
-.h-fluid-player {
+@utility h-fluid-player {
   height: clamp(72px, 7vh, 96px);
 }
-.max-w-fluid-editor {
+@utility max-w-fluid-editor {
   max-width: var(--editor-max-width);
 }
 

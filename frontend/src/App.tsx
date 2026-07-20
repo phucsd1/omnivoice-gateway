@@ -463,12 +463,12 @@ function App() {
       </aside>
 
       {sidebarOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
+        <div className="lg:hidden fixed inset-0 z-[60] flex">
           <div 
             onClick={() => setSidebarOpen(false)}
             className="fixed inset-0 bg-black/60 backdrop-blur-sm"
           />
-          <div className="relative w-fluid-sidebar max-w-sm h-full flex-col z-50 animate-fadeIn">
+          <div className="relative w-fluid-sidebar max-w-sm h-full flex-col z-[60] animate-fadeIn">
             {sidebarContent}
             <button
               onClick={() => setSidebarOpen(false)}
