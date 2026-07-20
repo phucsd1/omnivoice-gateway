@@ -146,6 +146,10 @@ import tempfile
 import traceback
 import requests
 import warnings
+import shutil
+import zipfile
+import json
+import subprocess
 from urllib.parse import urlparse
 
 os.environ["CUDA_MODULE_LOADING"] = "LAZY"
@@ -504,7 +508,6 @@ def main():
                         try:
                             os.symlink(src_file, dst_file)
                         except Exception:
-                            import shutil
                             shutil.copy2(src_file, dst_file)
                 # Download missing tokenizer files from Hugging Face Hub (or ModelScope fallback)
                 for filename in ["tokenizer.json", "tokenizer_config.json"]:
@@ -532,7 +535,6 @@ def main():
                                 from modelscope.hub.file_download import model_file_download
                                 cache_file = model_file_download("k2-fsa/OmniVoice", file_path=filename)
                                 if cache_file and os.path.exists(cache_file):
-                                    import shutil
                                     shutil.copy2(cache_file, dst_file)
                                     success = True
                                     log(f"Successfully retrieved {{filename}} from ModelScope.")
@@ -683,8 +685,6 @@ def main():
                             
                         # Run demucs
                         log(f"Running demucs on {{local_ref_path}}...")
-                        import os
-                        import shutil
                         subprocess.run([
                             "demucs", "--two-stems=vocals",
                             "-o", "demucs_out",
@@ -717,7 +717,6 @@ def main():
 
                     # Zip vocals and bgm
                     zip_path = "separation.zip"
-                    import zipfile
                     with zipfile.ZipFile(zip_path, 'w') as zipf:
                         zipf.write(vocals_path, "vocals.wav")
                         zipf.write(bgm_path, "bgm.wav")
@@ -754,9 +753,6 @@ def main():
                         f"/v1/internal/jobs/{{job_id}}/status",
                         json={{"status": "generating_tts", "message": "Đang sinh giọng lồng tiếng từng phân đoạn...", "progress": 60}}
                     )
-                    
-                    import json
-                    import zipfile
                     
                     segments = json.loads(job["text"])
                     zip_path = "dubbed_segments.zip"
@@ -839,7 +835,6 @@ def main():
                     transcribed_text = asr_res.get("text", "").strip()
                     chunks = asr_res.get("chunks", [])
                     
-                    import json
                     chunks_json = json.dumps(chunks)
                     
                     log(f"ASR complete. Text: {{transcribed_text}}")
@@ -973,7 +968,6 @@ def main():
                                 curr_time += word_dur
                                 
                     if alignment_list:
-                        import json
                         alignment_str = json.dumps(alignment_list)
                         log(f"Generated alignment data: {{len(alignment_list)}} words")
 
@@ -1095,9 +1089,16 @@ if __name__ == '__main__':
             code = f"""import os
 import sys
 import time
-import requests
+import uuid
+import tempfile
 import traceback
+import requests
 import warnings
+import shutil
+import zipfile
+import json
+import subprocess
+from urllib.parse import urlparse
 
 os.environ["CUDA_MODULE_LOADING"] = "LAZY"
 os.environ["PYTHONWARNINGS"] = "ignore"
