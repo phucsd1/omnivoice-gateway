@@ -21,15 +21,34 @@ router = APIRouter(prefix="/v1/video-dubbing", tags=["Video Dubbing"])
 
 @router.get("/debug-yt")
 def debug_yt(url: str = "https://www.youtube.com/watch?v=_HA6-A8itVY"):
-    import traceback
-    try:
-        tmp_dir = "/tmp/debug_yt"
-        os.makedirs(tmp_dir, exist_ok=True)
-        path, title = VideoDubbingService.download_youtube_video(url, tmp_dir)
-        size = os.path.getsize(path) if os.path.exists(path) else 0
-        return {"status": "ok", "path": path, "title": title, "size": size}
-    except Exception as e:
-        return {"status": "error", "error": str(e), "traceback": traceback.format_exc()}
+    import threading, time, traceback
+    def bg_debug():
+        log_path = "/tmp/debug_log.txt"
+        with open(log_path, "w", encoding="utf-8") as f:
+            f.write(f"[{time.strftime('%H:%M:%S')}] Starting debug download for {url}...\n")
+            f.flush()
+            try:
+                tmp_dir = "/tmp/debug_yt"
+                os.makedirs(tmp_dir, exist_ok=True)
+                f.write(f"[{time.strftime('%H:%M:%S')}] Calling VideoDubbingService.download_youtube_video...\n")
+                f.flush()
+                path, title = VideoDubbingService.download_youtube_video(url, tmp_dir)
+                size = os.path.getsize(path) if os.path.exists(path) else 0
+                f.write(f"[{time.strftime('%H:%M:%S')}] SUCCESS: path={path}, title={title}, size={size}\n")
+            except Exception as e:
+                f.write(f"[{time.strftime('%H:%M:%S')}] ERROR: {e}\n{traceback.format_exc()}\n")
+            f.flush()
+    t = threading.Thread(target=bg_debug)
+    t.start()
+    return {"status": "started", "message": "Check /v1/video-dubbing/debug-log in a few seconds"}
+
+@router.get("/debug-log")
+def debug_log():
+    log_path = "/tmp/debug_log.txt"
+    if os.path.exists(log_path):
+        with open(log_path, "r", encoding="utf-8") as f:
+            return {"log": f.read()}
+    return {"log": "No log file found"}
 
 def run_dubbing_pipeline(job_id: str):
     """Background task to run the video dubbing stages (Download -> Extract Audio -> Separate -> Transcribe -> Translate)."""
