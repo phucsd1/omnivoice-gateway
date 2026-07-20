@@ -192,7 +192,9 @@ async def log_api_usage(request: Request, call_next):
         or (request.method == "GET" and (
             (path.startswith("/v1/tts/jobs/") and len(path) > 13)
             or (path.startswith("/v1/voice-design/previews/") and len(path) > 26)
+            or (path.startswith("/v1/jobs/") and len(path) > 9)
         ))
+        or (request.method == "POST" and path == "/v1/jobs/batch")
     )
     
     is_loggable = (

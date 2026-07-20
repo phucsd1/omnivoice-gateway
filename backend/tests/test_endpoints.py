@@ -251,3 +251,58 @@ def test_openai_compatible_speech_with_alignment():
         assert "end" in item
 
 
+def test_batch_jobs_status():
+    # 1. Login to get JWT token
+    login_res = client.post("/v1/auth/login", json={
+        "username": "test_user_123",
+        "password": "password_123"
+    })
+    assert login_res.status_code == 200
+    token = login_res.json()["access_token"]
+    user_headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Create job 1
+    res1 = client.post("/v1/tts/jobs", json={
+        "mode": "auto_voice",
+        "text": "Job thứ nhất cho batch test"
+    }, headers=user_headers)
+    assert res1.status_code == 200
+    job1_id = res1.json()["job_id"]
+
+    # 3. Create job 2
+    res2 = client.post("/v1/tts/jobs", json={
+        "mode": "auto_voice",
+        "text": "Job thứ hai cho batch test"
+    }, headers=user_headers)
+    assert res2.status_code == 200
+    job2_id = res2.json()["job_id"]
+
+    # 4. Request batch status for job1_id and job2_id
+    batch_res = client.post("/v1/jobs/batch", json={
+        "job_ids": [job1_id, job2_id]
+    }, headers=user_headers)
+    assert batch_res.status_code == 200
+    batch_data = batch_res.json()
+    assert job1_id in batch_data
+    assert job2_id in batch_data
+    assert batch_data[job1_id]["status"] in ["queued", "starting_worker", "running", "completed"]
+    assert batch_data[job2_id]["status"] in ["queued", "starting_worker", "running", "completed"]
+
+    # 5. Request batch status with one invalid and one valid ID
+    batch_res_mixed = client.post("/v1/jobs/batch", json={
+        "job_ids": [job1_id, "non_existent_job_id"]
+    }, headers=user_headers)
+    assert batch_res_mixed.status_code == 200
+    batch_data_mixed = batch_res_mixed.json()
+    assert job1_id in batch_data_mixed
+    assert "non_existent_job_id" not in batch_data_mixed
+
+    # 6. Request batch status with empty list
+    batch_res_empty = client.post("/v1/jobs/batch", json={
+        "job_ids": []
+    }, headers=user_headers)
+    assert batch_res_empty.status_code == 200
+    assert batch_res_empty.json() == {}
+
+
+

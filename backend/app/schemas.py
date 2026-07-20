@@ -145,6 +145,9 @@ class TTSJobResponse(BaseModel):
     status: str
     message: str
 
+class BatchJobStatusRequest(BaseModel):
+    job_ids: List[str] = Field(..., description="Danh sách các mã job_id cần lấy trạng thái")
+
 class JobStatusResponse(BaseModel):
     job_id: str
     status: str

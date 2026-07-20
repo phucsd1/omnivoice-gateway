@@ -88,7 +88,7 @@ def _build_job_response(job: TTSJob) -> JobStatusResponse:
     )
 
 from typing import Optional, Union, List
-from app.schemas import JobStatusResponse, PaginatedJobsResponse
+from app.schemas import JobStatusResponse, PaginatedJobsResponse, BatchJobStatusRequest
 
 @router.get("", response_model=Union[PaginatedJobsResponse, List[JobStatusResponse]])
 def list_jobs(
@@ -155,6 +155,28 @@ def list_jobs(
     # Legacy unpaginated fallback
     jobs = query.all()
     return [_build_job_response(job) for job in jobs]
+
+@router.post("/batch", response_model=dict[str, JobStatusResponse])
+def get_batch_jobs_status(
+    payload: BatchJobStatusRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_user_or_api_key)
+):
+    """
+    Query the status of multiple jobs in a single request.
+    Returns a dictionary mapping job_id to its detailed status.
+    """
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    if not payload.job_ids:
+        return {}
+    
+    jobs = db.query(TTSJob).filter(
+        TTSJob.id.in_(payload.job_ids),
+        TTSJob.user_id == current_user.id
+    ).all()
+    
+    return {job.id: _build_job_response(job) for job in jobs}
 
 @router.get("/{job_id}", response_model=JobStatusResponse)
 def get_job_status(job_id: str, response: Response, db: Session = Depends(get_db), current_user: User = Depends(get_user_or_api_key)):
