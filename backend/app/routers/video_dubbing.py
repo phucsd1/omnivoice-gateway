@@ -38,7 +38,7 @@ def run_dubbing_pipeline(job_id: str):
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(VideoDubbingService.download_youtube_video, job.source_url, job_dir)
-                video_path, title = future.result(timeout=45)
+                video_path, title = future.result(timeout=300)
                 
             job.input_file_path = video_path
             db.commit()
@@ -129,14 +129,17 @@ def run_dubbing_pipeline(job_id: str):
             # So the background task ends here, and the next stages (ASR -> LLM) will be triggered when the worker uploads output for this job.
             
     except Exception as e:
-        print(f"[run_dubbing_pipeline] Error in job {job_id}: {e}")
+        err_msg = str(e).strip() or repr(e) or type(e).__name__
+        if isinstance(e, concurrent.futures.TimeoutError):
+            err_msg = "Tải video từ YouTube quá 5 phút. Vui lòng thử lại hoặc tải video MP4 trực tiếp."
+        print(f"[run_dubbing_pipeline] Error in job {job_id}: {err_msg}")
         db.rollback()
         job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id).first()
         if job:
             job.status = "failed"
             job.progress = 100
-            job.error_message = str(e)
-            job.message = f"Có lỗi xảy ra: {str(e)[:100]}"
+            job.error_message = err_msg
+            job.message = f"Có lỗi xảy ra: {err_msg[:100]}"
             db.commit()
     finally:
         db.close()
