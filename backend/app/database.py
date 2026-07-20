@@ -32,7 +32,7 @@ def test_db_writable(db_url: str) -> bool:
     try:
         conn = sqlite3.connect(db_path, timeout=5)
         cursor = conn.cursor()
-        cursor.execute("PRAGMA journal_mode=DELETE")
+        cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("CREATE TABLE IF NOT EXISTS _write_test (id INTEGER PRIMARY KEY)")
         cursor.execute("INSERT INTO _write_test DEFAULT VALUES")
         cursor.execute("DROP TABLE _write_test")
@@ -119,7 +119,8 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
         try:
             cursor = dbapi_connection.cursor()
             # Force DELETE journal mode to avoid .shm / .wal lock files on NFS
-            cursor.execute("PRAGMA journal_mode=DELETE")
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA busy_timeout=30000")
             cursor.execute("PRAGMA synchronous=NORMAL")
             cursor.close()
         except Exception as e:
