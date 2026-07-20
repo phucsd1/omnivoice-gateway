@@ -37,12 +37,13 @@ class VideoDubbingService:
         err_ytdlp = None
         err_pytubefix = None
 
-        # Method 1: Subprocess CLI yt-dlp (Fully isolated process, strict 40s timeout)
+        # Method 1: Subprocess CLI yt-dlp (Fully isolated process, strict 40s timeout, force IPv4)
         try:
             print("[VideoDubbingService] Attempting YouTube download via CLI subprocess yt-dlp...")
             cmd = [
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
+                "-4",
                 "-f", "18/best[height<=480]/best",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
                 "--socket-timeout", "15",
@@ -63,7 +64,7 @@ class VideoDubbingService:
             err_sub = e
             print(f"[VideoDubbingService] CLI yt-dlp exception: {e}")
 
-        # Method 2: Python yt_dlp module
+        # Method 2: Python yt_dlp module (Force IPv4)
         try:
             print("[VideoDubbingService] Attempting YouTube download via Python yt_dlp...")
             import yt_dlp
@@ -74,6 +75,7 @@ class VideoDubbingService:
                 'quiet': True,
                 'no_warnings': True,
                 'socket_timeout': 15,
+                'source_address': '0.0.0.0',
                 'extractor_args': {
                     'youtube': {
                         'player_client': ['android'],
