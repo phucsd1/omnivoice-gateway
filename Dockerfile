@@ -6,6 +6,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     git \
+    ffmpeg \
+    nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Set up user with UID 1000 (Hugging Face Spaces requirement)
