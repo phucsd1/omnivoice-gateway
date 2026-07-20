@@ -19,6 +19,18 @@ from app.database import get_db, SessionLocal
 
 router = APIRouter(prefix="/v1/video-dubbing", tags=["Video Dubbing"])
 
+@router.get("/debug-yt")
+def debug_yt(url: str = "https://www.youtube.com/watch?v=_HA6-A8itVY"):
+    import traceback
+    try:
+        tmp_dir = "/tmp/debug_yt"
+        os.makedirs(tmp_dir, exist_ok=True)
+        path, title = VideoDubbingService.download_youtube_video(url, tmp_dir)
+        size = os.path.getsize(path) if os.path.exists(path) else 0
+        return {"status": "ok", "path": path, "title": title, "size": size}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "traceback": traceback.format_exc()}
+
 def run_dubbing_pipeline(job_id: str):
     """Background task to run the video dubbing stages (Download -> Extract Audio -> Separate -> Transcribe -> Translate)."""
     db = SessionLocal()
