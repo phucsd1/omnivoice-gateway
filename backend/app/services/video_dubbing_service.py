@@ -39,20 +39,20 @@ class VideoDubbingService:
 
         # Method 1: Subprocess CLI yt-dlp with android_vr client (Isolated process, force IPv4)
         try:
-            print("[VideoDubbingService] Attempting YouTube download via CLI subprocess yt-dlp (android_vr client)...")
+            print("[VideoDubbingService] Attempting YouTube download via CLI subprocess yt-dlp...")
             cmd = [
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
                 "-4",
-                "-f", "18/best[height<=480]/best",
+                "-f", "18/best[height<=360]/ba[ext=m4a]/140/bestaudio/best",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
-                "--socket-timeout", "20",
+                "--socket-timeout", "15",
                 "--extractor-args", "youtube:player_client=android_vr,android,web",
                 url
             ]
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=50)
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=40)
             if res.returncode == 0:
-                for ext in ['.mp4', '.mkv', '.webm']:
+                for ext in ['.mp4', '.m4a', '.mp3', '.wav', '.mkv', '.webm']:
                     candidate = os.path.join(output_dir, f"input_video{ext}")
                     if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
                         print(f"[VideoDubbingService] CLI yt-dlp download success: {candidate}")
@@ -64,17 +64,17 @@ class VideoDubbingService:
             err_sub = e
             print(f"[VideoDubbingService] CLI yt-dlp exception: {e}")
 
-        # Method 2: Python yt_dlp module with android_vr client
+        # Method 2: Python yt_dlp module
         try:
-            print("[VideoDubbingService] Attempting YouTube download via Python yt_dlp (android_vr client)...")
+            print("[VideoDubbingService] Attempting YouTube download via Python yt_dlp...")
             import yt_dlp
             outtmpl = os.path.join(output_dir, "input_video.%(ext)s")
             ydl_opts = {
-                'format': '18/best[height<=480]/best',
+                'format': '18/best[height<=360]/ba[ext=m4a]/140/bestaudio/best',
                 'outtmpl': outtmpl,
                 'quiet': True,
                 'no_warnings': True,
-                'socket_timeout': 20,
+                'socket_timeout': 15,
                 'source_address': '0.0.0.0',
                 'extractor_args': {
                     'youtube': {
