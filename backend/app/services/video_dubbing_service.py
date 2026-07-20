@@ -151,10 +151,30 @@ class VideoDubbingService:
                 res = requests.post(url, headers=headers, json=payload, timeout=45)
                 res.raise_for_status()
                 res_data = res.json()
-                text_out = res_data["candidates"][0]["content"]["parts"][0]["text"]
+                
+                parts = res_data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+                text_out = ""
+                for part in parts:
+                    if part.get("thought"):
+                        continue
+                    if "text" in part:
+                        text_out += part["text"]
+                if not text_out and parts:
+                    text_out = parts[-1].get("text", "")
             
             elif provider in ["openai", "custom"]:
-                url = custom_endpoint if (provider == "custom" and custom_endpoint) else "https://api.openai.com/v1/chat/completions"
+                if provider == "custom" and custom_endpoint:
+                    url = custom_endpoint.strip()
+                    if not url.endswith("/chat/completions"):
+                        if url.endswith("/"):
+                            url = url + "chat/completions"
+                        elif "/v1" not in url:
+                            url = url + "/v1/chat/completions"
+                        else:
+                            url = url + "/chat/completions"
+                else:
+                    url = "https://api.openai.com/v1/chat/completions"
+
                 headers = {
                     "Content-Type": "application/json"
                 }
@@ -174,7 +194,8 @@ class VideoDubbingService:
                 res = requests.post(url, headers=headers, json=payload, timeout=45)
                 res.raise_for_status()
                 res_data = res.json()
-                text_out = res_data["choices"][0]["message"]["content"]
+                msg_obj = res_data.get("choices", [{}])[0].get("message", {})
+                text_out = msg_obj.get("content") or msg_obj.get("reasoning_content") or ""
             
             else:
                 raise Exception(f"Unsupported LLM provider: {provider}")
