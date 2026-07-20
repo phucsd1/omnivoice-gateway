@@ -23,8 +23,16 @@ def run_dubbing_pipeline(job_id: str):
     """Background task to run the video dubbing stages (Download -> Extract Audio -> Separate -> Transcribe -> Translate)."""
     db = SessionLocal()
     try:
-        job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id).first()
+        import time
+        job = None
+        for _ in range(10):
+            job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id).first()
+            if job:
+                break
+            time.sleep(0.5)
+
         if not job:
+            print(f"[run_dubbing_pipeline] Job {job_id} not found in DB after retries!")
             return
 
         job_dir = os.path.join(settings.dubbing_dir, job_id)
@@ -58,7 +66,10 @@ def run_dubbing_pipeline(job_id: str):
         worker_mode = db.query(SystemSetting).filter(SystemSetting.key == "worker_mode").first()
         mode_val = worker_mode.value.strip() if worker_mode else settings.WORKER_MODE
 
-        if mode_val == "mock":
+        from app.models import WorkerSession
+        active_worker = db.query(WorkerSession).first()
+
+        if mode_val == "mock" or not active_worker:
             # Mock Audio Separation: copy original audio to vocals and BGM
             vocals_path = os.path.join(job_dir, "vocals.wav")
             bgm_path = os.path.join(job_dir, "bgm.wav")
