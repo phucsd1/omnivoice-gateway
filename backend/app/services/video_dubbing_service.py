@@ -31,10 +31,8 @@ class VideoDubbingService:
         Uses pytubefix first (fast progressive MP4 stream), falls back to yt-dlp format 18.
         """
         import ssl
-        import socket
         try:
             ssl._create_default_https_context = ssl._create_unverified_context
-            socket.setdefaulttimeout(120)
         except Exception:
             pass
 
