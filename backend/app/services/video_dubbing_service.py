@@ -19,7 +19,10 @@ class VideoDubbingService:
             import yt_dlp
         except ImportError:
             print("[VideoDubbingService] Installing yt-dlp dynamically...")
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "-U", "-q", "yt-dlp"])
+            try:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "-U", "-q", "yt-dlp"])
+            except Exception:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "-U", "-q", "yt-dlp"])
 
     @staticmethod
     def download_youtube_video(url: str, output_dir: str) -> Tuple[str, str]:
