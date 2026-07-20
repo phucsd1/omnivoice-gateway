@@ -1,15 +1,62 @@
 import React, { useState, useEffect, useRef } from "react";
+import { 
+  Sparkles, 
+  CheckCircle2, 
+  Clock, 
+  AlertCircle, 
+  Download, 
+  FileText, 
+  RefreshCw, 
+  Save, 
+  Key, 
+  Sliders, 
+  Wand2, 
+  Loader2,
+  Film,
+  Music,
+  Mic,
+  Languages,
+  Upload,
+  PlaySquare
+} from "lucide-react";
 import { api, type VideoDubbingJobResponse, type SubtitleSegment } from "../api/client";
+import { PageHeader } from "./ui/PageHeader";
+import { SectionCard } from "./ui/SectionCard";
+
+// Pipeline steps definition
+const PIPELINE_STEPS = [
+  { id: "downloading", label: "Tải Video", desc: "Tải xuống video & trích xuất audio", icon: Download },
+  { id: "separating_audio", label: "Tách Âm Thanh", desc: "Demucs GPU tách Vocals & BGM", icon: Music },
+  { id: "transcribing", label: "Whisper ASR", desc: "Trích xuất phụ đề & mốc thời gian", icon: Mic },
+  { id: "translating", label: "Dịch Thuật LLM", desc: "Dịch phụ đề qua AI Model", icon: Languages },
+  { id: "awaiting_review", label: "Kiểm Duyệt", desc: "Xem trước & chỉnh sửa phụ đề", icon: FileText },
+  { id: "generating_tts", label: "Sinh Giọng Clone", desc: "Tổng hợp thoại qua OmniVoice", icon: Wand2 },
+  { id: "mixing_audio", label: "Trộn Âm Thanh", desc: "Khớp nhịp & trộn nhạc nền BGM", icon: Sliders },
+  { id: "muxing_video", label: "Đóng Gói", desc: "Xuất video lồng tiếng MP4", icon: Film }
+];
 
 export default function DubbingStudio() {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [targetLanguage, setTargetLanguage] = useState("English");
   const [smartSeparation, setSmartSeparation] = useState(true);
-  const [jobId, setJobId] = useState<string | null>(null);
+  
+  // Job States
+  const [jobId, setJobId] = useState<string | null>(() => {
+    return localStorage.getItem("active_dubbing_job_id") || null;
+  });
   const [job, setJob] = useState<VideoDubbingJobResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // LLM Config state
+  const [showLlmConfig, setShowLlmConfig] = useState(false);
+  const [llmProvider, setLlmProvider] = useState("gemini");
+  const [llmApiKey, setLlmApiKey] = useState("");
+  const [llmModel, setLlmModel] = useState("gemini-2.5-flash");
+  const [llmCustomEndpoint, setLlmCustomEndpoint] = useState("");
+  const [savingLlm, setSavingLlm] = useState(false);
+  const [llmSavedMsg, setLlmSavedMsg] = useState<string | null>(null);
 
   // Subtitle editor state
   const [originalSubs, setOriginalSubs] = useState<SubtitleSegment[]>([]);
@@ -17,28 +64,80 @@ export default function DubbingStudio() {
   const [selectedSegId, setSelectedSegId] = useState<number | null>(null);
   const [savingSubs, setSavingSubs] = useState(false);
 
-  // Refs for media players
+  // Media Player Refs & Audio Mixer
   const videoPlayerRef = useRef<HTMLVideoElement>(null);
   const vocalsPlayerRef = useRef<HTMLAudioElement>(null);
   const bgmPlayerRef = useRef<HTMLAudioElement>(null);
 
-  // Audio mix options
   const [vocalsVolume, setVocalsVolume] = useState(1.0);
   const [bgmVolume, setBgmVolume] = useState(0.4);
 
-  // Poll job status
+  // Restore active job from localStorage on mount & fetch LLM settings
+  useEffect(() => {
+    fetchSystemLlmSettings();
+    if (jobId) {
+      fetchJobDetails(jobId);
+    }
+  }, []);
+
+  const fetchSystemLlmSettings = async () => {
+    try {
+      const settings = await api.adminGetSystemSettings();
+      if (settings.llm_provider) setLlmProvider(settings.llm_provider);
+      if (settings.llm_model) setLlmModel(settings.llm_model);
+      if (settings.llm_custom_endpoint) setLlmCustomEndpoint(settings.llm_custom_endpoint);
+      if (settings.llm_api_key) setLlmApiKey(settings.llm_api_key);
+    } catch {
+      // Non-admin fallback or ignore
+    }
+  };
+
+  const handleSaveLlmSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingLlm(true);
+    setLlmSavedMsg(null);
+    try {
+      await api.adminUpdateSystemSettings({
+        llm_provider: llmProvider,
+        llm_api_key: llmApiKey,
+        llm_model: llmModel,
+        llm_custom_endpoint: llmCustomEndpoint
+      });
+      setLlmSavedMsg("Đã lưu cấu hình LLM thành công!");
+      setTimeout(() => setLlmSavedMsg(null), 3000);
+    } catch (err: any) {
+      setError(err.message || "Lỗi cập nhật cấu hình LLM.");
+    } finally {
+      setSavingLlm(false);
+    }
+  };
+
+  const fetchJobDetails = async (id: string) => {
+    try {
+      const data = await api.getDubbingJob(id);
+      setJob(data);
+      if (data.original_subtitles) setOriginalSubs(data.original_subtitles);
+      if (data.translated_subtitles) setTranslatedSubs(data.translated_subtitles);
+    } catch (err: any) {
+      console.error("Lỗi lấy thông tin Job:", err);
+    }
+  };
+
+  // Poll active job status
   useEffect(() => {
     if (!jobId) return;
+
+    localStorage.setItem("active_dubbing_job_id", jobId);
 
     const interval = setInterval(async () => {
       try {
         const data = await api.getDubbingJob(jobId);
         setJob(data);
 
-        if (data.original_subtitles) {
+        if (data.original_subtitles && data.original_subtitles.length > 0) {
           setOriginalSubs(data.original_subtitles);
         }
-        if (data.translated_subtitles) {
+        if (data.translated_subtitles && data.translated_subtitles.length > 0) {
           setTranslatedSubs(data.translated_subtitles);
         }
 
@@ -46,9 +145,9 @@ export default function DubbingStudio() {
           clearInterval(interval);
         }
       } catch (err: any) {
-        console.error("Lỗi đồng bộ thông tin Job:", err);
+        console.error("Lỗi đồng bộ Job status:", err);
       }
-    }, 3000);
+    }, 2500);
 
     return () => clearInterval(interval);
   }, [jobId]);
@@ -57,23 +156,23 @@ export default function DubbingStudio() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setJobId(null);
-    setJob(null);
 
     try {
-      if (!selectedFile && !youtubeUrl) {
-        throw new Error("Vui lòng tải lên file video hoặc dán link YouTube.");
+      if (!selectedFile && !youtubeUrl.trim()) {
+        throw new Error("Vui lòng tải lên tệp video hoặc dán link YouTube.");
       }
 
       const response = await api.createDubbingJob(
         selectedFile || undefined,
-        youtubeUrl || undefined,
+        youtubeUrl.trim() || undefined,
         targetLanguage
       );
+
       setJobId(response.id);
+      localStorage.setItem("active_dubbing_job_id", response.id);
       setJob(response);
     } catch (err: any) {
-      setError(err.message || "Không thể khởi động tác vụ lồng tiếng.");
+      setError(err.message || "Không thể khởi tạo tác vụ lồng tiếng.");
     } finally {
       setLoading(false);
     }
@@ -85,7 +184,7 @@ export default function DubbingStudio() {
     setError(null);
     try {
       await api.updateDubbingSubtitles(jobId, originalSubs, translatedSubs);
-      alert("Đã lưu thay đổi phụ đề thành công!");
+      alert("Đã lưu bản dịch phụ đề thành công!");
     } catch (err: any) {
       setError(err.message || "Lỗi lưu phụ đề.");
     } finally {
@@ -98,11 +197,8 @@ export default function DubbingStudio() {
     setError(null);
     setLoading(true);
     try {
-      // Auto-save changes first
       await api.updateDubbingSubtitles(jobId, originalSubs, translatedSubs);
       await api.finalizeDubbingJob(jobId);
-      
-      // Update local state to trigger polling resume
       const data = await api.getDubbingJob(jobId);
       setJob(data);
     } catch (err: any) {
@@ -112,7 +208,6 @@ export default function DubbingStudio() {
     }
   };
 
-  // Jump video player to specific subtitle segment
   const jumpToSegment = (start: number, id: number) => {
     setSelectedSegId(id);
     if (videoPlayerRef.current) {
@@ -128,6 +223,7 @@ export default function DubbingStudio() {
   };
 
   const resetState = () => {
+    localStorage.removeItem("active_dubbing_job_id");
     setJobId(null);
     setJob(null);
     setYoutubeUrl("");
@@ -138,7 +234,7 @@ export default function DubbingStudio() {
     setError(null);
   };
 
-  // Sync separate vocals/BGM tracks to the main video player (for reviewing separated tracks)
+  // Sync separate audio tracks with video player
   const handleVideoPlay = () => {
     vocalsPlayerRef.current?.play();
     bgmPlayerRef.current?.play();
@@ -157,298 +253,418 @@ export default function DubbingStudio() {
     }
   };
 
+  // Get current step index for the progress stepper
+  const getActiveStepIndex = () => {
+    if (!job) return 0;
+    const statusMap: Record<string, number> = {
+      queued: 0,
+      downloading: 0,
+      separating_audio: 1,
+      transcribing: 2,
+      translating: 3,
+      awaiting_review: 4,
+      generating_tts: 5,
+      mixing_audio: 6,
+      muxing_video: 7,
+      completed: 8,
+      failed: -1
+    };
+    return statusMap[job.status] !== undefined ? statusMap[job.status] : 0;
+  };
+
+  const currentStepIdx = getActiveStepIndex();
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-8 font-sans">
-      <div className="max-w-6xl mx-auto">
-        
-        {/* Header Section */}
-        <div className="flex justify-between items-center mb-8 border-b border-slate-800 pb-6">
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-violet-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent">
-              Studio Lồng Tiếng Video AI
-            </h1>
-            <p className="text-sm text-slate-400 mt-2">
-              Dịch thuật phụ đề bằng LLM, tách nhạc thông minh, và lồng tiếng tự động sử dụng OmniVoice Clone.
-            </p>
-          </div>
-          {jobId && (
-            <button
-              onClick={resetState}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold rounded-lg border border-slate-700 transition"
-            >
-              Tạo dự án mới
-            </button>
-          )}
-        </div>
-
-        {error && (
-          <div className="mb-6 p-4 bg-red-950/50 border border-red-500/50 text-red-200 rounded-xl text-sm">
-            <strong>Lỗi:</strong> {error}
-          </div>
+    <div className="w-full flex flex-col gap-6 animate-fadeIn">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <PageHeader
+          title="Studio Lồng Tiếng Video AI"
+          description="Dịch thuật phụ đề đa ngôn ngữ qua LLM, bóc tách nhạc nền Demucs và lồng tiếng tự động bằng OmniVoice Clone."
+          icon={<Film className="w-5 h-5" />}
+        />
+        {jobId && (
+          <button
+            onClick={resetState}
+            className="flex items-center gap-2 px-3.5 py-2 bg-secondary hover:bg-secondary/80 text-foreground text-xs font-semibold rounded-xl border border-border transition-colors cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Tạo dự án mới</span>
+          </button>
         )}
+      </div>
 
-        {/* --- STEP 1: UPLOAD SCREEN --- */}
-        {!jobId && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="md:col-span-2 bg-slate-900/60 backdrop-blur-sm p-8 rounded-2xl border border-slate-800 shadow-xl">
-              <h2 className="text-lg font-bold text-slate-200 mb-6">Tải Lên Video Đầu Vào</h2>
-              <form onSubmit={handleStartDubbing} className="space-y-6">
+      {error && (
+        <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-xl text-xs flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* --- STEPPER PROGRESS BAR (REALTIME PIPELINE) --- */}
+      {jobId && job && (
+        <SectionCard title="Tiến Trình Xử Lý Realtime">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                  {job.status.toUpperCase()}
+                </span>
+              </div>
+              <span className="text-xs font-bold text-primary">
+                {job.progress}%
+              </span>
+            </div>
+
+            {/* Stepper bubbles */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 pt-2">
+              {PIPELINE_STEPS.map((step, idx) => {
+                const IconComponent = step.icon;
+                const isDone = currentStepIdx > idx || job.status === "completed";
+                const isCurrent = currentStepIdx === idx && job.status !== "completed" && job.status !== "failed";
+                const isFailed = job.status === "failed" && currentStepIdx === idx;
+
+                return (
+                  <div
+                    key={step.id}
+                    className={`flex flex-col items-center p-2.5 rounded-xl border transition-all text-center relative ${
+                      isDone
+                        ? "bg-primary/5 border-primary/30 text-foreground"
+                        : isCurrent
+                        ? "bg-primary/15 border-primary text-primary font-bold shadow-sm ring-2 ring-primary/20"
+                        : isFailed
+                        ? "bg-destructive/10 border-destructive text-destructive"
+                        : "bg-secondary/20 border-border/50 text-muted-foreground opacity-60"
+                    }`}
+                  >
+                    <div className="mb-1.5 relative">
+                      {isDone ? (
+                        <CheckCircle2 className="w-5 h-5 text-primary" />
+                      ) : isCurrent ? (
+                        <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                      ) : (
+                        <IconComponent className="w-5 h-5" />
+                      )}
+                    </div>
+                    <span className="text-[11px] leading-tight font-bold line-clamp-1">{step.label}</span>
+                    <span className="text-[9px] text-muted-foreground mt-0.5 line-clamp-1 hidden sm:block">{step.desc}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Live Message */}
+            <div className="flex items-center gap-2 p-3 bg-secondary/40 border border-border/60 rounded-xl text-xs text-foreground">
+              <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0 animate-spin" />
+              <span className="font-medium">{job.message || "Đang xử lý tiến trình..."}</span>
+            </div>
+          </div>
+        </SectionCard>
+      )}
+
+      {/* --- FORM SETUP & LLM CONFIGURATION (STEP 1) --- */}
+      {!jobId && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <SectionCard title="Tải Lên Video Đầu Vào">
+              <form onSubmit={handleStartDubbing} className="flex flex-col gap-5">
                 
-                {/* Drag and drop card */}
-                <div className="border-2 border-dashed border-slate-700 hover:border-violet-500/50 transition rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer bg-slate-950/40 relative">
+                {/* Drag and Drop Card */}
+                <div className="border-2 border-dashed border-border hover:border-primary/50 transition-colors rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer bg-secondary/20 relative group">
                   <input
                     type="file"
                     accept="video/*"
                     onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                     className="absolute inset-0 opacity-0 cursor-pointer"
                   />
-                  <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-violet-400">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                    </svg>
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-3 group-hover:scale-110 transition-transform">
+                    <Upload className="w-6 h-6" />
                   </div>
-                  <span className="text-sm font-semibold text-slate-300">
-                    {selectedFile ? selectedFile.name : "Tải lên tệp video từ máy tính của bạn"}
+                  <span className="text-xs font-bold text-foreground">
+                    {selectedFile ? selectedFile.name : "Tải lên tệp video từ máy tính"}
                   </span>
-                  <span className="text-xs text-slate-500 mt-1">Hỗ trợ các định dạng MP4, MKV, MOV</span>
+                  <span className="text-[10px] text-muted-foreground mt-1">Hỗ trợ các định dạng MP4, MKV, MOV</span>
                 </div>
 
-                <div className="flex items-center my-4">
-                  <div className="flex-grow border-t border-slate-800"></div>
-                  <span className="mx-4 text-xs text-slate-500 font-bold tracking-wider uppercase">HOẶC DÁN ĐƯỜNG DẪN</span>
-                  <div className="flex-grow border-t border-slate-800"></div>
+                <div className="flex items-center my-1">
+                  <div className="flex-grow border-t border-border"></div>
+                  <span className="mx-3 text-[10px] text-muted-foreground font-bold tracking-wider uppercase">HOẶC DÁN LINK YOUTUBE</span>
+                  <div className="flex-grow border-t border-border"></div>
                 </div>
 
-                {/* YouTube Link input */}
-                <div>
-                  <label className="block text-xs font-semibold uppercase text-slate-400 mb-2">Đường dẫn YouTube</label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-grow">
-                      <input
-                        type="url"
-                        placeholder="https://www.youtube.com/watch?v=..."
-                        value={youtubeUrl}
-                        onChange={(e) => setYoutubeUrl(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-violet-500/50 text-slate-100"
-                      />
-                    </div>
-                  </div>
+                {/* YouTube Link */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                    <PlaySquare className="w-3.5 h-3.5 text-red-500" />
+                    <span>Đường dẫn YouTube</span>
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    value={youtubeUrl}
+                    onChange={(e) => setYoutubeUrl(e.target.value)}
+                    className="bg-background border border-border rounded-xl px-4 py-2.5 text-xs text-foreground focus:outline-none focus:border-primary"
+                  />
                 </div>
 
-                {/* Toggle Smart separation */}
-                <div className="flex items-center gap-3 bg-slate-950/20 p-4 rounded-xl border border-slate-800/40">
+                {/* Smart separation toggle */}
+                <div className="flex items-center gap-3 p-3.5 bg-secondary/30 rounded-xl border border-border">
                   <input
                     type="checkbox"
                     id="smart-sep"
                     checked={smartSeparation}
                     onChange={(e) => setSmartSeparation(e.target.checked)}
-                    className="w-4 h-4 text-violet-600 bg-slate-950 border-slate-800 rounded focus:ring-violet-500"
+                    className="w-4 h-4 accent-primary rounded cursor-pointer"
                   />
-                  <label htmlFor="smart-sep" className="text-sm text-slate-300 cursor-pointer">
-                    <span className="font-semibold block text-slate-200">Tách giọng nói & nhạc nền (Demucs GPU)</span>
-                    <span className="text-xs text-slate-400">Cô lập hoàn toàn giọng nói gốc để tham chiếu clone, giữ lại nhạc hiệu ứng.</span>
+                  <label htmlFor="smart-sep" className="text-xs text-foreground cursor-pointer flex-grow">
+                    <span className="font-bold block">Tách giọng nói & nhạc nền (Demucs GPU)</span>
+                    <span className="text-[10px] text-muted-foreground">Cô lập thoại để clone giọng chuẩn, giữ nguyên nhạc hiệu ứng.</span>
                   </label>
                 </div>
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 hover:opacity-95 font-semibold text-sm rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/10 disabled:opacity-50"
+                  className="w-full py-3 bg-gradient-to-r from-primary to-accent hover:brightness-105 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-primary/10 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                 >
-                  {loading ? "Đang tải dữ liệu..." : "Bắt Đầu Nhận Dạng & Dịch Thuật"}
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                    <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
-                  </svg>
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Đang khởi tạo tác vụ...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>Bắt Đầu Nhận Dạng & Dịch Thuật</span>
+                    </>
+                  )}
                 </button>
 
               </form>
-            </div>
-
-            {/* Language & Config sidecard */}
-            <div className="bg-slate-900/60 backdrop-blur-sm p-8 rounded-2xl border border-slate-800 shadow-xl space-y-6">
-              <h2 className="text-lg font-bold text-slate-200 border-b border-slate-800 pb-3">Cấu Hình Dịch Thuật</h2>
-              
-              <div>
-                <label className="block text-xs font-semibold uppercase text-slate-400 mb-2">Ngôn ngữ đích</label>
-                <select
-                  value={targetLanguage}
-                  onChange={(e) => setTargetLanguage(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-violet-500 text-slate-100"
-                >
-                  <option value="English">English (Tiếng Anh)</option>
-                  <option value="Vietnamese">Tiếng Việt (Vietnamese)</option>
-                  <option value="Japanese">日本語 (Japanese)</option>
-                  <option value="Korean">한국어 (Korean)</option>
-                  <option value="Chinese">中文 (Chinese)</option>
-                  <option value="French">Français (French)</option>
-                  <option value="Spanish">Español (Spanish)</option>
-                </select>
-              </div>
-
-              <div className="space-y-3 text-xs text-slate-400 bg-slate-950/40 p-4 rounded-xl border border-slate-800">
-                <span className="font-semibold text-slate-300 block mb-1">Quy trình tự động gồm:</span>
-                <p>1. Tách nhạc nền & giọng thoại (Demucs)</p>
-                <p>2. Chuyển đổi giọng thoại thành văn bản tiếng gốc (Whisper)</p>
-                <p>3. Dịch văn bản qua LLM (OpenAI/Gemini)</p>
-                <p>4. Chờ duyệt bản dịch phụ đề từ bạn</p>
-                <p>5. Sinh giọng đọc clone đè đồng bộ thời gian (OmniVoice)</p>
-              </div>
-            </div>
+            </SectionCard>
           </div>
-        )}
 
-        {/* --- STEP 2: PROCESSING SCREEN --- */}
-        {jobId && job && job.status !== "awaiting_review" && job.status !== "completed" && job.status !== "failed" && (
-          <div className="bg-slate-900/60 backdrop-blur-sm p-8 rounded-2xl border border-slate-800 max-w-2xl mx-auto shadow-xl">
-            <h2 className="text-xl font-bold text-slate-200 text-center mb-6">Đang Xử Lý Quy Trình</h2>
-            
-            <div className="space-y-6">
-              {/* Progress percentage bar */}
-              <div className="relative pt-1">
-                <div className="flex mb-2 items-center justify-between">
-                  <div>
-                    <span className="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full bg-violet-900/40 text-violet-300">
-                      {job.status.replace("_", " ")}
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-sm font-semibold inline-block text-violet-400">
-                      {job.progress}%
-                    </span>
-                  </div>
-                </div>
-                <div className="overflow-hidden h-2 text-xs flex rounded bg-slate-800">
-                  <div
-                    style={{ width: `${job.progress}%` }}
-                    className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-500"
-                  ></div>
-                </div>
-              </div>
-
-              <div className="p-4 bg-slate-950/40 border border-slate-800 rounded-xl text-center text-sm text-slate-300 font-medium">
-                <span className="inline-block animate-pulse w-2 h-2 rounded-full bg-violet-400 mr-2"></span>
-                {job.message || "Vui lòng chờ..."}
-              </div>
-
-              {/* Step indicator bubbles */}
-              <div className="grid grid-cols-4 gap-2 text-center text-xs text-slate-500 font-semibold pt-4">
-                <div className={job.progress >= 10 ? "text-violet-400" : ""}>Tải Video</div>
-                <div className={job.progress >= 25 ? "text-violet-400" : ""}>Tách Nhạc</div>
-                <div className={job.progress >= 50 ? "text-violet-400" : ""}>Whisper ASR</div>
-                <div className={job.progress >= 75 ? "text-violet-400" : ""}>LLM Dịch</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* --- STEP 3: SUBTITLE REVIEW & EDIT STUDIO --- */}
-        {jobId && job && job.status === "awaiting_review" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            
-            {/* Left: Video Player & Audio Controls */}
-            <div className="space-y-6">
-              <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl overflow-hidden">
-                <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wide mb-4">Video Xem Trước</h3>
-                <div className="relative aspect-video rounded-xl bg-black overflow-hidden border border-slate-800">
-                  <video
-                    ref={videoPlayerRef}
-                    src={api.getDubbingFileUrl(jobId, "video")}
-                    controls
-                    onPlay={handleVideoPlay}
-                    onPause={handleVideoPause}
-                    onSeeked={handleVideoSeek}
-                    className="w-full h-full object-contain"
-                  />
-                  
-                  {/* Invisible background audio tracks sync'd with video seek */}
-                  {job.vocals_audio_path && (
-                    <audio ref={vocalsPlayerRef} src={api.getDubbingFileUrl(jobId, "vocals")} />
-                  )}
-                  {job.bgm_audio_path && (
-                    <audio ref={bgmPlayerRef} src={api.getDubbingFileUrl(jobId, "bgm")} />
-                  )}
-                </div>
-
-                {/* Separated Audio Mix Panel */}
-                <div className="mt-6 space-y-4 bg-slate-950/40 p-4 rounded-xl border border-slate-800">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Bộ trộn tách kênh âm thanh</h4>
-                  
-                  <div className="space-y-3">
-                    {/* Vocals Volume */}
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-medium text-slate-300">Giọng Thoại Thoát Kênh</span>
-                      <div className="flex items-center gap-3 w-2/3">
-                        <input
-                          type="range"
-                          min="0"
-                          max="2"
-                          step="0.1"
-                          value={vocalsVolume}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            setVocalsVolume(val);
-                            if (vocalsPlayerRef.current) vocalsPlayerRef.current.volume = val / 2;
-                          }}
-                          className="w-full accent-violet-500 bg-slate-800 h-1 rounded-lg"
-                        />
-                        <span className="text-[10px] text-slate-500 font-bold w-8 text-right">{Math.round(vocalsVolume * 100)}%</span>
-                      </div>
-                    </div>
-
-                    {/* BGM Volume */}
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-medium text-slate-300">Nhạc Nền / Hiệu Ứng</span>
-                      <div className="flex items-center gap-3 w-2/3">
-                        <input
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.05"
-                          value={bgmVolume}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            setBgmVolume(val);
-                            if (bgmPlayerRef.current) bgmPlayerRef.current.volume = val;
-                          }}
-                          className="w-full accent-violet-500 bg-slate-800 h-1 rounded-lg"
-                        />
-                        <span className="text-[10px] text-slate-500 font-bold w-8 text-right">{Math.round(bgmVolume * 100)}%</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6">
-                  <button
-                    onClick={handleFinalize}
-                    disabled={loading}
-                    className="w-full py-3 bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 text-sm font-semibold rounded-xl hover:opacity-95 transition flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
+          {/* Right Configuration Sidecard */}
+          <div className="flex flex-col gap-6">
+            <SectionCard title="Cấu Hình Dịch Thuật">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground">Ngôn ngữ đích</label>
+                  <select
+                    value={targetLanguage}
+                    onChange={(e) => setTargetLanguage(e.target.value)}
+                    className="bg-background border border-border rounded-xl px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:border-primary font-medium"
                   >
-                    {loading ? "Đang tiến hành..." : "Xác Nhận & Tiến Hành Lồng Tiếng"}
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
-                    </svg>
-                  </button>
+                    <option value="English">English (Tiếng Anh)</option>
+                    <option value="Vietnamese">Tiếng Việt (Vietnamese)</option>
+                    <option value="Japanese">日本語 (Japanese)</option>
+                    <option value="Korean">한국어 (Korean)</option>
+                    <option value="Chinese">中文 (Chinese)</option>
+                    <option value="French">Français (French)</option>
+                    <option value="Spanish">Español (Spanish)</option>
+                  </select>
                 </div>
 
-              </div>
-            </div>
+                {/* Inline LLM API Key Setting Button */}
+                <div className="p-3.5 bg-secondary/30 rounded-xl border border-border flex flex-col gap-2">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-1.5">
+                      <Key className="w-3.5 h-3.5 text-primary" />
+                      <span className="text-xs font-bold text-foreground">Cấu hình LLM AI Key</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowLlmConfig(!showLlmConfig)}
+                      className="text-[10px] text-primary font-bold hover:underline cursor-pointer"
+                    >
+                      {showLlmConfig ? "Ẩn cài đặt" : "Cấu hình ngay"}
+                    </button>
+                  </div>
+                  
+                  <span className="text-[10px] text-muted-foreground">
+                    Model đang dùng: <strong className="text-foreground">{llmProvider.toUpperCase()} ({llmModel})</strong>
+                  </span>
+                </div>
 
-            {/* Right: Subtitle Editing Timeline */}
-            <div className="flex flex-col h-[580px] bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden">
-              <div className="flex justify-between items-center p-6 border-b border-slate-800">
-                <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wide">Phân Đoạn & Bản Dịch Phụ Đề</h3>
+                {/* LLM Config Accordion */}
+                {showLlmConfig && (
+                  <form onSubmit={handleSaveLlmSettings} className="p-4 bg-background border border-border rounded-xl flex flex-col gap-3">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase">LLM Provider</label>
+                      <select
+                        value={llmProvider}
+                        onChange={(e) => setLlmProvider(e.target.value)}
+                        className="bg-card border border-border rounded-lg p-2 text-xs text-foreground"
+                      >
+                        <option value="gemini">Google Gemini</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="custom">Custom Endpoint</option>
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase">Model Name</label>
+                      <input
+                        type="text"
+                        value={llmModel}
+                        onChange={(e) => setLlmModel(e.target.value)}
+                        className="bg-card border border-border rounded-lg p-2 text-xs text-foreground"
+                        placeholder="gemini-2.5-flash"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase">API Key</label>
+                      <input
+                        type="password"
+                        value={llmApiKey}
+                        onChange={(e) => setLlmApiKey(e.target.value)}
+                        className="bg-card border border-border rounded-lg p-2 text-xs text-foreground"
+                        placeholder="Nhập API Key Dịch Thuật..."
+                      />
+                    </div>
+
+                    {llmSavedMsg && (
+                      <div className="text-[10px] text-emerald-500 font-bold">{llmSavedMsg}</div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={savingLlm}
+                      className="py-2 bg-primary text-primary-foreground font-bold text-xs rounded-lg hover:brightness-105 transition-colors cursor-pointer"
+                    >
+                      {savingLlm ? "Đang lưu..." : "Lưu Cấu Hình LLM"}
+                    </button>
+                  </form>
+                )}
+
+                <div className="p-3.5 bg-secondary/20 rounded-xl border border-border/50 text-[11px] text-muted-foreground flex flex-col gap-1.5">
+                  <span className="font-bold text-foreground">Quy trình tự động gồm:</span>
+                  <p>1. Tách nhạc nền & giọng thoại (Demucs)</p>
+                  <p>2. Chuyển đổi thoại thành văn bản (Whisper)</p>
+                  <p>3. Dịch văn bản qua LLM</p>
+                  <p>4. Chờ xem trước & duyệt phụ đề</p>
+                  <p>5. Sinh giọng đọc clone đè đồng bộ (OmniVoice)</p>
+                </div>
+              </div>
+            </SectionCard>
+          </div>
+        </div>
+      )}
+
+      {/* --- STEP 3: SUBTITLE REVIEW & EDIT STUDIO --- */}
+      {jobId && job && job.status === "awaiting_review" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          {/* Left: Video Player & Audio Controls */}
+          <SectionCard title="Video Xem Trước & Bộ Trộn Âm Thanh">
+            <div className="flex flex-col gap-4">
+              <div className="relative aspect-video rounded-xl bg-black overflow-hidden border border-border shadow-inner">
+                <video
+                  ref={videoPlayerRef}
+                  src={api.getDubbingFileUrl(jobId, "video")}
+                  controls
+                  onPlay={handleVideoPlay}
+                  onPause={handleVideoPause}
+                  onSeeked={handleVideoSeek}
+                  className="w-full h-full object-contain"
+                />
+                
+                {job.vocals_audio_path && (
+                  <audio ref={vocalsPlayerRef} src={api.getDubbingFileUrl(jobId, "vocals")} />
+                )}
+                {job.bgm_audio_path && (
+                  <audio ref={bgmPlayerRef} src={api.getDubbingFileUrl(jobId, "bgm")} />
+                )}
+              </div>
+
+              {/* Audio Track Mix Panel */}
+              <div className="p-4 bg-secondary/30 rounded-xl border border-border flex flex-col gap-3">
+                <div className="flex items-center gap-1.5 border-b border-border/60 pb-2">
+                  <Sliders className="w-3.5 h-3.5 text-primary" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">Bộ trộn tách kênh âm thanh</h4>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-medium text-foreground">Giọng Thoại Đã Tách (Vocals)</span>
+                    <div className="flex items-center gap-3 w-2/3">
+                      <input
+                        type="range"
+                        min="0"
+                        max="2"
+                        step="0.1"
+                        value={vocalsVolume}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          setVocalsVolume(val);
+                          if (vocalsPlayerRef.current) vocalsPlayerRef.current.volume = val / 2;
+                        }}
+                        className="w-full accent-primary bg-secondary h-1.5 rounded-lg cursor-pointer"
+                      />
+                      <span className="text-[10px] font-bold text-muted-foreground w-8 text-right">{Math.round(vocalsVolume * 100)}%</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-medium text-foreground">Nhạc Nền / Hiệu Ứng (BGM)</span>
+                    <div className="flex items-center gap-3 w-2/3">
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={bgmVolume}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          setBgmVolume(val);
+                          if (bgmPlayerRef.current) bgmPlayerRef.current.volume = val;
+                        }}
+                        className="w-full accent-primary bg-secondary h-1.5 rounded-lg cursor-pointer"
+                      />
+                      <span className="text-[10px] font-bold text-muted-foreground w-8 text-right">{Math.round(bgmVolume * 100)}%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={handleFinalize}
+                disabled={loading}
+                className="w-full py-3 bg-gradient-to-r from-primary to-accent hover:brightness-105 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-primary/10 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Đang hoàn tất lồng tiếng...</span>
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="w-4 h-4" />
+                    <span>Xác Nhận Bản Dịch & Lồng Tiếng Video</span>
+                  </>
+                )}
+              </button>
+
+            </div>
+          </SectionCard>
+
+          {/* Right: Subtitle Timeline Editor */}
+          <SectionCard title="Biên Tập Bản Dịch Phụ Đề">
+            <div className="flex flex-col gap-3">
+              <div className="flex justify-end mb-1">
                 <button
                   onClick={handleSaveSubtitles}
                   disabled={savingSubs}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-violet-300 rounded border border-slate-700 transition"
+                  className="px-3 py-1 bg-secondary hover:bg-secondary/80 text-foreground text-xs font-semibold rounded-lg border border-border transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  {savingSubs ? "Đang lưu..." : "Lưu thay đổi"}
+                  <Save className="w-3.5 h-3.5 text-primary" />
+                  <span>{savingSubs ? "Đang lưu..." : "Lưu phụ đề"}</span>
                 </button>
               </div>
 
-              {/* Timeline segment list */}
-              <div className="flex-grow overflow-y-auto p-6 space-y-4">
+              <div className="flex flex-col h-[450px] overflow-y-auto pr-1 gap-3">
                 {translatedSubs.map((seg, idx) => {
                   const origSeg = originalSubs[idx] || seg;
                   const isSelected = selectedSegId === seg.id;
@@ -456,35 +672,33 @@ export default function DubbingStudio() {
                     <div
                       key={seg.id}
                       onClick={() => jumpToSegment(seg.start, seg.id)}
-                      className={`p-4 rounded-xl border transition cursor-pointer text-left ${
+                      className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
                         isSelected
-                          ? "bg-slate-800/80 border-violet-500/50 shadow-md shadow-violet-500/5"
-                          : "bg-slate-950/40 border-slate-800 hover:border-slate-700"
+                          ? "bg-primary/10 border-primary shadow-sm"
+                          : "bg-secondary/20 border-border/60 hover:border-border"
                       }`}
                     >
                       <div className="flex justify-between items-center mb-2">
-                        <span className="text-[10px] font-bold text-violet-400 tracking-wider">PHÂN ĐOẠN #{seg.id}</span>
-                        <span className="text-[10px] text-slate-500 font-bold bg-slate-900 px-2 py-0.5 rounded">
+                        <span className="text-[10px] font-bold text-primary tracking-wider">PHÂN ĐOẠN #{seg.id}</span>
+                        <span className="text-[10px] font-mono font-bold text-muted-foreground bg-background px-2 py-0.5 rounded border border-border">
                           {seg.start.toFixed(2)}s → {seg.end.toFixed(2)}s ({(seg.end - seg.start).toFixed(1)}s)
                         </span>
                       </div>
                       
-                      <div className="space-y-3">
-                        {/* Original Text */}
+                      <div className="flex flex-col gap-2">
                         <div>
-                          <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider">Tiếng gốc:</span>
-                          <p className="text-xs text-slate-400 mt-0.5 italic">{origSeg.text}</p>
+                          <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">Gốc:</span>
+                          <p className="text-xs text-muted-foreground italic mt-0.5">{origSeg.text}</p>
                         </div>
                         
-                        {/* Translated input */}
                         <div>
-                          <span className="text-[9px] uppercase font-bold text-violet-400 tracking-wider">Lồng tiếng ({targetLanguage}):</span>
+                          <span className="text-[9px] uppercase font-bold text-primary tracking-wider">Dịch ({targetLanguage}):</span>
                           <textarea
                             value={seg.text}
                             onChange={(e) => updateSubText(seg.id, e.target.value)}
-                            onClick={(e) => e.stopPropagation()} // Stop jump click
+                            onClick={(e) => e.stopPropagation()}
                             rows={2}
-                            className="w-full bg-slate-950 border border-slate-850 rounded p-2 text-xs text-slate-200 mt-1 focus:outline-none focus:border-violet-500"
+                            className="w-full bg-background border border-border rounded-lg p-2 text-xs text-foreground mt-1 focus:outline-none focus:border-primary font-medium"
                           />
                         </div>
                       </div>
@@ -492,56 +706,28 @@ export default function DubbingStudio() {
                   );
                 })}
               </div>
+            </div>
+          </SectionCard>
 
+        </div>
+      )}
+
+      {/* --- STEP 5: FINAL OUTPUT PREVIEW & DOWNLOAD --- */}
+      {jobId && job && job.status === "completed" && (
+        <SectionCard title="Hoàn Tất Lồng Tiếng Video!">
+          <div className="flex flex-col items-center gap-6 text-center max-w-3xl mx-auto py-4">
+            <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500">
+              <CheckCircle2 className="w-6 h-6" />
             </div>
 
-          </div>
-        )}
-
-        {/* --- STEP 4: FINALIZE IN PROGRESS SCREEN --- */}
-        {jobId && job && (job.status === "generating_tts" || job.status === "mixing_audio" || job.status === "muxing_video") && (
-          <div className="bg-slate-900/60 backdrop-blur-sm p-8 rounded-2xl border border-slate-800 max-w-2xl mx-auto shadow-xl text-center">
-            <h2 className="text-xl font-bold text-slate-200 mb-6">Đang Tổng Hợp Video Thành Phẩm</h2>
-            
-            <div className="flex justify-center mb-8">
-              <div className="relative w-24 h-24 flex items-center justify-center">
-                <div className="absolute inset-0 rounded-full border-4 border-violet-500/20"></div>
-                <div className="absolute inset-0 rounded-full border-4 border-t-violet-500 border-r-violet-500 animate-spin"></div>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-violet-400">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
-                </svg>
-              </div>
+            <div>
+              <h2 className="text-lg font-bold text-foreground">Video Đã Được Lồng Tiếng Thành Công!</h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Giọng nói đã được tổng hợp clone chính xác và khớp thời lượng từng phân đoạn.
+              </p>
             </div>
 
-            <div className="space-y-4">
-              <div className="text-sm text-slate-300 font-semibold">{job.message || "Vui lòng chờ..."}</div>
-              <div className="text-xs text-slate-500">Mô hình đang tổng hợp các file âm thanh lồng tiếng đè và ghép nhạc nền theo mốc thời gian...</div>
-              
-              <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                <div
-                  style={{ width: `${job.progress}%` }}
-                  className="bg-violet-500 h-full transition-all duration-300"
-                ></div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* --- STEP 5: FINAL OUTPUT PREVIEW & DOWNLOAD --- */}
-        {jobId && job && job.status === "completed" && (
-          <div className="max-w-4xl mx-auto bg-slate-900/60 backdrop-blur-sm p-8 rounded-2xl border border-slate-800 shadow-xl space-y-8">
-            <div className="text-center">
-              <div className="inline-flex w-12 h-12 rounded-full bg-green-500/20 border border-green-500/30 items-center justify-center text-green-400 mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-bold text-slate-200">Hoàn Tất Lồng Tiếng Video!</h2>
-              <p className="text-sm text-slate-400 mt-2">Video của bạn đã được dịch thuật và lồng ghép giọng clone đồng bộ thời lượng thành công.</p>
-            </div>
-
-            {/* Video player */}
-            <div className="aspect-video w-full max-w-2xl mx-auto rounded-xl overflow-hidden bg-black border border-slate-800 shadow-2xl">
+            <div className="aspect-video w-full max-w-2xl rounded-2xl overflow-hidden bg-black border border-border shadow-xl">
               <video
                 src={api.getDubbingFileUrl(jobId, "output")}
                 controls
@@ -549,22 +735,18 @@ export default function DubbingStudio() {
               />
             </div>
 
-            {/* Download actions */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <div className="flex flex-wrap gap-4 justify-center">
               <a
                 href={api.getDubbingFileUrl(jobId, "output")}
                 download={`dubbed_video_${jobId}.mp4`}
-                className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 text-sm font-semibold rounded-xl hover:opacity-95 transition flex items-center justify-center gap-2 shadow-lg"
+                className="px-5 py-2.5 bg-gradient-to-r from-primary to-accent hover:brightness-105 text-white font-bold text-xs rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                </svg>
-                Tải Video Lồng Tiếng (MP4)
+                <Download className="w-4 h-4" />
+                <span>Tải Video MP4 Lồng Tiếng</span>
               </a>
               
               <button
                 onClick={() => {
-                  // Export SRT file directly in browser
                   const srtText = originalSubs.map((seg, idx) => {
                     const trans = translatedSubs[idx] || seg;
                     const format = (s: number) => {
@@ -586,38 +768,35 @@ export default function DubbingStudio() {
                   a.click();
                   document.body.removeChild(a);
                 }}
-                className="w-full sm:w-auto px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold rounded-xl border border-slate-700 transition flex items-center justify-center gap-2"
+                className="px-5 py-2.5 bg-secondary hover:bg-secondary/80 text-foreground font-bold text-xs rounded-xl border border-border transition-colors flex items-center gap-2 cursor-pointer"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                </svg>
-                Tải Phụ Đề SRT dịch
+                <FileText className="w-4 h-4" />
+                <span>Tải Phụ Đề SRT</span>
               </button>
             </div>
-          </div>
-        )}
 
-        {/* --- STEP 6: FAILED SCREEN --- */}
-        {jobId && job && job.status === "failed" && (
-          <div className="bg-slate-900/60 backdrop-blur-sm p-8 rounded-2xl border border-slate-800 max-w-xl mx-auto shadow-xl text-center space-y-6">
-            <div className="inline-flex w-12 h-12 rounded-full bg-red-500/20 border border-red-500/30 items-center justify-center text-red-400">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-              </svg>
+          </div>
+        </SectionCard>
+      )}
+
+      {/* --- STEP 6: FAILED SCREEN --- */}
+      {jobId && job && job.status === "failed" && (
+        <SectionCard title="Xử Lý Thất Bại">
+          <div className="flex flex-col items-center gap-4 text-center py-6">
+            <div className="w-12 h-12 rounded-full bg-destructive/10 border border-destructive/30 flex items-center justify-center text-destructive">
+              <AlertCircle className="w-6 h-6" />
             </div>
-            <h2 className="text-xl font-bold text-slate-200">Xử Lý Thất Bại</h2>
-            <p className="text-sm text-red-400">{job.error_message || "Đã xảy ra lỗi không xác định."}</p>
-            
+            <p className="text-xs font-semibold text-destructive">{job.error_message || "Đã xảy ra lỗi không xác định."}</p>
             <button
               onClick={resetState}
-              className="px-6 py-2.5 bg-violet-600 hover:bg-violet-500 text-sm font-semibold rounded-lg transition"
+              className="px-5 py-2 bg-primary text-primary-foreground font-bold text-xs rounded-xl cursor-pointer"
             >
-              Thử lại
+              Thử lại tác vụ mới
             </button>
           </div>
-        )}
+        </SectionCard>
+      )}
 
-      </div>
     </div>
   );
 }

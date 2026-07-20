@@ -146,6 +146,10 @@ export interface SystemSettingsResponse {
   kaggle_worker_dir: string;
   ui_layout: string;
   hf_token: string;
+  llm_provider?: string;
+  llm_api_key?: string;
+  llm_model?: string;
+  llm_custom_endpoint?: string;
 }
 
 export interface SystemSettingsUpdateRequest {
@@ -167,6 +171,10 @@ export interface SystemSettingsUpdateRequest {
   kaggle_worker_dir?: string;
   ui_layout?: string;
   hf_token?: string;
+  llm_provider?: string;
+  llm_api_key?: string;
+  llm_model?: string;
+  llm_custom_endpoint?: string;
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {

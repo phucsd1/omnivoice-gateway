@@ -706,6 +706,58 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
               />
             </div>
 
+            <h3 className="md:col-span-2 text-sm font-bold text-foreground border-b border-border pb-2 mt-4">
+              Cấu hình Dịch Thuật LLM (Dùng cho Video Dubbing & Phụ Đề)
+            </h3>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-muted-foreground">Nhà cung cấp LLM (LLM Provider)</label>
+              <select
+                value={settingsData.llm_provider || "gemini"}
+                onChange={(e) => setSettingsData({ ...settingsData, llm_provider: e.target.value })}
+                className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary"
+              >
+                <option value="gemini">Google Gemini (Khuyên dùng - Miễn phí/Tốc độ cao)</option>
+                <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
+                <option value="custom">Custom REST Endpoint (Ollama / Local LLM)</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-muted-foreground">Mô hình (LLM Model Name)</label>
+              <input
+                type="text"
+                value={settingsData.llm_model || "gemini-2.5-flash"}
+                onChange={(e) => setSettingsData({ ...settingsData, llm_model: e.target.value })}
+                placeholder="gemini-2.5-flash hoặc gpt-4o-mini"
+                className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5 md:col-span-2">
+              <label className="text-xs font-semibold text-muted-foreground">API Key Dịch Thuật (Gemini API Key / OpenAI API Key)</label>
+              <input
+                type="password"
+                value={settingsData.llm_api_key || ""}
+                onChange={(e) => setSettingsData({ ...settingsData, llm_api_key: e.target.value })}
+                placeholder={settingsData.llm_api_key ? "•••••••••••••••• (Đã thiết lập - Nhập mới để cập nhật)" : "Nhập API Key Dịch Thuật AI..."}
+                className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary"
+              />
+            </div>
+
+            {settingsData.llm_provider === "custom" && (
+              <div className="flex flex-col gap-1.5 md:col-span-2">
+                <label className="text-xs font-semibold text-muted-foreground">Custom Endpoint URL</label>
+                <input
+                  type="text"
+                  value={settingsData.llm_custom_endpoint || ""}
+                  onChange={(e) => setSettingsData({ ...settingsData, llm_custom_endpoint: e.target.value })}
+                  placeholder="https://my-local-llm.com/v1/chat/completions"
+                  className="bg-card border border-border rounded-lg p-2.5 text-xs text-foreground focus:outline-none focus:border-primary"
+                />
+              </div>
+            )}
+
             <div className="md:col-span-2 flex justify-end gap-3 mt-4">
               <button
                 type="submit"
