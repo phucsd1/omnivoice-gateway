@@ -25,25 +25,49 @@ class VideoDubbingService:
     def download_youtube_video(url: str, output_dir: str) -> Tuple[str, str]:
         """
         Downloads a YouTube video and returns (video_path, title).
-        Uses yt-dlp with legacy_server_connect first, falls back to pytubefix.
+        Uses pytubefix first (fast progressive MP4 stream), falls back to yt-dlp format 18.
         """
-        VideoDubbingService.ensure_dependencies()
         os.makedirs(output_dir, exist_ok=True)
-        outtmpl = os.path.join(output_dir, "input_video.%(ext)s")
-        
-        # Method 1: yt-dlp with legacy_server_connect
+        target_path = os.path.join(output_dir, "input_video.mp4")
+
+        # Method 1: pytubefix (Fastest & direct progressive MP4 download)
         try:
+            print("[VideoDubbingService] Attempting YouTube download via pytubefix...")
+            try:
+                from pytubefix import YouTube
+            except ImportError:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "pytubefix"])
+                from pytubefix import YouTube
+            
+            yt = YouTube(url)
+            title = yt.title or "YouTube Video"
+            stream = yt.streams.filter(progressive=True, file_extension='mp4').first()
+            if not stream:
+                stream = yt.streams.filter(file_extension='mp4').first()
+            
+            if stream:
+                stream.download(output_path=output_dir, filename="input_video.mp4")
+                if os.path.exists(target_path) and os.path.getsize(target_path) > 0:
+                    print(f"[VideoDubbingService] pytubefix download success: {title}")
+                    return target_path, title
+        except Exception as e:
+            print(f"[VideoDubbingService] pytubefix download failed ({e}), falling back to yt-dlp...")
+
+        # Method 2: yt-dlp fallback with progressive format 18/best
+        try:
+            VideoDubbingService.ensure_dependencies()
             import yt_dlp
+            outtmpl = os.path.join(output_dir, "input_video.%(ext)s")
             ydl_opts = {
-                'format': 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]/best',
+                'format': '18/best[height<=720]/best',
                 'outtmpl': outtmpl,
                 'quiet': True,
                 'no_warnings': True,
                 'nocheckcertificate': True,
                 'legacy_server_connect': True,
-                'socket_timeout': 30,
-                'retries': 3,
-                'fragment_retries': 3,
+                'socket_timeout': 15,
+                'retries': 2,
+                'fragment_retries': 2,
                 'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'extractor_args': {
                     'youtube': {
@@ -57,37 +81,15 @@ class VideoDubbingService:
                 filename = ydl.prepare_filename(info)
                 base, _ = os.path.splitext(filename)
                 for ext in ['.mp4', '.mkv', '.webm']:
-                    if os.path.exists(base + ext):
+                    if os.path.exists(base + ext) and os.path.getsize(base + ext) > 0:
                         return base + ext, video_title
-                if os.path.exists(filename):
+                if os.path.exists(filename) and os.path.getsize(filename) > 0:
                     return filename, video_title
         except Exception as e:
-            print(f"[VideoDubbingService] yt-dlp failed ({e}), switching to pytubefix fallback...")
-
-        # Method 2: pytubefix fallback
-        try:
-            try:
-                from pytubefix import YouTube
-            except ImportError:
-                print("[VideoDubbingService] Installing pytubefix dynamically...")
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "pytubefix"])
-                from pytubefix import YouTube
-            
-            yt = YouTube(url)
-            title = yt.title or "YouTube Video"
-            stream = yt.streams.filter(progressive=True, file_extension='mp4').first()
-            if not stream:
-                stream = yt.streams.filter(file_extension='mp4').first()
-            
-            target_path = os.path.join(output_dir, "input_video.mp4")
-            stream.download(output_path=output_dir, filename="input_video.mp4")
-            if os.path.exists(target_path):
-                return target_path, title
-        except Exception as e:
-            print(f"[VideoDubbingService] pytubefix download failed: {e}")
+            print(f"[VideoDubbingService] yt-dlp download failed: {e}")
             raise Exception(f"Không thể tải video từ YouTube: {e}")
 
-        raise Exception("Không tìm thấy tệp video sau khi tải từ YouTube.")
+        raise Exception("Không thể tải video từ YouTube.")
 
     @staticmethod
     def extract_audio_ffmpeg(video_path: str, output_audio_path: str) -> float:
