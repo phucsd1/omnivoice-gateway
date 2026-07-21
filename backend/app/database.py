@@ -287,6 +287,125 @@ def migrate_database(db_url: str):
     finally:
         conn.close()
 
+    # Automatically rescue data from any backed up corrupted database files
+    salvage_corrupted_databases(db_url)
+
+def salvage_corrupted_databases(db_url: str):
+    if not db_url.startswith("sqlite"):
+        return
+        
+    db_path = db_url
+    if db_path.startswith("sqlite:///"):
+        db_path = db_path[10:]
+    elif db_path.startswith("sqlite://"):
+        db_path = db_path[9:]
+    elif db_path.startswith("sqlite:"):
+        db_path = db_path[7:]
+    if "?" in db_path:
+        db_path = db_path.split("?")[0]
+        
+    db_dir = os.path.dirname(db_path) or "."
+    base_name = os.path.basename(db_path)
+    
+    if not os.path.exists(db_dir):
+        return
+        
+    import sqlite3
+    import glob
+    
+    corrupt_files = [
+        f for f in glob.glob(os.path.join(db_dir, f"{base_name}.corrupt_*"))
+        if not f.endswith(".restored")
+    ]
+    
+    if not corrupt_files:
+        return
+        
+    print(f"[Database Salvage] Found {len(corrupt_files)} corrupted backup database file(s) to restore.")
+    
+    tables_to_restore = [
+        "users", "api_keys", "voice_samples", "llm_profiles",
+        "system_settings", "tts_jobs", "worker_sessions", "api_usage_logs"
+    ]
+    
+    try:
+        target_conn = sqlite3.connect(db_path, timeout=30)
+        target_cursor = target_conn.cursor()
+    except Exception as e:
+        print(f"[Database Salvage Error] Failed to connect to active database {db_path}: {e}")
+        return
+    
+    for corrupt_file in corrupt_files:
+        print(f"[Database Salvage] Rescuing data from {corrupt_file}...")
+        try:
+            source_conn = sqlite3.connect(f"file:{corrupt_file}?mode=ro", uri=True, timeout=10)
+            source_cursor = source_conn.cursor()
+            
+            for table in tables_to_restore:
+                try:
+                    source_cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,))
+                    if not source_cursor.fetchone():
+                        continue
+                        
+                    target_cursor.execute(f"PRAGMA table_info({table})")
+                    target_cols = [row[1] for row in target_cursor.fetchall()]
+                    if not target_cols:
+                        continue
+                        
+                    source_cursor.execute(f"PRAGMA table_info({table})")
+                    source_cols = [row[1] for row in source_cursor.fetchall()]
+                    
+                    common_cols = [c for c in source_cols if c in target_cols]
+                    if not common_cols:
+                        continue
+                        
+                    col_names = ", ".join(common_cols)
+                    placeholders = ", ".join(["?"] * len(common_cols))
+                    
+                    rows = []
+                    try:
+                        source_cursor.execute(f"SELECT {col_names} FROM {table}")
+                        rows = source_cursor.fetchall()
+                    except Exception as select_err:
+                        print(f"[Database Salvage] Table fetch error for '{table}': {select_err}. Attempting rowid fallback...")
+                        try:
+                            source_cursor.execute(f"SELECT rowid FROM {table}")
+                            rowids = [r[0] for r in source_cursor.fetchall()]
+                            for rid in rowids:
+                                try:
+                                    source_cursor.execute(f"SELECT {col_names} FROM {table} WHERE rowid=?", (rid,))
+                                    r_item = source_cursor.fetchone()
+                                    if r_item:
+                                        rows.append(r_item)
+                                except Exception:
+                                    pass
+                        except Exception:
+                            pass
+                    
+                    if rows:
+                        insert_sql = f"INSERT OR IGNORE INTO {table} ({col_names}) VALUES ({placeholders})"
+                        restored_count = 0
+                        for row in rows:
+                            try:
+                                target_cursor.execute(insert_sql, row)
+                                if target_cursor.rowcount > 0:
+                                    restored_count += 1
+                            except Exception:
+                                pass
+                        target_conn.commit()
+                        print(f"[Database Salvage] Restored {restored_count}/{len(rows)} records into '{table}'")
+                except Exception as table_err:
+                    print(f"[Database Salvage Error] Table '{table}': {table_err}")
+            
+            source_conn.close()
+            restored_path = f"{corrupt_file}.restored"
+            os.rename(corrupt_file, restored_path)
+            print(f"[Database Salvage] Data recovery completed for {corrupt_file} -> {restored_path}")
+        except Exception as file_err:
+            print(f"[Database Salvage Error] Opening {corrupt_file}: {file_err}")
+            
+    target_conn.close()
+
 def get_db():
     db = SessionLocal()
     try:
