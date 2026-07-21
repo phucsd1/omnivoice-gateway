@@ -382,13 +382,12 @@ def salvage_corrupted_databases(db_url: str):
                             pass
                     
                     if rows:
-                        insert_sql = f"INSERT OR IGNORE INTO {table} ({col_names}) VALUES ({placeholders})"
+                        insert_sql = f"INSERT OR REPLACE INTO {table} ({col_names}) VALUES ({placeholders})"
                         restored_count = 0
                         for row in rows:
                             try:
                                 target_cursor.execute(insert_sql, row)
-                                if target_cursor.rowcount > 0:
-                                    restored_count += 1
+                                restored_count += 1
                             except Exception:
                                 pass
                         target_conn.commit()

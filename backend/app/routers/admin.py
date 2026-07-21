@@ -153,14 +153,13 @@ def restore_corrupt_db(db: Session = Depends(get_db), current_user: User = Depen
                             pass
                     
                     if rows:
-                        insert_sql = f"INSERT OR IGNORE INTO {table} ({col_names}) VALUES ({placeholders})"
+                        insert_sql = f"INSERT OR REPLACE INTO {table} ({col_names}) VALUES ({placeholders})"
                         restored_count = 0
                         for row in rows:
                             try:
                                 target_cursor.execute(insert_sql, row)
-                                if target_cursor.rowcount > 0:
-                                    restored_count += 1
-                            except Exception:
+                                restored_count += 1
+                            except Exception as row_e:
                                 pass
                         target_conn.commit()
                         backup_summary[table] = f"Restored {restored_count}/{len(rows)} rows"
