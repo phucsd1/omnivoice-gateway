@@ -66,6 +66,8 @@ def run_dubbing_pipeline(job_id: str):
             print(f"[run_dubbing_pipeline] Job {job_id} not found in DB after retries!")
             return
 
+        VideoDubbingService.log_to_job(job_id, f"Khởi chạy pipeline lồng tiếng video. Trạng thái ban đầu: {job.status}")
+
         job_dir = os.path.join(settings.dubbing_dir, job_id)
         # Stage 1: Download video if YouTube
         if job.source_type == "youtube":
@@ -74,6 +76,8 @@ def run_dubbing_pipeline(job_id: str):
             job.message = "Đang tải video từ YouTube..."
             db.commit()
             
+            VideoDubbingService.log_to_job(job_id, f"Tải video từ YouTube URL: {job.source_url}")
+
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(VideoDubbingService.download_youtube_video, job.source_url, job_dir)
@@ -84,6 +88,7 @@ def run_dubbing_pipeline(job_id: str):
                 
             job.input_file_path = video_path
             db.commit()
+            VideoDubbingService.log_to_job(job_id, f"Tải video thành công. File: {video_path}")
 
         # Stage 2: Extract audio from video
         job.status = "separating_audio"
@@ -92,9 +97,11 @@ def run_dubbing_pipeline(job_id: str):
         db.commit()
         
         orig_audio_path = os.path.join(job_dir, "original_audio.wav")
+        VideoDubbingService.log_to_job(job_id, f"Đang trích xuất audio gốc từ file video {job.input_file_path} bằng FFmpeg...")
         duration = VideoDubbingService.extract_audio_ffmpeg(job.input_file_path, orig_audio_path)
         job.original_audio_path = orig_audio_path
         db.commit()
+        VideoDubbingService.log_to_job(job_id, f"Trích xuất thành công WAV audio gốc. Thời lượng: {duration:.2f}s. File: {orig_audio_path}")
 
         # Check worker mode (Mock vs Kaggle)
         worker_mode = db.query(SystemSetting).filter(SystemSetting.key == "worker_mode").first()
@@ -103,7 +110,10 @@ def run_dubbing_pipeline(job_id: str):
         from app.models import WorkerSession
         active_worker = db.query(WorkerSession).first()
 
+        VideoDubbingService.log_to_job(job_id, f"Kiểm tra Worker mode. Chế độ: {mode_val}, GPU Worker active: {active_worker is not None}")
+
         if mode_val == "mock" or not active_worker:
+            VideoDubbingService.log_to_job(job_id, "[MOCK] Thực hiện tách âm thanh giả lập...")
             # Mock Audio Separation: copy original audio to vocals and BGM
             vocals_path = os.path.join(job_dir, "vocals.wav")
             bgm_path = os.path.join(job_dir, "bgm.wav")
@@ -112,6 +122,7 @@ def run_dubbing_pipeline(job_id: str):
             job.vocals_audio_path = vocals_path
             job.bgm_audio_path = bgm_path
             db.commit()
+            VideoDubbingService.log_to_job(job_id, f"[MOCK] Tách âm thanh thành công. Vocals: {vocals_path}, BGM: {bgm_path}")
 
             # Mock Transcription (ASR)
             job.status = "transcribing"
@@ -119,6 +130,8 @@ def run_dubbing_pipeline(job_id: str):
             job.message = "Đang dịch băng ghi âm (Nhận dạng giọng nói)..."
             db.commit()
             
+            VideoDubbingService.log_to_job(job_id, "[MOCK] Đang chạy nhận diện giọng nói (ASR)...")
+
             # Create simple mock subtitles spaced out by 5 seconds
             mock_subs = []
             num_segments = max(1, int(duration // 6))
@@ -133,6 +146,7 @@ def run_dubbing_pipeline(job_id: str):
                 })
             job.original_subtitles = json.dumps(mock_subs)
             db.commit()
+            VideoDubbingService.log_to_job(job_id, f"[MOCK] Nhận dạng giọng nói thành công. Tạo {len(mock_subs)} phân đoạn phụ đề gốc.")
 
             # Mock Translation
             job.status = "translating"
@@ -140,12 +154,15 @@ def run_dubbing_pipeline(job_id: str):
             job.message = "Đang dịch phụ đề qua ngôn ngữ đích..."
             db.commit()
             
+            VideoDubbingService.log_to_job(job_id, f"[MOCK] Đang dịch phụ đề sang ngôn ngữ đích: {job.target_language} bằng LLM...")
             translated_subs = VideoDubbingService.translate_subtitles_llm(mock_subs, job.target_language, db)
             job.translated_subtitles = json.dumps(translated_subs)
+            
             job.status = "awaiting_review"
             job.progress = 100
             job.message = "Đang chờ người dùng kiểm tra và xác nhận phụ đề dịch."
             db.commit()
+            VideoDubbingService.log_to_job(job_id, "Pipeline phân tích hoàn tất. Chuyển trạng thái sang: AWAITING_REVIEW.")
 
         else:
             # Kaggle Worker Mode: Submit job for audio separation
@@ -153,6 +170,8 @@ def run_dubbing_pipeline(job_id: str):
             job.progress = 30
             job.message = "Đang gửi yêu cầu tách giọng và nhạc nền lên Kaggle GPU..."
             db.commit()
+
+            VideoDubbingService.log_to_job(job_id, f"[KAGGLE] Tạo sub-job tách nhạc 'sep_{job_id}' trong hàng đợi...")
 
             # We create a special separate_audio job in the queue
             # Set the reference audio url to allow the worker to pull the extracted WAV
@@ -167,17 +186,13 @@ def run_dubbing_pipeline(job_id: str):
             )
             db.add(parent_tts_job)
             db.commit()
-
-            # We poll or let the worker push separation output.
-            # To keep it unified, we monitor state or let the worker completion trigger the next step.
-            # For this, we'll implement a state polling check or direct transition in internal_worker.py output upload!
-            # So the background task ends here, and the next stages (ASR -> LLM) will be triggered when the worker uploads output for this job.
+            VideoDubbingService.log_to_job(job_id, "[KAGGLE] Đã đưa sub-job tách nhạc vào hàng đợi, chờ GPU Worker xử lý...")
             
     except Exception as e:
         err_msg = str(e).strip() or repr(e) or type(e).__name__
         if isinstance(e, concurrent.futures.TimeoutError):
             err_msg = "Tải video từ YouTube quá 5 phút. Vui lòng thử lại hoặc tải video MP4 trực tiếp."
-        print(f"[run_dubbing_pipeline] Error in job {job_id}: {err_msg}")
+        VideoDubbingService.log_to_job(job_id, f"LỖI PIELINE PHÂN TÍCH: {err_msg}")
         db.rollback()
         job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id).first()
         if job:
@@ -200,6 +215,8 @@ def trigger_transcription_stage(dub_job_id: str, db: Session):
     job.message = "Đang tạo phụ đề tiếng gốc bằng Whisper ASR trên Kaggle..."
     db.commit()
     
+    VideoDubbingService.log_to_job(dub_job_id, f"[KAGGLE] Kênh vocals đã sẵn sàng. Tạo sub-job Whisper ASR 'asr_{dub_job_id}' trong hàng đợi...")
+
     # Create an ASR job
     asr_job = TTSJob(
         id=f"asr_{dub_job_id}",
@@ -213,6 +230,7 @@ def trigger_transcription_stage(dub_job_id: str, db: Session):
     )
     db.add(asr_job)
     db.commit()
+    VideoDubbingService.log_to_job(dub_job_id, "[KAGGLE] Đã đưa sub-job Whisper ASR vào hàng đợi, chờ GPU Worker xử lý...")
 
 def trigger_translation_stage(dub_job_id: str, text: str, alignment_str: str, db: Session):
     """Executes translation after ASR finishes and enters review stage."""
@@ -225,6 +243,8 @@ def trigger_translation_stage(dub_job_id: str, text: str, alignment_str: str, db
     job.message = "Đang dịch phụ đề tự động bằng LLM..."
     db.commit()
     
+    VideoDubbingService.log_to_job(dub_job_id, "Nhận kết quả ASR. Bắt đầu phân đoạn và căn lề thời gian (alignment)...")
+
     # Parse segments from Whisper alignment
     try:
         alignment_data = json.loads(alignment_str) if alignment_str else []
@@ -280,8 +300,10 @@ def trigger_translation_stage(dub_job_id: str, text: str, alignment_str: str, db
 
     job.original_subtitles = json.dumps(segments)
     db.commit()
-    
+    VideoDubbingService.log_to_job(dub_job_id, f"Hoàn tất phân tích phụ đề gốc: gồm {len(segments)} phân đoạn.")
+
     # Call LLM translator
+    VideoDubbingService.log_to_job(dub_job_id, f"Bắt đầu dịch thuật phụ đề tự động sang tiếng: {job.target_language} bằng LLM...")
     translated = VideoDubbingService.translate_subtitles_llm(segments, job.target_language, db)
     job.translated_subtitles = json.dumps(translated)
     
@@ -289,22 +311,114 @@ def trigger_translation_stage(dub_job_id: str, text: str, alignment_str: str, db
     job.progress = 100
     job.message = "Đang chờ người dùng kiểm tra và xác nhận phụ đề dịch."
     db.commit()
+    VideoDubbingService.log_to_job(dub_job_id, "Dịch thuật phụ đề hoàn tất. Chuyển trạng thái sang: AWAITING_REVIEW.")
+
+@router.post("/upload", response_model=VideoDubbingJobResponse)
+async def upload_dubbing_video(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_user_or_api_key)
+):
+    """Uploads a raw video file and creates a draft VideoDubbingJob."""
+    job_id = f"vd_{uuid.uuid4().hex[:8]}"
+    job_dir = os.path.join(settings.dubbing_dir, job_id)
+    os.makedirs(job_dir, exist_ok=True)
+
+    filename = file.filename or "uploaded_video.mp4"
+    ext = os.path.splitext(filename)[1] or ".mp4"
+    input_file_path = os.path.join(job_dir, f"input_video{ext}")
+
+    # Set initial log
+    VideoDubbingService.log_to_job(job_id, f"Khởi tạo upload video local: {filename}")
+
+    try:
+        with open(input_file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        VideoDubbingService.log_to_job(job_id, f"Upload video thành công. File lưu tại: {input_file_path}")
+    except Exception as e:
+        VideoDubbingService.log_to_job(job_id, f"Upload video thất bại: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Lỗi lưu file video: {e}"
+        )
+
+    job = VideoDubbingJob(
+        id=job_id,
+        user_id=current_user.id,
+        status="uploaded",
+        progress=100,
+        message="Đã tải lên video gốc, sẵn sàng để lồng tiếng.",
+        source_type="upload",
+        target_language="Vietnamese",  # Default to Vietnamese
+        input_file_path=input_file_path
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    return job
+
+@router.get("/jobs/{job_id}/log")
+def get_dubbing_log(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_user_or_api_key)
+):
+    """Retrieve the consolidated process/diagnostic log for a video dubbing job."""
+    job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id, VideoDubbingJob.user_id == current_user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tác vụ lồng tiếng.")
+    
+    log_path = os.path.join(settings.dubbing_dir, job_id, "process.log")
+    if not os.path.exists(log_path):
+        return {"log": "Chưa có log ghi nhận cho tác vụ này."}
+        
+    try:
+        with open(log_path, "r", encoding="utf-8") as f:
+            return {"log": f.read()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Không thể đọc log: {e}")
 
 @router.post("", response_model=VideoDubbingJobResponse)
 async def create_dubbing_job(
     background_tasks: BackgroundTasks,
     file: Optional[UploadFile] = File(None),
     youtube_url: Optional[str] = Form(None),
-    target_language: str = Form(...),
+    target_language: str = Form("Vietnamese"),
+    uploaded_job_id: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_user_or_api_key)
 ):
     """Tải lên video hoặc dán link YouTube để bắt đầu quy trình lồng tiếng tự động."""
-    if not file and not youtube_url:
+    if not file and not youtube_url and not uploaded_job_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Bạn cần cung cấp video tải lên hoặc link YouTube."
+            detail="Bạn cần cung cấp video tải lên, link YouTube hoặc ID video đã tải lên trước."
         )
+
+    if uploaded_job_id:
+        job = db.query(VideoDubbingJob).filter(
+            VideoDubbingJob.id == uploaded_job_id,
+            VideoDubbingJob.user_id == current_user.id
+        ).first()
+        if not job:
+            raise HTTPException(status_code=404, detail="Không tìm thấy tác vụ tải lên trước đó.")
+        
+        job.target_language = target_language
+        job.status = "queued"
+        job.progress = 5
+        job.message = "Khởi tạo tác vụ lồng tiếng..."
+        db.commit()
+        db.refresh(job)
+
+        VideoDubbingService.log_to_job(job.id, f"Bắt đầu tác vụ lồng tiếng từ video đã tải lên trước đó. Ngôn ngữ đích: {target_language}")
+
+        # Trigger background execution pipeline with isolated daemon thread
+        import threading
+        t = threading.Thread(target=run_dubbing_pipeline, args=(job.id,), daemon=True)
+        t.start()
+
+        return job
 
     job_id = f"vd_{uuid.uuid4().hex[:8]}"
     job_dir = os.path.join(settings.dubbing_dir, job_id)
@@ -312,6 +426,8 @@ async def create_dubbing_job(
 
     input_file_path = None
     source_type = "youtube" if youtube_url else "upload"
+
+    VideoDubbingService.log_to_job(job_id, f"Khởi tạo tác vụ lồng tiếng mới. Nguồn: {source_type}. Ngôn ngữ đích: {target_language}")
 
     if file:
         # Save file directly
@@ -322,7 +438,9 @@ async def create_dubbing_job(
         try:
             with open(input_file_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
+            VideoDubbingService.log_to_job(job_id, f"Upload video thành công. File lưu tại: {input_file_path}")
         except Exception as e:
+            VideoDubbingService.log_to_job(job_id, f"Upload video thất bại: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Lỗi lưu file video: {e}"
@@ -341,6 +459,7 @@ async def create_dubbing_job(
     )
     db.add(job)
     db.commit()
+    db.refresh(job)
 
     # Trigger background execution pipeline with isolated daemon thread
     import threading
@@ -445,23 +564,29 @@ def run_finalization_pipeline(job_id: str):
         if not job:
             return
 
+        VideoDubbingService.log_to_job(job_id, "Khởi chạy finalization pipeline (Lồng tiếng & Kết xuất video thành phẩm)...")
+
         job_dir = os.path.join(settings.dubbing_dir, job_id)
         translated_subs = json.loads(job.translated_subtitles or "[]")
 
         worker_mode = db.query(SystemSetting).filter(SystemSetting.key == "worker_mode").first()
         mode_val = worker_mode.value.strip() if worker_mode else settings.WORKER_MODE
 
+        VideoDubbingService.log_to_job(job_id, f"Kiểm tra Worker Mode cho finalization. Chế độ: {mode_val}")
+
         if mode_val == "mock":
             # Mock TTS generation: we copy the vocals track directly as the dubbed vocal track
             dubbed_vocal_path = os.path.join(job_dir, "dubbed_vocals.wav")
+            VideoDubbingService.log_to_job(job_id, f"[MOCK] Sao chép track vocals gốc {job.vocals_audio_path} làm giọng lồng tiếng mới...")
             shutil.copy2(job.vocals_audio_path, dubbed_vocal_path)
             
             job.status = "mixing_audio"
             job.progress = 60
             job.message = "Đang trộn giọng lồng tiếng mới với nhạc nền..."
             db.commit()
-
+ 
             output_video_path = os.path.join(job_dir, "output_dubbed.mp4")
+            VideoDubbingService.log_to_job(job_id, f"[MOCK] Bắt đầu trộn nhạc nền và giọng lồng tiếng bằng FFmpeg...")
             try:
                 VideoDubbingService.mix_and_mux_video(
                     video_path=job.input_file_path,
@@ -469,8 +594,9 @@ def run_finalization_pipeline(job_id: str):
                     vocal_path=dubbed_vocal_path,
                     output_path=output_video_path
                 )
+                VideoDubbingService.log_to_job(job_id, f"[MOCK] Trộn nhạc nền & mux video thành công. File: {output_video_path}")
             except Exception as mix_err:
-                print(f"[VideoDubbing] mix_and_mux_video failed: {mix_err}. Falling back to copy input file.")
+                VideoDubbingService.log_to_job(job_id, f"[MOCK] mix_and_mux_video thất bại: {mix_err}. Sử dụng video gốc làm fallback...")
                 shutil.copy2(job.input_file_path, output_video_path)
             
             job.output_video_path = output_video_path
@@ -478,6 +604,7 @@ def run_finalization_pipeline(job_id: str):
             job.progress = 100
             job.message = "Lồng tiếng video thành công!"
             db.commit()
+            VideoDubbingService.log_to_job(job_id, "Quy trình lồng tiếng hoàn tất thành công. Trạng thái: COMPLETED.")
 
         else:
             # Kaggle Worker Mode: Submit segment dubbing batch job
@@ -485,6 +612,8 @@ def run_finalization_pipeline(job_id: str):
             job.progress = 20
             job.message = "Đang gửi yêu cầu sinh giọng đọc lồng tiếng lên Kaggle GPU..."
             db.commit()
+
+            VideoDubbingService.log_to_job(job_id, f"[KAGGLE] Tạo sub-job dub_segments 'dub_{job_id}' trong hàng đợi với {len(translated_subs)} phân đoạn...")
 
             # We submit a special batch job of type 'dub_segments'
             dub_tts_job = TTSJob(
@@ -501,9 +630,10 @@ def run_finalization_pipeline(job_id: str):
             )
             db.add(dub_tts_job)
             db.commit()
+            VideoDubbingService.log_to_job(job_id, "[KAGGLE] Đã đưa sub-job dub_segments vào hàng đợi, chờ GPU Worker xử lý...")
             
     except Exception as e:
-        print(f"[run_finalization_pipeline] Error in job {job_id}: {e}")
+        VideoDubbingService.log_to_job(job_id, f"LỖI HOÀN TẤT LỒNG TIẾNG: {e}")
         db.rollback()
         job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id).first()
         if job:

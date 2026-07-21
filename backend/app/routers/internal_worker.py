@@ -173,6 +173,7 @@ async def upload_job_output(
             
             # Unzip contents
             if is_sep:
+                VideoDubbingService.log_to_job(dub_job_id, "[KAGGLE] Nhận tệp ZIP kết quả tách âm thanh từ Kaggle Worker. Tiến hành giải nén...")
                 with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                     zip_ref.extractall(job_dir)
                 
@@ -192,6 +193,7 @@ async def upload_job_output(
                     if not os.path.exists(bgm_path):
                         shutil.copy2(dub_job.original_audio_path, bgm_path)
 
+                VideoDubbingService.log_to_job(dub_job_id, f"[KAGGLE] Giải nén thành công. Vocals: {vocals_path}, BGM: {bgm_path}")
                 dub_job.vocals_audio_path = vocals_path
                 dub_job.bgm_audio_path = bgm_path
                 db.commit()
@@ -204,6 +206,7 @@ async def upload_job_output(
                 trigger_transcription_stage(dub_job_id, db)
                 
             else:
+                VideoDubbingService.log_to_job(dub_job_id, "[KAGGLE] Nhận tệp ZIP chứa các segment audio lồng tiếng từ Kaggle. Tiến hành giải nén...")
                 # final dubbing segments ZIP
                 segments_dir = os.path.join(job_dir, "segments")
                 os.makedirs(segments_dir, exist_ok=True)
@@ -240,7 +243,9 @@ async def upload_job_output(
                     })
 
                 dubbed_vocals_path = os.path.join(job_dir, "dubbed_vocals.wav")
+                VideoDubbingService.log_to_job(dub_job_id, f"[KAGGLE] Đang ghép {len(segments_payload)} tệp audio lồng tiếng thành một track chính...")
                 VideoDubbingService.assemble_dubbed_vocal(segments_payload, dubbed_vocals_path, duration)
+                VideoDubbingService.log_to_job(dub_job_id, f"[KAGGLE] Ghép track vocals lồng tiếng thành công: {dubbed_vocals_path}")
 
                 # Mux with video
                 output_video_path = os.path.join(job_dir, "output_dubbed.mp4")
@@ -248,6 +253,7 @@ async def upload_job_output(
                 dub_job.progress = 85
                 db.commit()
 
+                VideoDubbingService.log_to_job(dub_job_id, "[KAGGLE] Đang trộn nhạc nền BGM & vocals lồng tiếng mới, đóng gói video thành phẩm bằng FFmpeg...")
                 VideoDubbingService.mix_and_mux_video(
                     video_path=dub_job.input_file_path,
                     bgm_path=dub_job.bgm_audio_path,
@@ -260,6 +266,7 @@ async def upload_job_output(
                 dub_job.progress = 100
                 dub_job.message = "Lồng tiếng video thành công!"
                 db.commit()
+                VideoDubbingService.log_to_job(dub_job_id, f"[KAGGLE] Đóng gói video thành công. File: {output_video_path}. Quy trình hoàn tất!")
 
                 # Set job as complete
                 JobService.complete_job_output(db, job_id, zip_path)
@@ -270,6 +277,7 @@ async def upload_job_output(
             return {"status": "completed"}
             
         except Exception as e:
+            VideoDubbingService.log_to_job(dub_job_id, f"LỖI KHI XỬ LÝ KẾT QUẢ KAGGLE: {e}")
             dub_job.status = "failed"
             dub_job.progress = 100
             dub_job.error_message = str(e)

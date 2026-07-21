@@ -38,9 +38,19 @@ const PIPELINE_STEPS = [
 export default function DubbingStudio() {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [targetLanguage, setTargetLanguage] = useState("English");
+  const [targetLanguage, setTargetLanguage] = useState("Vietnamese"); // Default to Vietnamese
   const [smartSeparation, setSmartSeparation] = useState(true);
   
+  // Upload States
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadedJobId, setUploadedJobId] = useState<string | null>(null);
+  const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null);
+
+  // Diagnostic Logs States
+  const [jobLogs, setJobLogs] = useState("");
+  const logsEndRef = useRef<HTMLDivElement>(null);
+
   // Job States
   const [jobId, setJobId] = useState<string | null>(() => {
     return localStorage.getItem("active_dubbing_job_id") || null;
@@ -93,16 +103,31 @@ export default function DubbingStudio() {
       setJob(data);
       if (data.original_subtitles) setOriginalSubs(data.original_subtitles);
       if (data.translated_subtitles) setTranslatedSubs(data.translated_subtitles);
+      
+      // Fetch logs
+      try {
+        const logData = await api.getDubbingJobLog(id);
+        setJobLogs(logData.log);
+      } catch {}
     } catch (err: any) {
       console.error("Lỗi lấy thông tin Job:", err);
     }
   };
 
-  // Poll active job status
+  // Poll active job status and logs
   useEffect(() => {
     if (!jobId) return;
 
     localStorage.setItem("active_dubbing_job_id", jobId);
+
+    // Initial fetch logs
+    const fetchLogs = async () => {
+      try {
+        const logData = await api.getDubbingJobLog(jobId);
+        setJobLogs(logData.log);
+      } catch {}
+    };
+    fetchLogs();
 
     const interval = setInterval(async () => {
       try {
@@ -116,6 +141,12 @@ export default function DubbingStudio() {
           setTranslatedSubs(data.translated_subtitles);
         }
 
+        // Fetch logs
+        try {
+          const logData = await api.getDubbingJobLog(jobId);
+          setJobLogs(logData.log);
+        } catch {}
+
         if (data.status === "completed" || data.status === "failed") {
           clearInterval(interval);
         }
@@ -126,6 +157,39 @@ export default function DubbingStudio() {
 
     return () => clearInterval(interval);
   }, [jobId]);
+
+  // Autoscroll logs terminal to bottom
+  useEffect(() => {
+    if (logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [jobLogs]);
+
+  // Handle immediate file upload when selected
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    if (!file) return;
+
+    setSelectedFile(file);
+    setUploading(true);
+    setUploadProgress(0);
+    setError(null);
+    setUploadedJobId(null);
+    setUploadedVideoUrl(null);
+
+    try {
+      const response = await api.uploadDubbingVideo(file, (progress) => {
+        setUploadProgress(progress);
+      });
+      setUploadedJobId(response.id);
+      setUploadedVideoUrl(api.getDubbingFileUrl(response.id, "video"));
+    } catch (err: any) {
+      setError(err.message || "Tải video lên thất bại. Vui lòng thử lại.");
+      setSelectedFile(null);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleStartDubbing = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,9 +202,10 @@ export default function DubbingStudio() {
       }
 
       const response = await api.createDubbingJob(
-        selectedFile || undefined,
+        uploadedJobId ? undefined : (selectedFile || undefined),
         youtubeUrl.trim() || undefined,
-        targetLanguage
+        targetLanguage,
+        uploadedJobId || undefined
       );
 
       setJobId(response.id);
@@ -207,6 +272,11 @@ export default function DubbingStudio() {
     setTranslatedSubs([]);
     setSelectedSegId(null);
     setError(null);
+    setUploading(false);
+    setUploadProgress(0);
+    setUploadedJobId(null);
+    setUploadedVideoUrl(null);
+    setJobLogs("");
   };
 
   // Sync separate audio tracks with video player
@@ -334,6 +404,50 @@ export default function DubbingStudio() {
               <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0 animate-spin" />
               <span className="font-medium">{job.message || "Đang xử lý tiến trình..."}</span>
             </div>
+
+            {/* Console log terminal */}
+            <div className="mt-4 flex flex-col gap-2">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                  Console Log Chẩn Đoán & Báo Cáo
+                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (jobId) {
+                      try {
+                        const logData = await api.getDubbingJobLog(jobId);
+                        setJobLogs(logData.log);
+                      } catch {}
+                    }
+                  }}
+                  className="text-[10px] text-primary hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                >
+                  <RefreshCw className="w-2.5 h-2.5" /> Làm mới log
+                </button>
+              </div>
+              <div className="bg-[#18181b] border border-border/60 rounded-xl p-4 font-mono text-[11px] text-[#a1a1aa] overflow-y-auto max-h-60 flex flex-col gap-1.5 shadow-inner">
+                {jobLogs ? (
+                  jobLogs.split("\n").map((line, lIdx) => {
+                    if (!line.trim()) return null;
+                    let isError = line.includes("LỖI") || line.includes("FAILED") || line.includes("ERROR");
+                    let isSuccess = line.includes("thành công") || line.includes("SUCCESS") || line.includes("hoàn tất");
+                    let isKaggle = line.includes("[KAGGLE]") || line.includes("[MOCK]");
+                    return (
+                      <div key={lIdx} className="leading-relaxed break-all text-left">
+                        <span className={isError ? "text-red-400 font-bold" : isSuccess ? "text-emerald-400" : isKaggle ? "text-cyan-400" : "text-zinc-300"}>
+                          {line}
+                        </span>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-zinc-500 italic text-left">Đang tải nhật ký tiến trình...</div>
+                )}
+                <div ref={logsEndRef} />
+              </div>
+            </div>
           </div>
         </SectionCard>
       )}
@@ -345,22 +459,63 @@ export default function DubbingStudio() {
             <SectionCard title="Tải Lên Video Đầu Vào">
               <form onSubmit={handleStartDubbing} className="flex flex-col gap-5">
                 
-                {/* Drag and Drop Card */}
-                <div className="border-2 border-dashed border-border hover:border-primary/50 transition-colors rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer bg-secondary/20 relative group">
-                  <input
-                    type="file"
-                    accept="video/*"
-                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                  />
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-3 group-hover:scale-110 transition-transform">
-                    <Upload className="w-6 h-6" />
+                {/* Drag and Drop Card with Progress & Preview */}
+                {!uploadedJobId && !uploading ? (
+                  <div className="border-2 border-dashed border-border hover:border-primary/50 transition-colors rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer bg-secondary/20 relative group">
+                    <input
+                      type="file"
+                      accept="video/*"
+                      onChange={handleFileChange}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-3 group-hover:scale-110 transition-transform">
+                      <Upload className="w-6 h-6" />
+                    </div>
+                    <span className="text-xs font-bold text-foreground">
+                      Tải lên tệp video từ máy tính
+                    </span>
+                    <span className="text-[10px] text-muted-foreground mt-1">Hỗ trợ các định dạng MP4, MKV, MOV</span>
                   </div>
-                  <span className="text-xs font-bold text-foreground">
-                    {selectedFile ? selectedFile.name : "Tải lên tệp video từ máy tính"}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground mt-1">Hỗ trợ các định dạng MP4, MKV, MOV</span>
-                </div>
+                ) : uploading ? (
+                  <div className="border-2 border-dashed border-primary/45 rounded-2xl p-8 flex flex-col items-center justify-center bg-primary/5">
+                    <Loader2 className="w-8 h-8 text-primary animate-spin mb-3" />
+                    <span className="text-xs font-bold text-foreground mb-2">Đang tải video lên máy chủ... {uploadProgress}%</span>
+                    <div className="w-full max-w-xs bg-secondary h-2 rounded-full overflow-hidden border border-border">
+                      <div className="bg-primary h-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border border-border rounded-2xl p-5 flex flex-col gap-3 bg-secondary/15">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                        <span className="text-xs font-bold text-foreground truncate max-w-xs sm:max-w-md">
+                          {selectedFile ? selectedFile.name : "Video đã được tải lên"}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedFile(null);
+                          setUploadedJobId(null);
+                          setUploadedVideoUrl(null);
+                        }}
+                        className="text-[10px] text-destructive hover:underline font-semibold cursor-pointer"
+                      >
+                        Chọn video khác
+                      </button>
+                    </div>
+                    {uploadedVideoUrl && (
+                      <div className="aspect-video w-full rounded-xl overflow-hidden bg-black border border-border relative">
+                        <video
+                          src={uploadedVideoUrl}
+                          controls
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex items-center my-1">
                   <div className="flex-grow border-t border-border"></div>

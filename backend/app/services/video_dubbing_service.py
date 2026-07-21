@@ -13,6 +13,23 @@ from app.models import SystemSetting, LLMProfile
 
 class VideoDubbingService:
     @staticmethod
+    def log_to_job(job_id: str, message: str):
+        """Prints a detailed log message to server console and appends to process.log in job directory."""
+        import time
+        timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+        log_line = f"[{timestamp}] {message}"
+        print(f"[VideoDubbing][{job_id}] {message}", flush=True)
+        
+        try:
+            job_dir = os.path.join(settings.dubbing_dir, job_id)
+            os.makedirs(job_dir, exist_ok=True)
+            log_file = os.path.join(job_dir, "process.log")
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(log_line + "\n")
+        except Exception as e:
+            print(f"[VideoDubbingService] Failed to write log: {e}", flush=True)
+
+    @staticmethod
     def ensure_dependencies():
         """Dynamically ensures yt-dlp is installed and up-to-date for downloading YouTube videos."""
         try:

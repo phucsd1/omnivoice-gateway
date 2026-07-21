@@ -69,6 +69,9 @@ class MockWorker:
             time.sleep(2.0)
             
             dub_job_id = job_id.replace("sep_", "")
+            from app.services.video_dubbing_service import VideoDubbingService
+            VideoDubbingService.log_to_job(dub_job_id, "[MOCK WORKER] Bắt đầu tách nhạc giả lập...")
+
             job_dir = os.path.join(settings.dubbing_dir, dub_job_id)
             os.makedirs(job_dir, exist_ok=True)
             
@@ -90,6 +93,7 @@ class MockWorker:
                 dub_job.bgm_audio_path = bgm_path
                 db.commit()
                 
+            VideoDubbingService.log_to_job(dub_job_id, "[MOCK WORKER] Tách nhạc hoàn tất. Kích hoạt Whisper ASR...")
             JobService.complete_job_output(db, job_id, vocals_path)
             
             from app.routers.video_dubbing import trigger_transcription_stage
@@ -98,10 +102,13 @@ class MockWorker:
 
         # Check if job is dub_segments
         if job.job_type == "dub_segments":
+            dub_job_id = job_id.replace("dub_", "")
+            from app.services.video_dubbing_service import VideoDubbingService
+            VideoDubbingService.log_to_job(dub_job_id, "[MOCK WORKER] Bắt đầu sinh giọng lồng tiếng từng phân đoạn (Giả lập)...")
+
             MockWorker._update_job(db, job_id, "generating_tts", "Đang sinh giọng lồng tiếng từng phân đoạn (Giả lập)...", 40)
             time.sleep(2.0)
             
-            dub_job_id = job_id.replace("dub_", "")
             job_dir = os.path.join(settings.dubbing_dir, dub_job_id)
             segments_dir = os.path.join(job_dir, "segments")
             os.makedirs(segments_dir, exist_ok=True)
@@ -129,6 +136,7 @@ class MockWorker:
                     "file_path": seg_wav_path
                 })
                 
+            VideoDubbingService.log_to_job(dub_job_id, "[MOCK WORKER] Sinh giọng hoàn tất. Bắt đầu trộn nhạc và đóng gói video...")
             MockWorker._update_job(db, job_id, "mixing_audio", "Đang lồng ghép giọng nói và nhạc nền (Giả lập)...", 70)
             time.sleep(1.0)
             
@@ -156,11 +164,16 @@ class MockWorker:
             dub_job.message = "Lồng tiếng video thành công!"
             db.commit()
             
+            VideoDubbingService.log_to_job(dub_job_id, f"[MOCK WORKER] Trộn nhạc & đóng gói video thành công tại: {output_video_path}. Quy trình hoàn tất!")
             JobService.complete_job_output(db, job_id, output_video_path)
             return
 
         # Check if job is ASR
         if job.job_type == "asr":
+            dub_job_id = job_id.replace("asr_", "")
+            from app.services.video_dubbing_service import VideoDubbingService
+            VideoDubbingService.log_to_job(dub_job_id, "[MOCK WORKER] Bắt đầu nhận dạng giọng nói ASR Whisper (giả lập)...")
+
             # Step 1: Loading Model (30%)
             MockWorker._update_job(db, job_id, "loading_model", "Đang tải mô hình ASR (Giả lập)...", 30)
             time.sleep(1.5)
@@ -190,16 +203,17 @@ class MockWorker:
                     curr_time += dur + 0.08
                 
                 alignment_str = json.dumps(mock_chunks)
+                VideoDubbingService.log_to_job(dub_job_id, "[MOCK WORKER] Nhận dạng giọng nói ASR thành công.")
                 JobService.complete_asr_job(db, job_id, mock_text, alignment=alignment_str)
                 print(f"[MockWorker] ASR job {job_id} completed successfully. Text: {mock_text}")
                 
                 # Video Dubbing ASR callback integration
                 if job_id.startswith("asr_"):
-                    dub_job_id = job_id.replace("asr_", "")
                     from app.routers.video_dubbing import trigger_translation_stage
                     trigger_translation_stage(dub_job_id, mock_text, alignment_str, db)
             except Exception as e:
                 error_msg = f"Mock ASR processing failed: {e}"
+                VideoDubbingService.log_to_job(dub_job_id, f"[MOCK WORKER] LỖI ASR: {error_msg}")
                 JobService.update_job_status(db, job_id, "failed", "Lỗi nhận dạng âm thanh giả lập", 100, error_msg)
                 print(f"[MockWorker] ASR job {job_id} failed: {error_msg}")
             return

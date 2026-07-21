@@ -675,15 +675,68 @@ export const api = {
     });
   },
 
-  createDubbingJob: async (file?: File, youtubeUrl?: string, targetLanguage?: string): Promise<VideoDubbingJobResponse> => {
+  createDubbingJob: async (file?: File, youtubeUrl?: string, targetLanguage?: string, uploadedJobId?: string): Promise<VideoDubbingJobResponse> => {
     const formData = new FormData();
     if (file) formData.append("file", file);
     if (youtubeUrl) formData.append("youtube_url", youtubeUrl);
-    formData.append("target_language", targetLanguage || "English");
+    if (uploadedJobId) formData.append("uploaded_job_id", uploadedJobId);
+    formData.append("target_language", targetLanguage || "Vietnamese");
     return request<VideoDubbingJobResponse>("/v1/video-dubbing", {
       method: "POST",
       body: formData,
     });
+  },
+
+  uploadDubbingVideo: async (file: File, onProgress: (progress: number) => void): Promise<VideoDubbingJobResponse> => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const url = `${getApiBaseUrl()}/v1/video-dubbing/upload`;
+      
+      xhr.open("POST", url, true);
+      
+      // Add Authorization header if token exists
+      const token = localStorage.getItem("VITE_JWT_TOKEN");
+      if (token) {
+        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+      }
+      
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = Math.round((event.loaded / event.total) * 100);
+          onProgress(percentComplete);
+        }
+      };
+      
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const res = JSON.parse(xhr.responseText) as VideoDubbingJobResponse;
+            resolve(res);
+          } catch (e) {
+            reject(new Error("Không thể phân tích phản hồi từ server."));
+          }
+        } else {
+          let errorMsg = "Tải video lên thất bại.";
+          try {
+            const errData = JSON.parse(xhr.responseText);
+            errorMsg = errData.detail || errorMsg;
+          } catch {}
+          reject(new Error(errorMsg));
+        }
+      };
+      
+      xhr.onerror = () => {
+        reject(new Error("Lỗi kết nối mạng khi tải video lên."));
+      };
+      
+      const formData = new FormData();
+      formData.append("file", file);
+      xhr.send(formData);
+    });
+  },
+
+  getDubbingJobLog: async (jobId: string): Promise<{ log: string }> => {
+    return request<{ log: string }>(`/v1/video-dubbing/jobs/${jobId}/log?t=${Date.now()}`);
   },
 
   getDubbingJob: async (jobId: string): Promise<VideoDubbingJobResponse> => {
