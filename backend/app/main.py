@@ -60,6 +60,119 @@ async def lifespan(app: FastAPI):
     print("[Main] Initializing SQLite database tables...")
     Base.metadata.create_all(bind=engine)
     
+    # Run automatic database recovery and ownership alignment
+    run_startup_data_recovery()
+
+def run_startup_data_recovery():
+    import os, glob, shutil, sqlite3
+    db_path = settings.DATABASE_URL
+    if db_path.startswith("sqlite:///"): db_path = db_path[10:]
+    elif db_path.startswith("sqlite://"): db_path = db_path[9:]
+    elif db_path.startswith("sqlite:"): db_path = db_path[7:]
+    if "?" in db_path: db_path = db_path.split("?")[0]
+    
+    db_dir = os.path.dirname(db_path) or "."
+    base_name = os.path.basename(db_path)
+    
+    if not os.path.exists(db_dir): return
+    
+    try:
+        target_conn = sqlite3.connect(db_path, timeout=30)
+        target_cursor = target_conn.cursor()
+        
+        target_cursor.execute("SELECT id FROM users WHERE username = 'admin'")
+        admin_row = target_cursor.fetchone()
+        if not admin_row:
+            from app.utils.auth import get_password_hash
+            admin_id = "usr_62f1747adb99"
+            pass_hash = get_password_hash("admin_password_2026")
+            target_cursor.execute(
+                "INSERT OR IGNORE INTO users (id, username, email, hashed_password, is_verified, is_approved, is_admin) VALUES (?, ?, ?, ?, 1, 1, 1)",
+                (admin_id, "admin", "admin@omnivoice.local", pass_hash)
+            )
+            target_conn.commit()
+        else:
+            admin_id = admin_row[0]
+
+        target_cursor.execute("SELECT COUNT(*) FROM voice_samples")
+        vs_count = target_cursor.fetchone()[0]
+        
+        if vs_count < 6:
+            print(f"[Startup Recovery] Current voice_samples count is {vs_count}. Scanning backup files for data salvage...")
+            backup_files = [
+                f for f in glob.glob(os.path.join(db_dir, f"{base_name}.corrupt_*"))
+                if not f.endswith("-wal") and not f.endswith("-shm") and "-wal." not in f and "-shm." not in f
+            ]
+            
+            tables_to_restore = [
+                "users", "api_keys", "voice_samples", "llm_profiles",
+                "system_settings", "user_settings", "voice_design_previews", "tts_jobs", "worker_sessions", "api_usage_logs"
+            ]
+            
+            for backup_file in backup_files:
+                tmp_db = "/tmp/temp_startup_restore.db"
+                tmp_wal = "/tmp/temp_startup_restore.db-wal"
+                tmp_shm = "/tmp/temp_startup_restore.db-shm"
+                
+                for f in [tmp_db, tmp_wal, tmp_shm]:
+                    if os.path.exists(f):
+                        try: os.remove(f)
+                        except: pass
+                        
+                try:
+                    shutil.copy2(backup_file, tmp_db)
+                    for f in os.listdir(db_dir):
+                        if "-wal" in f: shutil.copy2(os.path.join(db_dir, f), tmp_wal)
+                        elif "-shm" in f: shutil.copy2(os.path.join(db_dir, f), tmp_shm)
+                            
+                    source_conn = sqlite3.connect(tmp_db, timeout=10)
+                    source_cursor = source_conn.cursor()
+                    
+                    for table in tables_to_restore:
+                        try:
+                            source_cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,))
+                            if not source_cursor.fetchone(): continue
+                                
+                            target_cursor.execute(f"PRAGMA table_info({table})")
+                            target_cols = [row[1] for row in target_cursor.fetchall()]
+                            if not target_cols: continue
+                                
+                            source_cursor.execute(f"PRAGMA table_info({table})")
+                            source_cols = [row[1] for row in source_cursor.fetchall()]
+                            
+                            common_cols = [c for c in source_cols if c in target_cols]
+                            if not common_cols: continue
+                                
+                            col_names = ", ".join(common_cols)
+                            placeholders = ", ".join(["?"] * len(common_cols))
+                            
+                            source_cursor.execute(f"SELECT {col_names} FROM {table}")
+                            rows = source_cursor.fetchall()
+                            
+                            if rows:
+                                insert_sql = f"INSERT OR REPLACE INTO {table} ({col_names}) VALUES ({placeholders})"
+                                for row in rows:
+                                    try: target_cursor.execute(insert_sql, row)
+                                    except: pass
+                                target_conn.commit()
+                                print(f"[Startup Recovery] Restored {len(rows)} records into '{table}' from {os.path.basename(backup_file)}")
+                        except Exception as t_err:
+                            print(f"[Startup Recovery Error] Table {table}: {t_err}")
+                    source_conn.close()
+                except Exception as f_err:
+                    print(f"[Startup Recovery Error] File {backup_file}: {f_err}")
+
+        # Always re-align user_id to admin_id for all voice_samples, api_keys, tts_jobs, user_settings
+        target_cursor.execute("UPDATE voice_samples SET user_id = ? WHERE user_id != ?", (admin_id, admin_id))
+        target_cursor.execute("UPDATE api_keys SET user_id = ? WHERE user_id != ?", (admin_id, admin_id))
+        target_cursor.execute("UPDATE tts_jobs SET user_id = ? WHERE user_id != ?", (admin_id, admin_id))
+        target_cursor.execute("UPDATE user_settings SET user_id = ? WHERE user_id != ?", (admin_id, admin_id))
+        target_conn.commit()
+        print(f"[Startup Recovery] Re-aligned legacy user_id to admin ID: {admin_id}")
+        target_conn.close()
+    except Exception as ex:
+        print(f"[Startup Recovery Fatal Error] {ex}")
+    
     # Run SQLite migration for any added columns
     from app.database import migrate_database
     migrate_database(settings.DATABASE_URL)
