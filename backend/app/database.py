@@ -48,6 +48,62 @@ def test_db_writable(db_url: str) -> bool:
                 pass
         return False
 
+def check_and_recover_database(db_url: str):
+    if not db_url.startswith("sqlite"):
+        return
+        
+    db_path = db_url
+    if db_path.startswith("sqlite:///"):
+        db_path = db_path[10:]
+    elif db_path.startswith("sqlite://"):
+        db_path = db_path[9:]
+    elif db_path.startswith("sqlite:"):
+        db_path = db_path[7:]
+    if "?" in db_path:
+        db_path = db_path.split("?")[0]
+        
+    if not os.path.exists(db_path):
+        return
+        
+    import sqlite3
+    import time
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path, timeout=5)
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA integrity_check")
+        result = cursor.fetchone()[0]
+        conn.close()
+        if result == "ok":
+            print(f"[Database Integrity] Check passed for {db_path}")
+            return
+        print(f"[Database Integrity] CORRUPTED database found at {db_path}: integrity_check={result}")
+    except Exception as e:
+        print(f"[Database Integrity] Error verifying database {db_path}: {e}")
+        if conn:
+            try:
+                conn.close()
+            except:
+                pass
+
+    # Reaching here means database is corrupt. Rename and recover.
+    backup_path = f"{db_path}.corrupt_{int(time.time())}"
+    print(f"[Database Integrity] Renaming corrupted database to {backup_path}")
+    try:
+        if os.path.exists(db_path):
+            os.rename(db_path, backup_path)
+        # Also clean up stale lock files
+        for suffix in ["-shm", "-wal"]:
+            lock_file = db_path + suffix
+            if os.path.exists(lock_file):
+                os.remove(lock_file)
+        print("[Database Integrity] Corrupted database recovered by recreating file.")
+    except Exception as ex:
+        print(f"[Database Integrity Error] Failed to rename corrupted database: {ex}")
+
+# Check and recover database if corrupted
+check_and_recover_database(settings.DATABASE_URL)
+
 # Resolve Database URL with dynamic writeability fallback checks
 resolved_db_url = settings.DATABASE_URL
 if resolved_db_url.startswith("sqlite"):
