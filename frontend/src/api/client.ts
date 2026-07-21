@@ -5,9 +5,17 @@ export function getApiBaseUrl(): string {
     return envUrl.replace(/\/$/, "");
   }
 
-  // If running locally, check local environment or default to localhost:7860
-  if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
-    return "http://localhost:7860";
+  // Resolve API Base URL dynamically based on running environment
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return "http://localhost:7860";
+    }
+    
+    // If running on Cloudflare Pages or custom domain, route API requests through the same origin proxy
+    if (hostname.includes("pages.dev") || hostname.includes("oloka.net")) {
+      return window.location.origin;
+    }
   }
   
   // For production fallback, use the default Hugging Face Space backend URL
