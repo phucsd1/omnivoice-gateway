@@ -347,12 +347,13 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
         <div className="flex flex-col gap-4 max-h-[600px] overflow-y-auto pr-1 scrollbar-thin">
           {jobs.map((job) => {
             const { label, color } = getJobTypeLabel(job.job_type);
+            const safeJobId = String(job.job_id || "unknown");
             const isCompleted = job.status === "completed";
             const isFailed = job.status === "failed";
             const isProcessing = !isCompleted && !isFailed;
             const fullText = job.text || "";
             const isLongText = fullText.length > 120;
-            const isExpanded = !!expandedJobs[job.job_id];
+            const isExpanded = !!expandedJobs[safeJobId];
             const displayedText = isLongText && !isExpanded 
               ? `${fullText.substring(0, 120)}...` 
               : fullText;
@@ -360,7 +361,7 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
             const audioUrl = job.audio_url ? `${api.getApiBaseUrl()}${job.audio_url}` : "";
              return (
                <div 
-                 key={job.job_id} 
+                 key={safeJobId} 
                  className={`bg-muted/30 border rounded-3xl p-5 flex flex-col gap-4 transition-all duration-300 shadow-sm ${
                    currentPlayUrl && currentPlayUrl === audioUrl
                      ? "border-primary bg-primary/[0.02] shadow-md shadow-primary/5"
@@ -374,16 +375,16 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
                       {label}
                     </span>
                     <span className="text-[10px] text-muted-foreground font-semibold font-mono">
-                      ID: {job.job_id.substring(0, 8)}...
+                      ID: {safeJobId.substring(0, 8)}...
                     </span>
                     <span className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1 select-none">
                       <Clock className="w-3 h-3 text-muted-foreground" />
                       {formatTime(job.created_at)}
                     </span>
-                    {job.total_time !== undefined && job.total_time !== null && (
+                    {typeof job.total_time === "number" && (
                       <span 
                         className="text-[10px] text-primary dark:text-primary font-semibold flex items-center gap-1 bg-primary/5 px-2 py-0.5 border border-primary/10 rounded-full cursor-help select-none"
-                        title={`Hàng đợi: ${job.queue_time?.toFixed(1)}s, Xử lý: ${job.processing_time?.toFixed(1)}s`}
+                        title={`Hàng đợi: ${typeof job.queue_time === "number" ? job.queue_time.toFixed(1) : 0}s, Xử lý: ${typeof job.processing_time === "number" ? job.processing_time.toFixed(1) : 0}s`}
                       >
                         <Zap className="w-3 h-3 fill-current text-primary" />
                         <span>{job.total_time.toFixed(1)}s</span>
@@ -466,10 +467,10 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
                     )}
                   </button>
                   
-                  {job.total_time !== undefined && job.total_time !== null && (
+                  {typeof job.total_time === "number" && (
                     <span className="text-[10px] text-muted-foreground">
-                      Xử lý: <span className="font-mono font-bold text-foreground">{job.processing_time?.toFixed(1)}s</span>
-                      {job.queue_time !== undefined && (
+                      Xử lý: <span className="font-mono font-bold text-foreground">{typeof job.processing_time === "number" ? job.processing_time.toFixed(1) : 0}s</span>
+                      {typeof job.queue_time === "number" && (
                         <> (Chờ: <span className="font-mono font-bold text-foreground">{job.queue_time.toFixed(1)}s</span>)</>
                       )}
                     </span>
