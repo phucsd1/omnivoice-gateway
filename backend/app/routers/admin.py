@@ -59,6 +59,15 @@ def debug_db(db: Session = Depends(get_db), current_user: User = Depends(get_adm
                     rel_p = os.path.relpath(os.path.join(root, f), settings.STORAGE_DIR)
                     storage_files.append(rel_p)
         db_info["storage_files"] = storage_files[:30]
+
+        # Check files in db directory
+        db_dir = "/data/db" if os.path.exists("/data/db") else "./storage"
+        db_dir_files = []
+        if os.path.exists(db_dir):
+            for f in os.listdir(db_dir):
+                fp = os.path.join(db_dir, f)
+                db_dir_files.append({"file": f, "size": os.path.getsize(fp)})
+        db_info["db_dir_files"] = db_dir_files
     except Exception as e:
         db_info["error"] = str(e)
         
