@@ -23,6 +23,47 @@ def get_admin_user(current_user: User = Depends(get_current_user)) -> User:
         )
     return current_user
 
+@router.get("/debug-db")
+def debug_db(db: Session = Depends(get_db), current_user: User = Depends(get_admin_user)):
+    import os, sqlite3
+    db_info = {
+        "db_url": settings.DATABASE_URL,
+        "storage_dir": settings.STORAGE_DIR,
+        "tables": {}
+    }
+    
+    try:
+        from app.models import User, VoiceSample, ApiKey, TTSJob, SystemSetting
+        db_info["tables"]["users"] = [
+            {"id": u.id, "username": u.username, "email": u.email, "is_admin": u.is_admin, "created_at": str(u.created_at)}
+            for u in db.query(User).all()
+        ]
+        db_info["tables"]["voice_samples"] = [
+            {"id": v.id, "name": v.name, "user_id": v.user_id, "is_public": v.is_public, "status": v.status, "created_at": str(v.created_at)}
+            for v in db.query(VoiceSample).all()
+        ]
+        db_info["tables"]["api_keys"] = [
+            {"id": k.id, "name": k.name, "user_id": k.user_id, "created_at": str(k.created_at)}
+            for k in db.query(ApiKey).all()
+        ]
+        db_info["tables"]["tts_jobs"] = [
+            {"id": j.id, "job_type": j.job_type, "status": j.status, "user_id": j.user_id, "text": j.text[:30] if j.text else "", "created_at": str(j.created_at)}
+            for j in db.query(TTSJob).order_by(TTSJob.created_at.desc()).limit(20).all()
+        ]
+        
+        # Check files in storage_dir
+        storage_files = []
+        if os.path.exists(settings.STORAGE_DIR):
+            for root, dirs, files in os.walk(settings.STORAGE_DIR):
+                for f in files:
+                    rel_p = os.path.relpath(os.path.join(root, f), settings.STORAGE_DIR)
+                    storage_files.append(rel_p)
+        db_info["storage_files"] = storage_files[:30]
+    except Exception as e:
+        db_info["error"] = str(e)
+        
+    return db_info
+
 class UserAdminResponse(BaseModel):
     id: str
     username: str
