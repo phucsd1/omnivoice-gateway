@@ -73,6 +73,109 @@ def debug_db(db: Session = Depends(get_db), current_user: User = Depends(get_adm
         
     return db_info
 
+@router.post("/restore-corrupt-db")
+def restore_corrupt_db(db: Session = Depends(get_db), current_user: User = Depends(get_admin_user)):
+    import os, glob, sqlite3
+    db_path = settings.DATABASE_URL
+    if db_path.startswith("sqlite:///"):
+        db_path = db_path[10:]
+    elif db_path.startswith("sqlite://"):
+        db_path = db_path[9:]
+    elif db_path.startswith("sqlite:"):
+        db_path = db_path[7:]
+    if "?" in db_path:
+        db_path = db_path.split("?")[0]
+        
+    db_dir = os.path.dirname(db_path) or "."
+    base_name = os.path.basename(db_path)
+    
+    backup_files = [
+        f for f in glob.glob(os.path.join(db_dir, f"{base_name}.corrupt_*"))
+    ]
+    
+    if not backup_files:
+        return {"status": "error", "message": "No backup files found."}
+        
+    tables_to_restore = [
+        "users", "api_keys", "voice_samples", "llm_profiles",
+        "system_settings", "user_settings", "voice_design_previews", "tts_jobs", "worker_sessions", "api_usage_logs"
+    ]
+    
+    summary = {}
+    
+    target_conn = sqlite3.connect(db_path, timeout=30)
+    target_cursor = target_conn.cursor()
+    
+    for backup_file in backup_files:
+        backup_summary = {}
+        try:
+            source_conn = sqlite3.connect(f"file:{backup_file}?mode=ro", uri=True, timeout=10)
+            source_cursor = source_conn.cursor()
+            
+            for table in tables_to_restore:
+                try:
+                    source_cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,))
+                    if not source_cursor.fetchone():
+                        continue
+                        
+                    target_cursor.execute(f"PRAGMA table_info({table})")
+                    target_cols = [row[1] for row in target_cursor.fetchall()]
+                    if not target_cols:
+                        continue
+                        
+                    source_cursor.execute(f"PRAGMA table_info({table})")
+                    source_cols = [row[1] for row in source_cursor.fetchall()]
+                    
+                    common_cols = [c for c in source_cols if c in target_cols]
+                    if not common_cols:
+                        continue
+                        
+                    col_names = ", ".join(common_cols)
+                    placeholders = ", ".join(["?"] * len(common_cols))
+                    
+                    rows = []
+                    try:
+                        source_cursor.execute(f"SELECT {col_names} FROM {table}")
+                        rows = source_cursor.fetchall()
+                    except Exception as select_err:
+                        try:
+                            source_cursor.execute(f"SELECT rowid FROM {table}")
+                            rowids = [r[0] for r in source_cursor.fetchall()]
+                            for rid in rowids:
+                                try:
+                                    source_cursor.execute(f"SELECT {col_names} FROM {table} WHERE rowid=?", (rid,))
+                                    r_item = source_cursor.fetchone()
+                                    if r_item:
+                                        rows.append(r_item)
+                                except Exception:
+                                    pass
+                        except Exception:
+                            pass
+                    
+                    if rows:
+                        insert_sql = f"INSERT OR IGNORE INTO {table} ({col_names}) VALUES ({placeholders})"
+                        restored_count = 0
+                        for row in rows:
+                            try:
+                                target_cursor.execute(insert_sql, row)
+                                if target_cursor.rowcount > 0:
+                                    restored_count += 1
+                            except Exception:
+                                pass
+                        target_conn.commit()
+                        backup_summary[table] = f"Restored {restored_count}/{len(rows)} rows"
+                except Exception as t_err:
+                    backup_summary[table] = f"Error: {t_err}"
+                    
+            source_conn.close()
+        except Exception as f_err:
+            backup_summary["file_error"] = str(f_err)
+            
+        summary[os.path.basename(backup_file)] = backup_summary
+        
+    target_conn.close()
+    return {"status": "ok", "summary": summary}
+
 class UserAdminResponse(BaseModel):
     id: str
     username: str

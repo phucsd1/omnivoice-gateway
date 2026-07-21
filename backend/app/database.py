@@ -315,7 +315,6 @@ def salvage_corrupted_databases(db_url: str):
     
     corrupt_files = [
         f for f in glob.glob(os.path.join(db_dir, f"{base_name}.corrupt_*"))
-        if not f.endswith(".restored")
     ]
     
     if not corrupt_files:
