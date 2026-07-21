@@ -178,6 +178,20 @@ def restore_corrupt_db(db: Session = Depends(get_db), current_user: User = Depen
             
         summary[os.path.basename(backup_file)] = backup_summary
         
+    # Re-align ownership of legacy user_id usr_ca3dd83a51d3 to admin user_id usr_62f1747adb99
+    try:
+        admin_user = db.query(User).filter(User.username == "admin").first()
+        if admin_user:
+            admin_id = admin_user.id
+            target_cursor.execute("UPDATE voice_samples SET user_id = ? WHERE user_id = 'usr_ca3dd83a51d3'", (admin_id,))
+            target_cursor.execute("UPDATE api_keys SET user_id = ? WHERE user_id = 'usr_ca3dd83a51d3'", (admin_id,))
+            target_cursor.execute("UPDATE tts_jobs SET user_id = ? WHERE user_id = 'usr_ca3dd83a51d3'", (admin_id,))
+            target_cursor.execute("UPDATE user_settings SET user_id = ? WHERE user_id = 'usr_ca3dd83a51d3'", (admin_id,))
+            target_conn.commit()
+            summary["ownership_realignment"] = f"Re-aligned legacy user data to admin ID {admin_id}"
+    except Exception as re_err:
+        summary["ownership_realignment_error"] = str(re_err)
+        
     target_conn.close()
     return {"status": "ok", "summary": summary}
 
