@@ -87,10 +87,10 @@ def _build_job_response(job: TTSJob) -> JobStatusResponse:
         params=params_data
     )
 
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Any
 from app.schemas import JobStatusResponse, PaginatedJobsResponse, BatchJobStatusRequest
 
-@router.get("", response_model=Union[PaginatedJobsResponse, List[JobStatusResponse]])
+@router.get("", response_model=Any)
 def list_jobs(
     response: Response,
     page: Optional[int] = None,
