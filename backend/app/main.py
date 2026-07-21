@@ -46,23 +46,6 @@ async def auto_shutdown_monitor():
             os.kill(os.getpid(), signal.SIGTERM)
             break
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Reset last request time on startup to avoid immediate shutdown after slow container starts
-    global last_request_time
-    last_request_time = time.time()
-
-    # Startup actions (triggered rebuild)
-    print("[Main] Initializing OmniVoice On-Demand Gateway...")
-    AudioService.ensure_directories()
-    
-    # Initialize DB tables
-    print("[Main] Initializing SQLite database tables...")
-    Base.metadata.create_all(bind=engine)
-    
-    # Run automatic database recovery and ownership alignment
-    run_startup_data_recovery()
-
 def run_startup_data_recovery():
     import os, glob, shutil, sqlite3
     db_path = settings.DATABASE_URL
@@ -172,7 +155,24 @@ def run_startup_data_recovery():
         target_conn.close()
     except Exception as ex:
         print(f"[Startup Recovery Fatal Error] {ex}")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Reset last request time on startup to avoid immediate shutdown after slow container starts
+    global last_request_time
+    last_request_time = time.time()
+
+    # Startup actions (triggered rebuild)
+    print("[Main] Initializing OmniVoice On-Demand Gateway...")
+    AudioService.ensure_directories()
     
+    # Initialize DB tables
+    print("[Main] Initializing SQLite database tables...")
+    Base.metadata.create_all(bind=engine)
+    
+    # Run automatic database recovery and ownership alignment
+    run_startup_data_recovery()
+
     # Run SQLite migration for any added columns
     from app.database import migrate_database
     migrate_database(settings.DATABASE_URL)
