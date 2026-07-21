@@ -195,6 +195,29 @@ def restore_corrupt_db(db: Session = Depends(get_db), current_user: User = Depen
     target_conn.close()
     return {"status": "ok", "summary": summary}
 
+@router.post("/align-all-data-to-admin")
+def align_all_data_to_admin(db: Session = Depends(get_db), current_user: User = Depends(get_admin_user)):
+    from sqlalchemy import text
+    admin_id = current_user.id
+    
+    # 1. Update user_id for all voice_samples, api_keys, tts_jobs, user_settings to current admin_id
+    r1 = db.execute(text("UPDATE voice_samples SET user_id = :aid"), {"aid": admin_id})
+    r2 = db.execute(text("UPDATE api_keys SET user_id = :aid"), {"aid": admin_id})
+    r3 = db.execute(text("UPDATE tts_jobs SET user_id = :aid"), {"aid": admin_id})
+    r4 = db.execute(text("UPDATE user_settings SET user_id = :aid"), {"aid": admin_id})
+    db.commit()
+    
+    from app.models import VoiceSample, ApiKey, TTSJob
+    return {
+        "status": "ok",
+        "admin_id": admin_id,
+        "counts": {
+            "voice_samples": db.query(VoiceSample).count(),
+            "api_keys": db.query(ApiKey).count(),
+            "tts_jobs": db.query(TTSJob).count(),
+        }
+    }
+
 @router.post("/run-sqlite-recover")
 def run_sqlite_recover(db: Session = Depends(get_db), current_user: User = Depends(get_admin_user)):
     import os, glob, subprocess, sqlite3
