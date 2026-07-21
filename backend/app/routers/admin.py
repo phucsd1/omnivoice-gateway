@@ -175,6 +175,69 @@ def restore_corrupt_db(db: Session = Depends(get_db), current_user: User = Depen
     target_conn.close()
     return {"status": "ok", "summary": summary}
 
+@router.post("/run-sqlite-recover")
+def run_sqlite_recover(db: Session = Depends(get_db), current_user: User = Depends(get_admin_user)):
+    import os, glob, subprocess, sqlite3
+    db_path = settings.DATABASE_URL
+    if db_path.startswith("sqlite:///"):
+        db_path = db_path[10:]
+    elif db_path.startswith("sqlite://"):
+        db_path = db_path[9:]
+    elif db_path.startswith("sqlite:"):
+        db_path = db_path[7:]
+    if "?" in db_path:
+        db_path = db_path.split("?")[0]
+        
+    db_dir = os.path.dirname(db_path) or "."
+    base_name = os.path.basename(db_path)
+    
+    backup_files = sorted(
+        [f for f in glob.glob(os.path.join(db_dir, f"{base_name}.corrupt_*")) if os.path.isfile(f) and os.path.getsize(f) > 100000],
+        key=os.path.getsize,
+        reverse=True
+    )
+    
+    if not backup_files:
+        return {"status": "error", "message": "No large backup files found."}
+        
+    target_backup = backup_files[0]
+    
+    cmd = f'sqlite3 "{target_backup}" ".recover"'
+    res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    
+    if not res.stdout or "INSERT INTO" not in res.stdout:
+        return {"status": "error", "message": f"sqlite3 recover failed or no output. Stderr: {res.stderr}"}
+        
+    sql_lines = res.stdout.splitlines()
+    modified_sql = []
+    for line in sql_lines:
+        if line.startswith("INSERT INTO "):
+            line = line.replace("INSERT INTO ", "INSERT OR REPLACE INTO ", 1)
+        modified_sql.append(line)
+        
+    clean_sql = "\n".join(modified_sql)
+    
+    target_conn = sqlite3.connect(db_path, timeout=30)
+    target_cursor = target_conn.cursor()
+    target_cursor.executescript(clean_sql)
+    target_conn.commit()
+    target_conn.close()
+    
+    from app.models import User, VoiceSample, ApiKey, TTSJob
+    recovered_counts = {
+        "users": db.query(User).count(),
+        "voice_samples": db.query(VoiceSample).count(),
+        "api_keys": db.query(ApiKey).count(),
+        "tts_jobs": db.query(TTSJob).count(),
+    }
+    
+    return {
+        "status": "ok",
+        "target_backup": os.path.basename(target_backup),
+        "backup_size": os.path.getsize(target_backup),
+        "recovered": recovered_counts
+    }
+
 class UserAdminResponse(BaseModel):
     id: str
     username: str

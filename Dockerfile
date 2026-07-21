@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     ffmpeg \
     nodejs \
+    sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set up user with UID 1000 (Hugging Face Spaces requirement)
