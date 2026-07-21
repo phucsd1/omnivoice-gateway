@@ -107,12 +107,12 @@ def run_dubbing_pipeline(job_id: str):
         worker_mode = db.query(SystemSetting).filter(SystemSetting.key == "worker_mode").first()
         mode_val = worker_mode.value.strip() if worker_mode else settings.WORKER_MODE
 
-        from app.models import WorkerSession
-        active_worker = db.query(WorkerSession).first()
+        from app.services.kaggle_orchestrator import KaggleOrchestrator
+        is_worker_active = KaggleOrchestrator.has_live_worker(db)
 
-        VideoDubbingService.log_to_job(job_id, f"Kiểm tra Worker mode. Chế độ: {mode_val}, GPU Worker active: {active_worker is not None}")
+        VideoDubbingService.log_to_job(job_id, f"Kiểm tra Worker mode. Chế độ: {mode_val}, GPU Worker active: {is_worker_active}")
 
-        if mode_val == "mock" or not active_worker:
+        if mode_val == "mock" or not is_worker_active:
             VideoDubbingService.log_to_job(job_id, "[MOCK] Thực hiện tách âm thanh giả lập...")
             # Mock Audio Separation: copy original audio to vocals and BGM
             vocals_path = os.path.join(job_dir, "vocals.wav")

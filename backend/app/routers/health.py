@@ -4,6 +4,7 @@ from fastapi import APIRouter
 router = APIRouter()
 
 @router.get("/health")
+@router.get("/v1/health")
 def get_health():
     """Simple check validating backend and orchestration layers are active."""
     git_hash = "unknown"

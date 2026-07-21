@@ -296,7 +296,7 @@ export const api = {
   setApiBaseUrl,
 
   getHealth: async (): Promise<HealthResponse> => {
-    return request<HealthResponse>("/health");
+    return request<HealthResponse>("/v1/health");
   },
   
   uploadVoiceSample: async (file: File, refText?: string, name?: string, customId?: string): Promise<VoiceSampleUploadResponse> => {
