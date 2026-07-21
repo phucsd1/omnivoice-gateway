@@ -2,7 +2,7 @@ export const onRequest: PagesFunction = async (context) => {
   const url = new URL(context.request.url);
   
   // Construct the target URL on the Hugging Face Space backend
-  const targetUrl = `https://phucsd-omnivoice-gateway-backend.hf.space${url.pathname}${url.search}`;
+  const targetUrl = `https://phucsd-oloka-voice.hf.space${url.pathname}${url.search}`;
   
   // Clone the request headers and build the proxy request
   const headers = new Headers(context.request.headers);

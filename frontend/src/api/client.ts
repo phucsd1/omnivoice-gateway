@@ -19,7 +19,7 @@ export function getApiBaseUrl(): string {
   }
   
   // For production fallback, use the default Hugging Face Space backend URL
-  return "https://phucsd-omnivoice-gateway-backend.hf.space";
+  return "https://phucsd-oloka-voice.hf.space";
 }
 
 export function setApiBaseUrl(url: string) {

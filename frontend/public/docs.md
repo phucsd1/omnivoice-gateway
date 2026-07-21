@@ -7,7 +7,7 @@ OmniVoice Gateway is a secure, high-performance RESTful API and user gateway for
 ## 1. Overview & General Info
 
 * **Protocol**: HTTPS REST API
-* **Base URL**: The gateway client resolves the backend URL dynamically. In local development it is typically `http://localhost:8000` or proxied to a Hugging Face Space backend (e.g., `https://phucsd-omnivoice-gateway-backend.hf.space`).
+* **Base URL**: The gateway client resolves the backend URL dynamically. In local development it is typically `http://localhost:8000` or proxied to a Hugging Face Space backend (e.g., `https://phucsd-oloka-voice.hf.space`).
 * **Request & Response Format**: JSON (UTF-8 encoding). Audio files are returned as binary downloads (WAV / MP4).
 
 ---
@@ -328,7 +328,7 @@ Triggers the backend worker to dub segments and mix the output channels. Check `
 ### 10.1 cURL
 ```bash
 # 1. Create TTS Job
-curl -X POST "https://phucsd-omnivoice-gateway-backend.hf.space/v1/tts/jobs" \
+curl -X POST "https://phucsd-oloka-voice.hf.space/v1/tts/jobs" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -342,11 +342,11 @@ curl -X POST "https://phucsd-omnivoice-gateway-backend.hf.space/v1/tts/jobs" \
   }'
 
 # 2. Get Job Status (Repeat every 3-5 seconds)
-curl -X GET "https://phucsd-omnivoice-gateway-backend.hf.space/v1/jobs/YOUR_JOB_ID" \
+curl -X GET "https://phucsd-oloka-voice.hf.space/v1/jobs/YOUR_JOB_ID" \
   -H "Authorization: Bearer YOUR_API_KEY"
 
 # 3. Download WAV Audio File
-curl -o output.wav -X GET "https://phucsd-omnivoice-gateway-backend.hf.space/v1/tts/jobs/YOUR_JOB_ID/audio" \
+curl -o output.wav -X GET "https://phucsd-oloka-voice.hf.space/v1/tts/jobs/YOUR_JOB_ID/audio" \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
@@ -355,7 +355,7 @@ curl -o output.wav -X GET "https://phucsd-omnivoice-gateway-backend.hf.space/v1/
 import time
 import requests
 
-API_URL = "https://phucsd-omnivoice-gateway-backend.hf.space"
+API_URL = "https://phucsd-oloka-voice.hf.space"
 API_KEY = "YOUR_API_KEY"
 
 headers = {
@@ -403,7 +403,7 @@ print("File downloaded as output.wav")
 const fetch = require('node-fetch'); // Required if running Node < 18
 const fs = require('fs');
 
-const API_URL = "https://phucsd-omnivoice-gateway-backend.hf.space";
+const API_URL = "https://phucsd-oloka-voice.hf.space";
 const API_KEY = "YOUR_API_KEY";
 
 const headers = {
