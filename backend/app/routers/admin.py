@@ -75,7 +75,7 @@ def debug_db(db: Session = Depends(get_db), current_user: User = Depends(get_adm
 
 @router.post("/restore-corrupt-db")
 def restore_corrupt_db(db: Session = Depends(get_db), current_user: User = Depends(get_admin_user)):
-    import os, glob, sqlite3
+    import os, glob, shutil, sqlite3
     db_path = settings.DATABASE_URL
     if db_path.startswith("sqlite:///"):
         db_path = db_path[10:]
@@ -89,12 +89,14 @@ def restore_corrupt_db(db: Session = Depends(get_db), current_user: User = Depen
     db_dir = os.path.dirname(db_path) or "."
     base_name = os.path.basename(db_path)
     
+    # Find all backup files that are main db files (not -wal or -shm)
     backup_files = [
         f for f in glob.glob(os.path.join(db_dir, f"{base_name}.corrupt_*"))
+        if not f.endswith("-wal") and not f.endswith("-shm") and "-wal." not in f and "-shm." not in f
     ]
     
     if not backup_files:
-        return {"status": "error", "message": "No backup files found."}
+        return {"status": "error", "message": "No main backup files found."}
         
     tables_to_restore = [
         "users", "api_keys", "voice_samples", "llm_profiles",
@@ -108,8 +110,28 @@ def restore_corrupt_db(db: Session = Depends(get_db), current_user: User = Depen
     
     for backup_file in backup_files:
         backup_summary = {}
+        tmp_db = "/tmp/temp_restore.db"
+        tmp_wal = "/tmp/temp_restore.db-wal"
+        tmp_shm = "/tmp/temp_restore.db-shm"
+        
+        # Clean up old temp files
+        for f in [tmp_db, tmp_wal, tmp_shm]:
+            if os.path.exists(f):
+                try: os.remove(f)
+                except: pass
+                
         try:
-            source_conn = sqlite3.connect(f"file:{backup_file}?mode=ro", uri=True, timeout=10)
+            # Copy main DB file
+            shutil.copy2(backup_file, tmp_db)
+            
+            # Look for matching WAL and SHM files in db_dir
+            for f in os.listdir(db_dir):
+                if "-wal" in f:
+                    shutil.copy2(os.path.join(db_dir, f), tmp_wal)
+                elif "-shm" in f:
+                    shutil.copy2(os.path.join(db_dir, f), tmp_shm)
+                    
+            source_conn = sqlite3.connect(tmp_db, timeout=10)
             source_cursor = source_conn.cursor()
             
             for table in tables_to_restore:
@@ -133,24 +155,8 @@ def restore_corrupt_db(db: Session = Depends(get_db), current_user: User = Depen
                     col_names = ", ".join(common_cols)
                     placeholders = ", ".join(["?"] * len(common_cols))
                     
-                    rows = []
-                    try:
-                        source_cursor.execute(f"SELECT {col_names} FROM {table}")
-                        rows = source_cursor.fetchall()
-                    except Exception as select_err:
-                        try:
-                            source_cursor.execute(f"SELECT rowid FROM {table}")
-                            rowids = [r[0] for r in source_cursor.fetchall()]
-                            for rid in rowids:
-                                try:
-                                    source_cursor.execute(f"SELECT {col_names} FROM {table} WHERE rowid=?", (rid,))
-                                    r_item = source_cursor.fetchone()
-                                    if r_item:
-                                        rows.append(r_item)
-                                except Exception:
-                                    pass
-                        except Exception:
-                            pass
+                    source_cursor.execute(f"SELECT {col_names} FROM {table}")
+                    rows = source_cursor.fetchall()
                     
                     if rows:
                         insert_sql = f"INSERT OR REPLACE INTO {table} ({col_names}) VALUES ({placeholders})"
@@ -159,7 +165,7 @@ def restore_corrupt_db(db: Session = Depends(get_db), current_user: User = Depen
                             try:
                                 target_cursor.execute(insert_sql, row)
                                 restored_count += 1
-                            except Exception as row_e:
+                            except Exception:
                                 pass
                         target_conn.commit()
                         backup_summary[table] = f"Restored {restored_count}/{len(rows)} rows"
