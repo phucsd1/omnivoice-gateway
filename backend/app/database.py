@@ -289,6 +289,43 @@ def migrate_database(db_url: str):
 
     # Automatically rescue data from any backed up corrupted database files
     salvage_corrupted_databases(db_url)
+    auto_align_legacy_user_ids(db_url)
+
+def auto_align_legacy_user_ids(db_url: str):
+    if not db_url.startswith("sqlite"):
+        return
+        
+    db_path = db_url
+    if db_path.startswith("sqlite:///"):
+        db_path = db_path[10:]
+    elif db_path.startswith("sqlite://"):
+        db_path = db_path[9:]
+    elif db_path.startswith("sqlite:"):
+        db_path = db_path[7:]
+    if "?" in db_path:
+        db_path = db_path.split("?")[0]
+        
+    if not os.path.exists(db_path):
+        return
+        
+    import sqlite3
+    conn = sqlite3.connect(db_path, timeout=30)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT id FROM users WHERE username = 'admin'")
+        row = cursor.fetchone()
+        if row:
+            admin_id = row[0]
+            cursor.execute("UPDATE voice_samples SET user_id = ? WHERE user_id != ?", (admin_id, admin_id))
+            cursor.execute("UPDATE api_keys SET user_id = ? WHERE user_id != ?", (admin_id, admin_id))
+            cursor.execute("UPDATE tts_jobs SET user_id = ? WHERE user_id != ?", (admin_id, admin_id))
+            cursor.execute("UPDATE user_settings SET user_id = ? WHERE user_id != ?", (admin_id, admin_id))
+            conn.commit()
+            print(f"[Database Auto-Align] Permanently aligned legacy user_id to admin ID: {admin_id}")
+    except Exception as e:
+        print(f"[Database Auto-Align Error] {e}")
+    finally:
+        conn.close()
 
 def salvage_corrupted_databases(db_url: str):
     if not db_url.startswith("sqlite"):
