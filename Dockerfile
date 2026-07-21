@@ -1,13 +1,16 @@
 FROM python:3.11-slim
 
 
-# Install system dependencies
+# Install system dependencies (including cloudflared)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     git \
     ffmpeg \
     nodejs \
+    && curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb \
+    && dpkg -i cloudflared.deb \
+    && rm cloudflared.deb \
     && rm -rf /var/lib/apt/lists/*
 
 # Set up user with UID 1000 (Hugging Face Spaces requirement)
@@ -36,8 +39,11 @@ RUN mkdir -p $HOME/app/backend/storage
 # Set working directory to backend folder
 WORKDIR $HOME/app/backend
 
+# Fix potential Windows line endings in start.sh
+RUN sed -i 's/\r$//' start.sh
+
 # Expose port 7860
 EXPOSE 7860
 
-# Run uvicorn
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
+# Run startup script
+CMD ["bash", "start.sh"]

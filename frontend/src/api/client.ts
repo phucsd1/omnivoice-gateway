@@ -1,12 +1,16 @@
 export function getApiBaseUrl(): string {
+  // Check if build-time API base URL is explicitly provided
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (envUrl && envUrl.startsWith("http") && !envUrl.includes("pages.dev")) {
+    return envUrl.replace(/\/$/, "");
+  }
+
   // If running locally, check local environment or default to localhost:7860
   if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
-    const envUrl = import.meta.env.VITE_API_BASE_URL;
-    if (envUrl && !envUrl.includes("pages.dev")) return envUrl.replace(/\/$/, "");
     return "http://localhost:7860";
   }
   
-  // For production, always use the fixed Hugging Face Space backend URL
+  // For production fallback, use the default Hugging Face Space backend URL
   return "https://phucsd-omnivoice-gateway-backend.hf.space";
 }
 
