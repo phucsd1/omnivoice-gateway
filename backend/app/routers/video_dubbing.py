@@ -112,8 +112,8 @@ def run_dubbing_pipeline(job_id: str):
 
         VideoDubbingService.log_to_job(job_id, f"Kiểm tra Worker mode. Chế độ: {mode_val}, GPU Worker active: {is_worker_active}")
 
-        if mode_val == "mock" or not is_worker_active:
-            VideoDubbingService.log_to_job(job_id, "[MOCK] Thực hiện tách âm thanh giả lập...")
+        if mode_val == "mock":
+            VideoDubbingService.log_to_job(job_id, "[MOCK] Thực hiện tách âm thanh giả lập (chế độ MOCK được bật cố định)...")
             # Mock Audio Separation: copy original audio to vocals and BGM
             vocals_path = os.path.join(job_dir, "vocals.wav")
             bgm_path = os.path.join(job_dir, "bgm.wav")
@@ -165,13 +165,13 @@ def run_dubbing_pipeline(job_id: str):
             VideoDubbingService.log_to_job(job_id, "Pipeline phân tích hoàn tất. Chuyển trạng thái sang: AWAITING_REVIEW.")
 
         else:
-            # Kaggle Worker Mode: Submit job for audio separation
+            # Kaggle Worker / GPU Mode: Always submit job for audio separation
             job.status = "separating_audio"
             job.progress = 30
-            job.message = "Đang gửi yêu cầu tách giọng và nhạc nền lên Kaggle GPU..."
+            job.message = "Đang gửi yêu cầu tách giọng và nhạc nền lên GPU Worker..."
             db.commit()
 
-            VideoDubbingService.log_to_job(job_id, f"[KAGGLE] Tạo sub-job tách nhạc 'sep_{job_id}' trong hàng đợi...")
+            VideoDubbingService.log_to_job(job_id, f"[GPU WORKER] Tạo sub-job tách nhạc 'sep_{job_id}' trong hàng đợi...")
 
             # We create a special separate_audio job in the queue
             # Set the reference audio url to allow the worker to pull the extracted WAV
@@ -182,11 +182,11 @@ def run_dubbing_pipeline(job_id: str):
                 ref_audio_path=orig_audio_path,
                 status="queued",
                 progress=0,
-                message="Đang chờ Kaggle Worker nhận tác vụ tách nhạc...",
+                message="Đang chờ GPU Worker nhận tác vụ tách nhạc...",
             )
             db.add(parent_tts_job)
             db.commit()
-            VideoDubbingService.log_to_job(job_id, "[KAGGLE] Đã đưa sub-job tách nhạc vào hàng đợi, chờ GPU Worker xử lý...")
+            VideoDubbingService.log_to_job(job_id, "[GPU WORKER] Đã đưa sub-job tách nhạc vào hàng đợi, chờ GPU Worker xử lý...")
             
     except Exception as e:
         err_msg = str(e).strip() or repr(e) or type(e).__name__
