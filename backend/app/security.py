@@ -30,7 +30,7 @@ def verify_worker_token(
         return token
 
     # 3. Check if valid ApiKey record
-    api_key_obj = db.query(ApiKey).filter(ApiKey.key == token, ApiKey.is_active == True).first()
+    api_key_obj = db.query(ApiKey).filter(ApiKey.key == token).first()
     if api_key_obj:
         return token
 
