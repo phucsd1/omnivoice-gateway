@@ -334,7 +334,15 @@ if __name__ == "__main__":
         user_id: Optional[str] = None
     ) -> str:
         abs_dir = DubbingNotebookBuilder.ensure_worker_dir(worker_dir)
+        worker_token = settings.WORKER_TOKEN
+        if user_id and db:
+            from app.models import User
+            user = db.query(User).filter(User.id == user_id).first()
+            if user and user.api_key:
+                worker_token = user.api_key
+
         DubbingNotebookBuilder.generate_requirements(abs_dir)
         DubbingNotebookBuilder.generate_metadata(abs_dir)
-        DubbingNotebookBuilder.generate_worker_code(abs_dir, db=db)
+        DubbingNotebookBuilder.generate_worker_code(abs_dir, worker_token=worker_token, db=db)
         return abs_dir
+

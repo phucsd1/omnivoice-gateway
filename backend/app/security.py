@@ -20,11 +20,22 @@ def verify_worker_token(
             detail="Missing worker token.",
         )
         
-    # Check if system worker token
+    # 1. Check if system worker token
     if settings.WORKER_TOKEN and token == settings.WORKER_TOKEN:
+        return token
+
+    # 2. Check if valid User API key
+    user = db.query(User).filter(User.api_key == token).first()
+    if user:
+        return token
+
+    # 3. Check if valid ApiKey record
+    api_key_obj = db.query(ApiKey).filter(ApiKey.key == token, ApiKey.is_active == True).first()
+    if api_key_obj:
         return token
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid worker token.",
     )
+
