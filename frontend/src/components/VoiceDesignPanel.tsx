@@ -622,8 +622,14 @@ export const VoiceDesignPanel: React.FC<VoiceDesignPanelProps> = ({
 
       {/* Save Voice Modal Overlay */}
       {isSaveModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/85 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-card border border-border rounded-3xl p-6 w-full max-w-md flex flex-col gap-4 shadow-2xl relative">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 lg:pl-64 bg-background/85 backdrop-blur-sm animate-fadeIn"
+          onClick={() => setIsSaveModalOpen(false)}
+        >
+          <div 
+            className="bg-card border border-border rounded-3xl p-6 w-full max-w-md flex flex-col gap-4 shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               onClick={() => setIsSaveModalOpen(false)}
               className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"

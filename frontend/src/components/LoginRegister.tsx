@@ -470,8 +470,15 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
 
       {/* Simulated OAuth Modal Popup */}
       {showOAuthModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-fadeIn">
-          <form onSubmit={handleMockOAuthSubmit} className="bg-card border border-border rounded-[32px] p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl relative">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-fadeIn"
+          onClick={() => setShowOAuthModal(false)}
+        >
+          <form 
+            onSubmit={handleMockOAuthSubmit} 
+            className="bg-card border border-border rounded-[32px] p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center gap-3 border-b border-border/60 pb-3">
               <div className="p-2.5 bg-primary/10 rounded-2xl text-primary">
                 {oauthProvider === "google" ? <GoogleIcon className="w-5 h-5" /> : <GithubIcon className="w-5 h-5" />}

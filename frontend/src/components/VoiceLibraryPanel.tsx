@@ -495,8 +495,14 @@ export const VoiceLibraryPanel: React.FC<VoiceLibraryPanelProps> = ({
 
       {/* Edit Voice Modal */}
       {editVoice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn p-4">
-          <div className="bg-card dark:bg-[#1a1b1e] border border-border/80 dark:border-[#2d2e33] rounded-[var(--radius-card)] p-6 w-full max-w-lg flex flex-col gap-4 relative shadow-2xl max-h-[90vh] overflow-y-auto scrollbar-thin">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn p-4 lg:pl-64"
+          onClick={closeEditModal}
+        >
+          <div 
+            className="bg-card dark:bg-[#1a1b1e] border border-border/80 dark:border-[#2d2e33] rounded-[var(--radius-card)] p-6 w-full max-w-lg flex flex-col gap-4 relative shadow-2xl max-h-[90vh] overflow-y-auto scrollbar-thin"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               onClick={closeEditModal}
               className="absolute top-4 right-4 p-1.5 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-colors cursor-pointer"

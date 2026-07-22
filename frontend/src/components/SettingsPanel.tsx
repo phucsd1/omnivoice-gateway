@@ -125,8 +125,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-card border border-border rounded-3xl p-6 max-w-lg w-full flex flex-col gap-4 shadow-2xl relative animate-fadeIn max-h-[90vh] overflow-y-auto">
+    <div 
+      className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 lg:pl-64 animate-fadeIn"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-card border border-border rounded-3xl p-6 max-w-lg w-full flex flex-col gap-4 shadow-2xl relative animate-fadeIn max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           onClick={onClose}
           className="absolute right-5 top-5 text-muted-foreground hover:text-foreground cursor-pointer"

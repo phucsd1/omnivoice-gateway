@@ -1,25 +1,20 @@
 export function getApiBaseUrl(): string {
-  // Check if build-time API base URL is explicitly provided
-  const envUrl = import.meta.env.VITE_API_BASE_URL;
-  if (envUrl && envUrl.startsWith("http") && !envUrl.includes("pages.dev")) {
-    return envUrl.replace(/\/$/, "");
-  }
-
   // Resolve API Base URL dynamically based on running environment
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
     if (hostname === "localhost" || hostname === "127.0.0.1") {
+      const envUrl = import.meta.env.VITE_API_BASE_URL;
+      if (envUrl && envUrl.startsWith("http")) {
+        return envUrl.replace(/\/$/, "");
+      }
       return "http://localhost:7860";
     }
     
-    // If running on Cloudflare Pages or custom domain, route API requests through the same origin proxy
-    if (hostname.includes("pages.dev") || hostname.includes("oloka.net")) {
-      return window.location.origin;
-    }
+    // For Cloudflare Pages, custom domain (voice.oloka.net), etc., always route API requests through same-origin proxy
+    return window.location.origin;
   }
   
-  // For production fallback, use the default Hugging Face Space backend URL
-  return "https://phucsd-oloka-voice.hf.space";
+  return "https://voice.oloka.net";
 }
 
 export function setApiBaseUrl(url: string) {

@@ -657,8 +657,14 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
 
       {/* Save Voice Modal Overlay */}
       {isSaveModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md animate-fadeIn">
-          <div className="bg-card border border-border rounded-[32px] p-6 w-full max-w-md flex flex-col gap-4.5 shadow-2xl relative">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 lg:pl-64 bg-background/80 backdrop-blur-md animate-fadeIn"
+          onClick={() => setIsSaveModalOpen(false)}
+        >
+          <div 
+            className="bg-card border border-border rounded-[32px] p-6 w-full max-w-md flex flex-col gap-4.5 shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               onClick={() => setIsSaveModalOpen(false)}
               className="absolute top-5 right-5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"

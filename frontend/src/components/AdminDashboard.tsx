@@ -650,7 +650,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className={`grid grid-cols-1 ${llmProfiles.length === 1 ? "max-w-2xl mx-auto w-full" : "md:grid-cols-2"} gap-4`}>
                 {llmProfiles.map((p) => {
                   const isTesting = testingProfileId === p.id;
                   const isSuccess = p.last_test_status === "success";
@@ -1232,8 +1232,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
 
       {/* --- CREATE USER MODAL --- */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-2xl max-w-md w-full p-6 flex flex-col gap-4 shadow-2xl relative">
+        <div
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 lg:pl-64 animate-fadeIn"
+          onClick={() => setShowCreateModal(false)}
+        >
+          <div
+            className="bg-card border border-border rounded-2xl max-w-md w-full p-6 flex flex-col gap-4 shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               onClick={() => setShowCreateModal(false)}
               className="absolute right-4 top-4 text-muted-foreground hover:text-foreground cursor-pointer"
@@ -1334,8 +1340,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
 
       {/* --- EDIT USER MODAL --- */}
       {editingUser && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-2xl max-w-md w-full p-6 flex flex-col gap-4 shadow-2xl relative">
+        <div
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 lg:pl-64 animate-fadeIn"
+          onClick={() => setEditingUser(null)}
+        >
+          <div
+            className="bg-card border border-border rounded-2xl max-w-md w-full p-6 flex flex-col gap-4 shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               onClick={() => setEditingUser(null)}
               className="absolute right-4 top-4 text-muted-foreground hover:text-foreground cursor-pointer"
@@ -1436,8 +1448,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
 
       {/* --- USER API KEYS MODAL --- */}
       {keysUser && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-2xl max-w-xl w-full p-6 flex flex-col gap-4 shadow-2xl relative max-h-[85vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 lg:pl-64 animate-fadeIn"
+          onClick={() => setKeysUser(null)}
+        >
+          <div
+            className="bg-card border border-border rounded-2xl max-w-xl w-full p-6 flex flex-col gap-4 shadow-2xl relative max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               onClick={() => setKeysUser(null)}
               className="absolute right-4 top-4 text-muted-foreground hover:text-foreground cursor-pointer"
@@ -1516,8 +1534,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
 
       {/* --- LLM PROFILE CREATE / EDIT MODAL --- */}
       {showProfileModal && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-card border border-border rounded-3xl max-w-lg w-full p-6 flex flex-col gap-4 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 lg:pl-64 animate-fadeIn"
+          onClick={() => setShowProfileModal(false)}
+        >
+          <div
+            className="bg-card border border-border rounded-3xl max-w-lg w-full p-6 flex flex-col gap-4 shadow-2xl relative max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               onClick={() => setShowProfileModal(false)}
               className="absolute right-5 top-5 text-muted-foreground hover:text-foreground cursor-pointer"
