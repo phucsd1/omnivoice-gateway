@@ -251,3 +251,61 @@ def push_notebook_to_kaggle(db: Session = Depends(get_db), current_user: User = 
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Lỗi hệ thống khi đẩy notebook: {e}"
         )
+
+@router.post("/push-dubbing-notebook", response_model=dict)
+def push_dubbing_notebook_to_kaggle(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Prepares and pushes the dedicated DUBBING worker notebook to Kaggle."""
+    from app.services.kaggle_orchestrator import KaggleOrchestrator
+    from app.services.dubbing_notebook_builder import DubbingNotebookBuilder
+    import os
+    import sys
+    import subprocess
+
+    if not KaggleOrchestrator.is_configured(db, current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Kaggle chưa được cấu hình. Vui lòng cập nhật cài đặt trước."
+        )
+
+    try:
+        worker_dir = DubbingNotebookBuilder.prepare_all(db=db, user_id=current_user.id)
+        username, key, kernel_ref, worker_dir_resolved = KaggleOrchestrator.get_credentials(db, current_user.id)
+        
+        env = os.environ.copy()
+        env["KAGGLE_USERNAME"] = username
+        env["KAGGLE_KEY"] = key
+        env["PYTHONUTF8"] = "1"
+
+        dubbing_slug = f"{username}/omnivoice-dubbing-worker"
+        cmd = [sys.executable, "-c", "from kaggle.cli import main; main()", "kernels", "push", "-p", os.path.abspath(worker_dir_resolved), "--timeout", "3600", "--accelerator", "NvidiaTeslaT4"]
+
+        res = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            text=True,
+            shell=False
+        )
+        stdout, stderr = res.communicate()
+
+        if res.returncode == 0:
+            return {
+                "success": True,
+                "message": "Đã đẩy Notebook Dubbing chuyên biệt lên Kaggle thành công!",
+                "url": f"https://www.kaggle.com/code/{dubbing_slug}"
+            }
+        else:
+            err_msg = stderr.strip() or stdout.strip() or "Kaggle CLI error"
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Lỗi đẩy Notebook Dubbing: {err_msg}"
+            )
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Lỗi hệ thống khi đẩy Notebook Dubbing: {e}"
+        )
+
