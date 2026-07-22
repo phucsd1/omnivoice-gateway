@@ -380,6 +380,7 @@ def get_dubbing_log(
         raise HTTPException(status_code=500, detail=f"Không thể đọc log: {e}")
 
 @router.post("", response_model=VideoDubbingJobResponse)
+@router.post("/jobs", response_model=VideoDubbingJobResponse)
 async def create_dubbing_job(
     background_tasks: BackgroundTasks,
     file: Optional[UploadFile] = File(None),
