@@ -68,7 +68,10 @@ def run_startup_data_recovery():
         if not admin_row:
             from app.utils.auth import get_password_hash
             admin_id = "usr_62f1747adb99"
-            pass_hash = get_password_hash("admin_password_2026")
+            admin_pass = os.environ.get("ADMIN_PASSWORD", "admin_password_2026")
+            if admin_pass == "admin_password_2026":
+                print("[Security Warning] Using default admin password. Please set ADMIN_PASSWORD in production!")
+            pass_hash = get_password_hash(admin_pass)
             target_cursor.execute(
                 "INSERT OR IGNORE INTO users (id, username, email, hashed_password, is_verified, is_approved, is_admin) VALUES (?, ?, ?, ?, 1, 1, 1)",
                 (admin_id, "admin", "admin@omnivoice.local", pass_hash)
@@ -145,13 +148,6 @@ def run_startup_data_recovery():
                 except Exception as f_err:
                     print(f"[Startup Recovery Error] File {backup_file}: {f_err}")
 
-        # Always re-align user_id to admin_id for all voice_samples, api_keys, tts_jobs, user_settings
-        target_cursor.execute("UPDATE voice_samples SET user_id = ? WHERE user_id != ?", (admin_id, admin_id))
-        target_cursor.execute("UPDATE api_keys SET user_id = ? WHERE user_id != ?", (admin_id, admin_id))
-        target_cursor.execute("UPDATE tts_jobs SET user_id = ? WHERE user_id != ?", (admin_id, admin_id))
-        target_cursor.execute("UPDATE user_settings SET user_id = ? WHERE user_id != ?", (admin_id, admin_id))
-        target_conn.commit()
-        print(f"[Startup Recovery] Re-aligned legacy user_id to admin ID: {admin_id}")
         target_conn.close()
     except Exception as ex:
         print(f"[Startup Recovery Fatal Error] {ex}")
@@ -188,7 +184,8 @@ async def lifespan(app: FastAPI):
         admin_user = db.query(User).filter(User.username == "admin").first()
         if not admin_user:
             from app.utils.ids import generate_id
-            hashed_pwd = get_password_hash("admin_password_2026")
+            admin_pass = os.environ.get("ADMIN_PASSWORD", "admin_password_2026")
+            hashed_pwd = get_password_hash(admin_pass)
             api_key = f"ovg_live_{secrets.token_hex(24)}"
             admin_user = User(
                 id=generate_id("usr"),

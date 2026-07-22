@@ -150,7 +150,7 @@ export const ASRPanel: React.FC = () => {
     };
   }, []);
 
-  // Parse Alignment Timestamps
+  // Parse & Normalize Alignment Timestamps
   const alignmentList = React.useMemo(() => {
     if (!jobStatus || !jobStatus.alignment) return [];
     
@@ -165,44 +165,75 @@ export const ASRPanel: React.FC = () => {
       }
     }
 
+    let rawList: any[] = [];
     if (Array.isArray(alignmentData)) {
-      return alignmentData;
-    }
-    
-    // Handle { "words": [...] } format
-    if (alignmentData && typeof alignmentData === "object" && Array.isArray((alignmentData as any).words)) {
-      return (alignmentData as any).words;
+      rawList = alignmentData;
+    } else if (alignmentData && typeof alignmentData === "object") {
+      if (Array.isArray((alignmentData as any).words)) {
+        rawList = (alignmentData as any).words;
+      } else if (Array.isArray((alignmentData as any).chunks)) {
+        rawList = (alignmentData as any).chunks;
+      }
     }
 
-    return [];
+    return rawList.map((item: any) => {
+      if (!item) return { word: "", start: 0, end: 0 };
+      
+      // Handle Hugging Face Whisper chunk format: { text: "...", timestamp: [start, end] }
+      if (item.timestamp !== undefined) {
+        let start = 0;
+        let end = 0;
+        if (Array.isArray(item.timestamp)) {
+          start = typeof item.timestamp[0] === "number" ? item.timestamp[0] : 0;
+          end = typeof item.timestamp[1] === "number" ? item.timestamp[1] : start + 0.3;
+        } else if (typeof item.timestamp === "object" && item.timestamp !== null) {
+          start = typeof item.timestamp.start === "number" ? item.timestamp.start : 0;
+          end = typeof item.timestamp.end === "number" ? item.timestamp.end : start + 0.3;
+        }
+        return {
+          word: (item.text || item.word || "").toString(),
+          start: typeof start === "number" && !isNaN(start) ? start : 0,
+          end: typeof end === "number" && !isNaN(end) ? end : start + 0.3
+        };
+      }
+
+      const start = typeof item.start === "number" ? item.start : (typeof item.start_time === "number" ? item.start_time : 0);
+      const end = typeof item.end === "number" ? item.end : (typeof item.end_time === "number" ? item.end_time : start + 0.3);
+
+      return {
+        word: (item.word || item.text || "").toString(),
+        start: !isNaN(start) ? start : 0,
+        end: !isNaN(end) ? end : start + 0.3
+      };
+    }).filter(item => item.word.trim().length > 0 || item.end > item.start);
   }, [jobStatus]);
 
   // Convert raw alignment list into logical subtitle segments (SRT chunks)
   const subtitleSegments = React.useMemo(() => {
-    if (alignmentList.length === 0) return [];
+    if (!alignmentList || alignmentList.length === 0) return [];
     
     const segments: { start: number; end: number; text: string }[] = [];
-    let currentSegmentWords: any[] = [];
-    let segmentStart = alignmentList[0].start;
+    let currentSegmentWords: string[] = [];
+    let segmentStart = alignmentList[0]?.start ?? 0;
     
-    alignmentList.forEach((word: any, index: number) => {
-      currentSegmentWords.push(word);
+    alignmentList.forEach((item: { word: string; start: number; end: number }, index: number) => {
+      currentSegmentWords.push(item.word);
       const isLastWord = index === alignmentList.length - 1;
       
-      const charLength = currentSegmentWords.map(w => w.word).join(" ").length;
-      
-      const hasPauseAfter = !isLastWord && (alignmentList[index + 1].start - word.end > 0.45);
-      const hasPunctuation = /[.,!?;:]$/.test(word.word.trim());
+      const charLength = currentSegmentWords.join(" ").length;
+      const nextItem = alignmentList[index + 1];
+      const hasPauseAfter = !isLastWord && nextItem && ((nextItem.start - item.end) > 0.45);
+      const hasPunctuation = /[.,!?;:]$/.test(item.word.trim());
       
       if (currentSegmentWords.length >= 7 || charLength > 36 || hasPauseAfter || hasPunctuation || isLastWord) {
         segments.push({
           start: segmentStart,
-          end: word.end,
-          text: currentSegmentWords.map(w => w.word).join(" ").trim()
+          end: item.end,
+          text: currentSegmentWords.join(" ").trim()
         });
         
-        if (!isLastWord) {
-          segmentStart = alignmentList[index + 1].start;
+        if (!isLastWord && nextItem) {
+          segmentStart = nextItem.start;
           currentSegmentWords = [];
         }
       }

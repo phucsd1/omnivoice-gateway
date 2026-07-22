@@ -147,8 +147,8 @@ def register(payload: UserRegisterRequest, background_tasks: BackgroundTasks, db
         "message": "Đăng ký thành công. Vui lòng kiểm tra email để lấy mã xác thực kích hoạt tài khoản."
     }
     
-    # Expose debug_code if SMTP settings are missing
-    if not settings.SMTP_USERNAME or not settings.SMTP_PASSWORD or settings.APP_ENV == "testing":
+    # Expose debug_code ONLY in development or testing environments
+    if settings.APP_ENV in ["development", "testing"]:
         response_data["debug_code"] = otp_code
         
     return response_data
@@ -211,7 +211,7 @@ def resend_code(payload: ResendCodeRequest, background_tasks: BackgroundTasks, d
         "message": "Đã gửi lại mã xác thực mới vào email của bạn."
     }
     
-    if not settings.SMTP_USERNAME or not settings.SMTP_PASSWORD or settings.APP_ENV == "testing":
+    if settings.APP_ENV in ["development", "testing"]:
         response_data["debug_code"] = otp_code
         
     return response_data
@@ -317,6 +317,11 @@ def delete_user_api_key(key_id: str, current_user: User = Depends(get_current_us
 @router.post("/oauth/mock", response_model=TokenResponse)
 def oauth_mock(payload: MockOAuthRequest, db: Session = Depends(get_db)):
     """Mock OAuth login endpoint for testing frontend UI in simulated environment."""
+    if settings.APP_ENV not in ["development", "testing"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Mock OAuth endpoint is disabled in production."
+        )
     # Look for existing user by oauth provider + id
     user = db.query(User).filter(
         User.oauth_provider == payload.oauth_provider,

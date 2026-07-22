@@ -30,13 +30,14 @@ if "%needs_setup%"=="1" (
     set /p hf_token="Token: "
     
     echo.
-    echo [INFO] Dang thiet lap remote 'hf' voi credentials bao mat...
+    echo [INFO] Dang thiet lap remote 'hf'...
     if "%has_hf%"=="0" (
-        git remote set-url hf https://!hf_user!:!hf_token!@huggingface.co/spaces/!hf_user!/!hf_space!
+        git remote set-url hf https://huggingface.co/spaces/!hf_user!/!hf_space!
     ) else (
-        git remote add hf https://!hf_user!:!hf_token!@huggingface.co/spaces/!hf_user!/!hf_space!
+        git remote add hf https://huggingface.co/spaces/!hf_user!/!hf_space!
     )
     echo [SUCCESS] Da thiet lap remote hf thanh cong!
+    echo [INFO] Luu y: Vui long su dung 'git config credential.helper store' hoac dang nhap qua Git Credential Manager khi đuoc hoi mat khau/token.
     echo.
 )
 

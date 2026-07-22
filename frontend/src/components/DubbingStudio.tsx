@@ -756,7 +756,7 @@ export default function DubbingStudio() {
                       <div className="flex justify-between items-center mb-2">
                         <span className="text-[10px] font-bold text-primary tracking-wider">PHÂN ĐOẠN #{seg.id}</span>
                         <span className="text-[10px] font-mono font-bold text-muted-foreground bg-background px-2 py-0.5 rounded border border-border">
-                          {seg.start.toFixed(2)}s → {seg.end.toFixed(2)}s ({(seg.end - seg.start).toFixed(1)}s)
+                          {typeof seg.start === "number" ? seg.start.toFixed(2) : "0.00"}s → {typeof seg.end === "number" ? seg.end.toFixed(2) : "0.00"}s ({typeof seg.start === "number" && typeof seg.end === "number" ? (seg.end - seg.start).toFixed(1) : "0.0"}s)
                         </span>
                       </div>
                       

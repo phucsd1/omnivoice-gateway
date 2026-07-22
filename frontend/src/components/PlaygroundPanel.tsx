@@ -508,20 +508,55 @@ export const PlaygroundPanel: React.FC = () => {
 
   // Parse and normalize alignment array (works for both TTS and ASR layouts)
   const alignmentList = React.useMemo(() => {
-    if (!jobStatus?.alignment || !Array.isArray(jobStatus.alignment)) return [];
-    return jobStatus.alignment.map((item: any) => {
-      // Normalise ASR chunk layout
-      if (item.timestamp !== undefined && Array.isArray(item.timestamp)) {
+    if (!jobStatus || !jobStatus.alignment) return [];
+    
+    let alignmentData = jobStatus.alignment;
+    if (typeof alignmentData === "string") {
+      try {
+        alignmentData = JSON.parse(alignmentData);
+      } catch {
+        return [];
+      }
+    }
+
+    let rawList: any[] = [];
+    if (Array.isArray(alignmentData)) {
+      rawList = alignmentData;
+    } else if (alignmentData && typeof alignmentData === "object") {
+      if (Array.isArray((alignmentData as any).words)) {
+        rawList = (alignmentData as any).words;
+      } else if (Array.isArray((alignmentData as any).chunks)) {
+        rawList = (alignmentData as any).chunks;
+      }
+    }
+
+    return rawList.map((item: any) => {
+      if (!item) return { word: "", start: 0, end: 0 };
+      
+      if (item.timestamp !== undefined) {
+        let start = 0;
+        let end = 0;
+        if (Array.isArray(item.timestamp)) {
+          start = typeof item.timestamp[0] === "number" ? item.timestamp[0] : 0;
+          end = typeof item.timestamp[1] === "number" ? item.timestamp[1] : start + 0.3;
+        } else if (typeof item.timestamp === "object" && item.timestamp !== null) {
+          start = typeof item.timestamp.start === "number" ? item.timestamp.start : 0;
+          end = typeof item.timestamp.end === "number" ? item.timestamp.end : start + 0.3;
+        }
         return {
-          word: item.text || "",
-          start: item.timestamp[0] !== null ? item.timestamp[0] : 0,
-          end: item.timestamp[1] !== null ? item.timestamp[1] : (item.timestamp[0] || 0) + 0.3
+          word: (item.text || item.word || "").toString(),
+          start: typeof start === "number" && !isNaN(start) ? start : 0,
+          end: typeof end === "number" && !isNaN(end) ? end : start + 0.3
         };
       }
+
+      const start = typeof item.start === "number" ? item.start : (typeof item.start_time === "number" ? item.start_time : 0);
+      const end = typeof item.end === "number" ? item.end : (typeof item.end_time === "number" ? item.end_time : start + 0.3);
+
       return {
-        word: item.word || "",
-        start: item.start || 0,
-        end: item.end || 0
+        word: (item.word || item.text || "").toString(),
+        start: !isNaN(start) ? start : 0,
+        end: !isNaN(end) ? end : start + 0.3
       };
     });
   }, [jobStatus]);

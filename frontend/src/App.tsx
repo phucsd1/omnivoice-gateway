@@ -16,6 +16,7 @@ import { AudioPlayer } from "./components/AudioPlayer";
 import { PlaygroundPanel } from "./components/PlaygroundPanel";
 import { ASRPanel } from "./components/ASRPanel";
 import DubbingStudio from "./components/DubbingStudio";
+import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem("VITE_JWT_TOKEN"));
@@ -535,90 +536,108 @@ function App() {
 
           {activeTab === "workspace" && (
             <div className="w-full flex flex-col gap-6">
-              <TTSPanel 
-                activeVoiceSampleId={activeVoiceSampleId} 
-                onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
-                layout="modern"
-                currentPlayUrl={currentPlayUrl}
-                globalPlayerPlaying={globalPlayerPlaying}
-                onPlayAudio={handlePlayAudio}
-                onTogglePlay={handleTogglePlay}
-              />
+              <ErrorBoundary fallbackTitle="Lỗi hiển thị Text to Speech">
+                <TTSPanel 
+                  activeVoiceSampleId={activeVoiceSampleId} 
+                  onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
+                  layout="modern"
+                  currentPlayUrl={currentPlayUrl}
+                  globalPlayerPlaying={globalPlayerPlaying}
+                  onPlayAudio={handlePlayAudio}
+                  onTogglePlay={handleTogglePlay}
+                />
+              </ErrorBoundary>
             </div>
           )}
 
           {activeTab === "voice-lab" && (
             <div className="w-full grid grid-cols-1 xl:grid-cols-2 gap-6 animate-fadeIn items-start">
-              <VoiceSampleUpload onUploadSuccess={handleVoiceSampleActive} layout="classic" />
-              <VoiceDesignPanel 
-                onAcceptSuccess={handleVoiceSampleActive} 
-                onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
-                layout="classic"
-                currentPlayUrl={currentPlayUrl}
-                globalPlayerPlaying={globalPlayerPlaying}
-                onPlayAudio={handlePlayAudio}
-                onTogglePlay={handleTogglePlay}
-              />
+              <ErrorBoundary fallbackTitle="Lỗi hiển thị Voice Design">
+                <VoiceSampleUpload onUploadSuccess={handleVoiceSampleActive} layout="classic" />
+                <VoiceDesignPanel 
+                  onAcceptSuccess={handleVoiceSampleActive} 
+                  onJobCreatedOrUpdated={handleJobCreatedOrUpdated}
+                  layout="classic"
+                  currentPlayUrl={currentPlayUrl}
+                  globalPlayerPlaying={globalPlayerPlaying}
+                  onPlayAudio={handlePlayAudio}
+                  onTogglePlay={handleTogglePlay}
+                />
+              </ErrorBoundary>
             </div>
           )}
 
           {activeTab === "library" && (
             <div className="w-full animate-fadeIn">
-              <VoiceLibraryPanel 
-                activeVoiceSampleId={activeVoiceSampleId}
-                onUseVoice={(id) => { 
-                  setActiveVoiceSampleId(id); 
-                  navigateToTab("workspace"); 
-                }} 
-                layout="modern" 
-                currentPlayUrl={currentPlayUrl}
-                globalPlayerPlaying={globalPlayerPlaying}
-                onPlayAudio={handlePlayAudio}
-                onTogglePlay={handleTogglePlay}
-              />
+              <ErrorBoundary fallbackTitle="Lỗi hiển thị Voice Library">
+                <VoiceLibraryPanel 
+                  activeVoiceSampleId={activeVoiceSampleId}
+                  onUseVoice={(id) => { 
+                    setActiveVoiceSampleId(id); 
+                    navigateToTab("workspace"); 
+                  }} 
+                  layout="modern" 
+                  currentPlayUrl={currentPlayUrl}
+                  globalPlayerPlaying={globalPlayerPlaying}
+                  onPlayAudio={handlePlayAudio}
+                  onTogglePlay={handleTogglePlay}
+                />
+              </ErrorBoundary>
             </div>
           )}
 
           {activeTab === "history" && (
             <div className="w-full animate-fadeIn">
-              <JobHistoryPanel 
-                refreshTrigger={refreshHistory} 
-                layout="modern" 
-                currentPlayUrl={currentPlayUrl}
-                globalPlayerPlaying={globalPlayerPlaying}
-                onPlayAudio={handlePlayAudio}
-                onTogglePlay={handleTogglePlay}
-              />
+              <ErrorBoundary fallbackTitle="Lỗi hiển thị History">
+                <JobHistoryPanel 
+                  refreshTrigger={refreshHistory} 
+                  layout="modern" 
+                  currentPlayUrl={currentPlayUrl}
+                  globalPlayerPlaying={globalPlayerPlaying}
+                  onPlayAudio={handlePlayAudio}
+                  onTogglePlay={handleTogglePlay}
+                />
+              </ErrorBoundary>
             </div>
           )}
 
           {activeTab === "docs" && (
             <div className="w-full animate-fadeIn">
-              <ApiDocsPage onBack={() => navigateToTab("workspace")} isLoggedIn={true} />
+              <ErrorBoundary fallbackTitle="Lỗi hiển thị API Docs">
+                <ApiDocsPage onBack={() => navigateToTab("workspace")} isLoggedIn={true} />
+              </ErrorBoundary>
             </div>
           )}
 
           {activeTab === "admin" && currentUser?.is_admin && (
             <div className="w-full animate-fadeIn">
-              <AdminDashboard onBack={() => navigateToTab("workspace")} onSettingsChanged={fetchSettings} />
+              <ErrorBoundary fallbackTitle="Lỗi hiển thị Admin Portal">
+                <AdminDashboard onBack={() => navigateToTab("workspace")} onSettingsChanged={fetchSettings} />
+              </ErrorBoundary>
             </div>
           )}
 
           {activeTab === "playground" && currentUser?.is_admin && (
             <div className="w-full animate-fadeIn">
-              <PlaygroundPanel />
+              <ErrorBoundary fallbackTitle="Lỗi hiển thị Playground">
+                <PlaygroundPanel />
+              </ErrorBoundary>
             </div>
           )}
 
           {activeTab === "asr" && (
             <div className="w-full animate-fadeIn">
-              <ASRPanel />
+              <ErrorBoundary fallbackTitle="Lỗi hiển thị nhận dạng giọng nói (ASR)">
+                <ASRPanel />
+              </ErrorBoundary>
             </div>
           )}
 
           {activeTab === "dubbing" && (
             <div className="w-full animate-fadeIn">
-              <DubbingStudio />
+              <ErrorBoundary fallbackTitle="Lỗi hiển thị Video Dubbing">
+                <DubbingStudio />
+              </ErrorBoundary>
             </div>
           )}
 
