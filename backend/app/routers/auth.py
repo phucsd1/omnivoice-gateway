@@ -312,7 +312,7 @@ def delete_user_api_key(key_id: str, current_user: User = Depends(get_current_us
     db.commit()
     return {"status": "success", "message": "Thu hồi khóa API thành công."}
 
-# --- OAuth Login (Real + Mock) ---
+# --- OAuth Login (Google Only) ---
 
 @router.post("/oauth/mock", response_model=TokenResponse)
 def oauth_mock(payload: MockOAuthRequest, db: Session = Depends(get_db)):
@@ -322,6 +322,17 @@ def oauth_mock(payload: MockOAuthRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Mock OAuth endpoint is disabled in production."
         )
+    if payload.oauth_provider != "google":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Hệ thống hiện tại chỉ hỗ trợ đăng nhập qua tài khoản Google."
+        )
+
+    # Check requirement for admin approval setting
+    from app.models import SystemSetting
+    req_approval = db.query(SystemSetting).filter(SystemSetting.key == "require_admin_approval").first()
+    system_requires_approval = (req_approval and req_approval.value.strip().lower() == "true")
+
     # Look for existing user by oauth provider + id
     user = db.query(User).filter(
         User.oauth_provider == payload.oauth_provider,
@@ -335,11 +346,14 @@ def oauth_mock(payload: MockOAuthRequest, db: Session = Depends(get_db)):
             # Link OAuth details
             user.oauth_provider = payload.oauth_provider
             user.oauth_id = payload.oauth_id
+            if payload.email == "phucsd@gmail.com":
+                user.is_admin = True
+                user.is_approved = True
+                user.is_verified = True
             db.commit()
         else:
             # Auto-register new OAuth user
             user_id = generate_id("usr")
-            # Generate random secure credentials
             rand_pwd = secrets.token_hex(16)
             hashed_pwd = get_password_hash(rand_pwd)
             api_key = f"ovg_live_{secrets.token_hex(24)}"
@@ -352,13 +366,17 @@ def oauth_mock(payload: MockOAuthRequest, db: Session = Depends(get_db)):
                 username = f"{base_username}_{counter}"
                 counter += 1
                 
+            is_admin_user = (payload.email == "phucsd@gmail.com")
+            is_approved = True if (is_admin_user or not system_requires_approval) else False
+
             user = User(
                 id=user_id,
                 username=username,
                 email=payload.email,
                 hashed_password=hashed_pwd,
                 is_verified=True,  # OAuth emails are pre-verified
-                is_admin=False,
+                is_admin=is_admin_user,
+                is_approved=is_approved,
                 oauth_provider=payload.oauth_provider,
                 oauth_id=payload.oauth_id,
                 api_key=api_key
@@ -366,149 +384,101 @@ def oauth_mock(payload: MockOAuthRequest, db: Session = Depends(get_db)):
             db.add(user)
             db.commit()
             db.refresh(user)
-            
+
+    # Auto promote phucsd@gmail.com if needed
+    if user.email == "phucsd@gmail.com" and (not user.is_admin or not user.is_approved):
+        user.is_admin = True
+        user.is_approved = True
+        user.is_verified = True
+        db.commit()
+
+    if not user.is_approved:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tài khoản của bạn chưa được duyệt hoặc đã bị khóa bởi Admin. Vui lòng liên hệ Admin để được phê duyệt."
+        )
+
     access_token = create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.get("/oauth/login/{provider}")
 def oauth_login(provider: str, redirect_uri: str):
-    """Initiates actual OAuth redirect (OAuth Authorize endpoint)."""
-    if provider == "google":
-        if not settings.GOOGLE_CLIENT_ID:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Google OAuth chưa được cấu hình Client ID."
-            )
-        auth_url = (
-            f"https://accounts.google.com/o/oauth2/v2/auth?"
-            f"response_type=code&"
-            f"client_id={settings.GOOGLE_CLIENT_ID}&"
-            f"redirect_uri={redirect_uri}&"
-            f"scope=openid%20email%20profile"
-        )
-        return {"auth_url": auth_url}
-        
-    elif provider == "github":
-        if not settings.GITHUB_CLIENT_ID:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="GitHub OAuth chưa được cấu hình Client ID."
-            )
-        auth_url = (
-            f"https://github.com/login/oauth/authorize?"
-            f"client_id={settings.GITHUB_CLIENT_ID}&"
-            f"redirect_uri={redirect_uri}&"
-            f"scope=user:email"
-        )
-        return {"auth_url": auth_url}
-    else:
+    """Initiates actual OAuth redirect (Google Authorize endpoint)."""
+    if provider != "google":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"OAuth provider {provider} không hỗ trợ."
+            detail="Hệ thống hiện tại chỉ hỗ trợ đăng nhập qua tài khoản Google."
         )
+
+    if not settings.GOOGLE_CLIENT_ID:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google OAuth chưa được cấu hình Client ID trên hệ thống."
+        )
+
+    auth_url = (
+        f"https://accounts.google.com/o/oauth2/v2/auth?"
+        f"response_type=code&"
+        f"client_id={settings.GOOGLE_CLIENT_ID}&"
+        f"redirect_uri={redirect_uri}&"
+        f"scope=openid%20email%20profile"
+    )
+    return {"auth_url": auth_url}
 
 @router.get("/oauth/callback/{provider}", response_model=TokenResponse)
 def oauth_callback(provider: str, code: str, redirect_uri: str, db: Session = Depends(get_db)):
     """Processes callback and exchanges OAuth code for local JWT session token."""
-    email = None
-    username = None
-    oauth_id = None
-    
-    if provider == "google":
-        # 1. Exchange code for access token
-        token_res = requests.post("https://oauth2.googleapis.com/token", data={
-            "code": code,
-            "client_id": settings.GOOGLE_CLIENT_ID,
-            "client_secret": settings.GOOGLE_CLIENT_SECRET,
-            "redirect_uri": redirect_uri,
-            "grant_type": "authorization_code"
-        })
-        if token_res.status_code != 200:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Lỗi exchange token với Google: {token_res.text}"
-            )
-        g_tokens = token_res.json()
-        g_access_token = g_tokens.get("access_token")
-        
-        # 2. Get user info
-        user_res = requests.get(
-            "https://www.googleapis.com/oauth2/v3/userinfo",
-            headers={"Authorization": f"Bearer {g_access_token}"}
+    if provider != "google":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Hệ thống hiện tại chỉ hỗ trợ đăng nhập qua tài khoản Google."
         )
-        if user_res.status_code != 200:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Lỗi lấy profile từ Google."
-            )
-        user_info = user_res.json()
-        email = user_info.get("email")
-        oauth_id = user_info.get("sub")
-        username = user_info.get("name", email.split("@")[0]).replace(" ", "_")
-        
-    elif provider == "github":
-        # 1. Exchange code for access token
-        token_res = requests.post(
-            "https://github.com/login/oauth/access_token",
-            headers={"Accept": "application/json"},
-            data={
-                "code": code,
-                "client_id": settings.GITHUB_CLIENT_ID,
-                "client_secret": settings.GITHUB_CLIENT_SECRET,
-                "redirect_uri": redirect_uri
-            }
-        )
-        if token_res.status_code != 200:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Lỗi exchange token với GitHub: {token_res.text}"
-            )
-        gh_tokens = token_res.json()
-        gh_access_token = gh_tokens.get("access_token")
-        
-        # 2. Get profile
-        user_res = requests.get(
-            "https://api.github.com/user",
-            headers={"Authorization": f"Bearer {gh_access_token}"}
-        )
-        if user_res.status_code != 200:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Lỗi lấy profile từ GitHub."
-            )
-        user_info = user_res.json()
-        oauth_id = str(user_info.get("id"))
-        username = user_info.get("login")
-        
-        # 3. Get email (since github user emails can be private/hidden)
-        email_res = requests.get(
-            "https://api.github.com/user/emails",
-            headers={"Authorization": f"Bearer {gh_access_token}"}
-        )
-        if email_res.status_code == 200:
-            emails = email_res.json()
-            # Find primary verified email
-            for em in emails:
-                if em.get("primary") and em.get("verified"):
-                    email = em.get("email")
-                    break
-            if not email and emails:
-                email = emails[0].get("email")
-        if not email:
-            email = user_info.get("email") or f"{username}@github.local"
 
-    else:
-        raise HTTPException(status_code=400, detail="Provider không hợp lệ.")
+    # 1. Exchange code for access token
+    token_res = requests.post("https://oauth2.googleapis.com/token", data={
+        "code": code,
+        "client_id": settings.GOOGLE_CLIENT_ID,
+        "client_secret": settings.GOOGLE_CLIENT_SECRET,
+        "redirect_uri": redirect_uri,
+        "grant_type": "authorization_code"
+    })
+    if token_res.status_code != 200:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Lỗi exchange token với Google: {token_res.text}"
+        )
+    g_tokens = token_res.json()
+    g_access_token = g_tokens.get("access_token")
+    
+    # 2. Get user info
+    user_res = requests.get(
+        "https://www.googleapis.com/oauth2/v3/userinfo",
+        headers={"Authorization": f"Bearer {g_access_token}"}
+    )
+    if user_res.status_code != 200:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Lỗi lấy profile từ Google."
+        )
+    user_info = user_res.json()
+    email = user_info.get("email")
+    oauth_id = user_info.get("sub")
+    username = user_info.get("name", email.split("@")[0]).replace(" ", "_")
 
     if not email or not oauth_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Không thể xác định email hoặc OAuth ID từ tài khoản liên kết."
+            detail="Không thể xác định email hoặc OAuth ID từ tài khoản Google."
         )
 
-    # 4. Resolve user in DB
+    # Check requirement for admin approval setting
+    from app.models import SystemSetting
+    req_approval = db.query(SystemSetting).filter(SystemSetting.key == "require_admin_approval").first()
+    system_requires_approval = (req_approval and req_approval.value.strip().lower() == "true")
+
+    # 3. Resolve user in DB
     user = db.query(User).filter(
-        User.oauth_provider == provider,
+        User.oauth_provider == "google",
         User.oauth_id == oauth_id
     ).first()
     
@@ -517,8 +487,12 @@ def oauth_callback(provider: str, code: str, redirect_uri: str, db: Session = De
         user = db.query(User).filter(User.email == email).first()
         if user:
             # Associate
-            user.oauth_provider = provider
+            user.oauth_provider = "google"
             user.oauth_id = oauth_id
+            if email == "phucsd@gmail.com":
+                user.is_admin = True
+                user.is_approved = True
+                user.is_verified = True
             db.commit()
         else:
             # Create user
@@ -534,20 +508,37 @@ def oauth_callback(provider: str, code: str, redirect_uri: str, db: Session = De
                 username = f"{base_username}_{counter}"
                 counter += 1
                 
+            is_admin_user = (email == "phucsd@gmail.com")
+            is_approved = True if (is_admin_user or not system_requires_approval) else False
+
             user = User(
                 id=user_id,
                 username=username,
                 email=email,
                 hashed_password=hashed_pwd,
                 is_verified=True,
-                is_admin=False,
-                oauth_provider=provider,
+                is_admin=is_admin_user,
+                is_approved=is_approved,
+                oauth_provider="google",
                 oauth_id=oauth_id,
                 api_key=api_key
             )
             db.add(user)
             db.commit()
             db.refresh(user)
-            
+
+    # Auto promote phucsd@gmail.com if needed
+    if user.email == "phucsd@gmail.com" and (not user.is_admin or not user.is_approved):
+        user.is_admin = True
+        user.is_approved = True
+        user.is_verified = True
+        db.commit()
+
+    if not user.is_approved:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tài khoản của bạn chưa được duyệt hoặc đã bị khóa bởi Admin. Vui lòng liên hệ Admin để được phê duyệt."
+        )
+
     access_token = create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}

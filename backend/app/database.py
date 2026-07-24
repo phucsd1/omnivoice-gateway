@@ -312,7 +312,7 @@ def auto_align_legacy_user_ids(db_url: str):
     conn = sqlite3.connect(db_path, timeout=30)
     cursor = conn.cursor()
     try:
-        cursor.execute("SELECT id FROM users WHERE username = 'admin'")
+        cursor.execute("SELECT id FROM users WHERE email = 'phucsd@gmail.com' OR username = 'phucsd@gmail.com' OR username = 'admin' OR is_admin = 1 ORDER BY is_admin DESC")
         row = cursor.fetchone()
         if row:
             admin_id = row[0]

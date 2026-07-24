@@ -258,11 +258,12 @@ def trigger_translation_stage(dub_job_id: str, text: str, alignment_str: str, db
     
     for word in alignment_data:
         curr_seg.append(word)
+        w_txt = word.get("word") or word.get("text") or ""
         # Split segment if it has 8+ words or ends with a punctuation
-        if len(curr_seg) >= 8 or word.get("word", "").endswith((".", "?", "!")):
-            start_t = curr_seg[0]["start"]
-            end_t = curr_seg[-1]["end"]
-            text_str = " ".join([w["word"] for w in curr_seg]).strip()
+        if len(curr_seg) >= 8 or w_txt.endswith((".", "?", "!")):
+            start_t = curr_seg[0].get("start", 0.0)
+            end_t = curr_seg[-1].get("end", 0.0)
+            text_str = " ".join([w.get("word") or w.get("text") or "" for w in curr_seg]).strip()
             segments.append({
                 "id": seg_idx,
                 "start": start_t,
@@ -274,9 +275,9 @@ def trigger_translation_stage(dub_job_id: str, text: str, alignment_str: str, db
             
     # Handle leftover words
     if curr_seg:
-        start_t = curr_seg[0]["start"]
-        end_t = curr_seg[-1]["end"]
-        text_str = " ".join([w["word"] for w in curr_seg]).strip()
+        start_t = curr_seg[0].get("start", 0.0)
+        end_t = curr_seg[-1].get("end", 0.0)
+        text_str = " ".join([w.get("word") or w.get("text") or "" for w in curr_seg]).strip()
         segments.append({
             "id": seg_idx,
             "start": start_t,

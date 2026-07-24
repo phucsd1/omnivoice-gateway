@@ -514,6 +514,10 @@ export const api = {
     });
   },
 
+  oauthLogin: async (provider: string, redirectUri: string): Promise<{ auth_url: string }> => {
+    return request<{ auth_url: string }>(`/v1/auth/oauth/login/${provider}?redirect_uri=${encodeURIComponent(redirectUri)}`);
+  },
+
   getMe: async (): Promise<UserMeResponse> => {
     return request<UserMeResponse>(`/v1/auth/me?t=${Date.now()}`);
   },

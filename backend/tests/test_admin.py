@@ -25,11 +25,12 @@ def setup_db():
     api_key = f"ovg_live_{secrets.token_hex(24)}"
     admin_user = User(
         id="usr_admin_test_123",
-        username="admin",
-        email="admin@omnivoice.local",
+        username="phucsd@gmail.com",
+        email="phucsd@gmail.com",
         hashed_password=hashed_pwd,
         is_verified=True,
         is_admin=True,
+        is_approved=True,
         api_key=api_key
     )
     db.add(admin_user)
@@ -47,7 +48,7 @@ def setup_db():
 def test_admin_seeding_and_access():
     # 1. Login as default seeded admin
     login_res = client.post("/v1/auth/login", json={
-        "username": "admin",
+        "username": "phucsd@gmail.com",
         "password": "admin_password_2026"
     })
     assert login_res.status_code == 200
@@ -139,7 +140,7 @@ def test_admin_seeding_and_access():
 def test_admin_advanced_features():
     # Login as admin
     login_res = client.post("/v1/auth/login", json={
-        "username": "admin",
+        "username": "phucsd@gmail.com",
         "password": "admin_password_2026"
     })
     admin_token = login_res.json()["access_token"]
@@ -248,3 +249,42 @@ def test_admin_advanced_features():
     assert new_settings["require_admin_approval"] is True
     assert new_settings["smtp_host"] == "smtp.test-server.com"
     assert new_settings["smtp_port"] == 1025
+
+def test_google_oauth_and_approval():
+    # 1. Test Google OAuth login for phucsd@gmail.com (automatically admin & approved)
+    res_phuc = client.post("/v1/auth/oauth/mock", json={
+        "email": "phucsd@gmail.com",
+        "username": "phucsd",
+        "oauth_provider": "google",
+        "oauth_id": "google_test_phucsd_123"
+    })
+    assert res_phuc.status_code == 200
+    token_phuc = res_phuc.json()["access_token"]
+    headers_phuc = {"Authorization": f"Bearer {token_phuc}"}
+
+    me_phuc = client.get("/v1/auth/me", headers=headers_phuc)
+    assert me_phuc.status_code == 200
+    assert me_phuc.json()["is_admin"] is True
+
+    # Enable require_admin_approval
+    client.post("/v1/admin/settings", json={"require_admin_approval": True}, headers=headers_phuc)
+
+    # 2. Test new user signup via Google OAuth when require_admin_approval = True -> 403 Forbidden
+    res_new_user = client.post("/v1/auth/oauth/mock", json={
+        "email": "pending_user@gmail.com",
+        "username": "pending_user",
+        "oauth_provider": "google",
+        "oauth_id": "google_test_pending_456"
+    })
+    assert res_new_user.status_code == 403
+    assert "chưa được duyệt" in res_new_user.json()["detail"]
+
+    # 3. Non-Google OAuth provider rejected -> 400 Bad Request
+    res_github = client.post("/v1/auth/oauth/mock", json={
+        "email": "hacker@github.com",
+        "username": "hacker",
+        "oauth_provider": "github",
+        "oauth_id": "github_123"
+    })
+    assert res_github.status_code == 400
+    assert "chỉ hỗ trợ đăng nhập qua tài khoản Google" in res_github.json()["detail"]

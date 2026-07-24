@@ -63,22 +63,32 @@ def run_startup_data_recovery():
         target_conn = sqlite3.connect(db_path, timeout=30)
         target_cursor = target_conn.cursor()
         
-        target_cursor.execute("SELECT id FROM users WHERE username = 'admin'")
-        admin_row = target_cursor.fetchone()
-        if not admin_row:
-            from app.utils.auth import get_password_hash
-            admin_id = "usr_62f1747adb99"
-            admin_pass = os.environ.get("ADMIN_PASSWORD", "admin_password_2026")
-            if admin_pass == "admin_password_2026":
-                print("[Security Warning] Using default admin password. Please set ADMIN_PASSWORD in production!")
-            pass_hash = get_password_hash(admin_pass)
+        # Migrate any legacy admin account or seed phucsd@gmail.com
+        target_cursor.execute("SELECT id FROM users WHERE username = 'admin' OR email = 'admin@omnivoice.local'")
+        legacy_row = target_cursor.fetchone()
+        if legacy_row:
             target_cursor.execute(
-                "INSERT OR IGNORE INTO users (id, username, email, hashed_password, is_verified, is_approved, is_admin) VALUES (?, ?, ?, ?, 1, 1, 1)",
-                (admin_id, "admin", "admin@omnivoice.local", pass_hash)
+                "UPDATE users SET username = 'phucsd@gmail.com', email = 'phucsd@gmail.com', is_admin = 1, is_approved = 1, is_verified = 1 WHERE id = ?",
+                (legacy_row[0],)
             )
             target_conn.commit()
+            admin_id = legacy_row[0]
+            print(f"[Admin Transfer] Migrated legacy admin account to phucsd@gmail.com (ID: {admin_id})")
         else:
-            admin_id = admin_row[0]
+            target_cursor.execute("SELECT id FROM users WHERE email = 'phucsd@gmail.com' OR username = 'phucsd@gmail.com'")
+            phuc_row = target_cursor.fetchone()
+            if not phuc_row:
+                from app.utils.auth import get_password_hash
+                admin_id = "usr_62f1747adb99"
+                admin_pass = os.environ.get("ADMIN_PASSWORD", "admin_password_2026")
+                pass_hash = get_password_hash(admin_pass)
+                target_cursor.execute(
+                    "INSERT OR IGNORE INTO users (id, username, email, hashed_password, is_verified, is_approved, is_admin) VALUES (?, ?, ?, ?, 1, 1, 1)",
+                    (admin_id, "phucsd@gmail.com", "phucsd@gmail.com", pass_hash)
+                )
+                target_conn.commit()
+            else:
+                admin_id = phuc_row[0]
 
         target_cursor.execute("SELECT COUNT(*) FROM voice_samples")
         vs_count = target_cursor.fetchone()[0]
@@ -173,15 +183,26 @@ async def lifespan(app: FastAPI):
     from app.database import migrate_database
     migrate_database(settings.DATABASE_URL)
     
-    # Seed default admin account
-    print("[Main] Seeding default admin account if not present...")
+    # Seed default admin account phucsd@gmail.com
+    print("[Main] Seeding default admin account (phucsd@gmail.com) if not present...")
     from app.database import SessionLocal
     from app.models import User
     from app.utils.auth import get_password_hash
     import secrets
     db = SessionLocal()
     try:
-        admin_user = db.query(User).filter(User.username == "admin").first()
+        # Migrate legacy admin if exists
+        legacy_admin = db.query(User).filter((User.username == "admin") | (User.email == "admin@omnivoice.local")).first()
+        if legacy_admin:
+            legacy_admin.username = "phucsd@gmail.com"
+            legacy_admin.email = "phucsd@gmail.com"
+            legacy_admin.is_admin = True
+            legacy_admin.is_approved = True
+            legacy_admin.is_verified = True
+            db.commit()
+            print("[Admin Transfer] Transferred legacy admin account to phucsd@gmail.com")
+
+        admin_user = db.query(User).filter((User.email == "phucsd@gmail.com") | (User.username == "phucsd@gmail.com")).first()
         if not admin_user:
             from app.utils.ids import generate_id
             admin_pass = os.environ.get("ADMIN_PASSWORD", "admin_password_2026")
@@ -189,8 +210,8 @@ async def lifespan(app: FastAPI):
             api_key = f"ovg_live_{secrets.token_hex(24)}"
             admin_user = User(
                 id=generate_id("usr"),
-                username="admin",
-                email="admin@omnivoice.local",
+                username="phucsd@gmail.com",
+                email="phucsd@gmail.com",
                 hashed_password=hashed_pwd,
                 is_verified=True,
                 is_admin=True,
@@ -200,9 +221,10 @@ async def lifespan(app: FastAPI):
             db.add(admin_user)
             db.commit()
         else:
-            if not admin_user.is_verified or not admin_user.is_approved:
+            if not admin_user.is_verified or not admin_user.is_approved or not admin_user.is_admin:
                 admin_user.is_verified = True
                 admin_user.is_approved = True
+                admin_user.is_admin = True
                 db.commit()
         # Seed default LLM Profile if none exist
         from app.models import LLMProfile, SystemSetting
