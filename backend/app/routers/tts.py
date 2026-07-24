@@ -79,7 +79,7 @@ def get_tts_job(job_id: str, db: Session = Depends(get_db), current_user: User =
         "message": job.message,
         "progress": job.progress,
         "audio_url": audio_url,
-        "cdn_audio_url": job.cdn_audio_url if job.status == "completed" else None,
+        "cdn_audio_url": getattr(job, "cdn_audio_url", None) if job.status == "completed" else None,
         "error_message": job.error_message,
         "created_at": job.created_at,
         "updated_at": job.updated_at
