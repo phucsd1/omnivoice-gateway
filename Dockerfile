@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     ffmpeg \
     nodejs \
+    npm \
     sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 
@@ -26,6 +27,10 @@ RUN pip install --no-cache-dir --user -r $HOME/app/requirements.txt
 
 # Copy all files and set ownership to user
 COPY --chown=user . $HOME/app
+
+# Build frontend static bundle
+WORKDIR $HOME/app/frontend
+RUN npm install && npm run build
 
 # Set PYTHONPATH and Python UTF8 environment variables
 ENV PYTHONPATH=$HOME/app/backend
