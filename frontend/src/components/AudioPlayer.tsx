@@ -18,7 +18,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   onClose,
 }) => {
   const token = localStorage.getItem("VITE_JWT_TOKEN");
-  const authenticatedUrl = url ? `${url}${url.includes("?") ? "&" : "?"}token=${token || ""}` : "";
+  const isCdnUrl = url.includes("cdn") || url.includes("huggingface.co/datasets") || url.startsWith("blob:") || url.startsWith("data:");
+  const authenticatedUrl = url ? (isCdnUrl ? url : `${url}${url.includes("?") ? "&" : "?"}token=${token || ""}`) : "";
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -41,10 +42,18 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       setBlobUrl("");
       return;
     }
+
+    // Instantly stop previous track when switching audio
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+
     let isCancelled = false;
     setIsLoading(true);
 
-    // Preload both via Web Audio Engine and Blob Object URL
+    // Preload via Web Audio Engine
     audioEngine.preload(authenticatedUrl);
 
     fetch(authenticatedUrl)

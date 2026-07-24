@@ -555,11 +555,11 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
 
 
                 {/* Job Output / Actions */}
-                {isCompleted && job.audio_url && (
+                {isCompleted && (job.cdn_audio_url || job.audio_url) && (
                   <div className="flex gap-2 bg-card/20 p-2 rounded-2xl border border-border/50 mt-1 items-center select-none">
                     <button
                       onClick={() => {
-                        const audioUrl = `${api.getApiBaseUrl()}${job.audio_url}`;
+                        const audioUrl = job.cdn_audio_url || `${api.getApiBaseUrl()}${job.audio_url}`;
                         if (currentPlayUrl === audioUrl) {
                           onTogglePlay();
                         } else {
@@ -567,13 +567,13 @@ export const JobHistoryPanel: React.FC<JobHistoryPanelProps> = ({
                         }
                       }}
                       className={`p-2.5 border rounded-full transition-all cursor-pointer flex items-center justify-center shrink-0 ${
-                        currentPlayUrl === `${api.getApiBaseUrl()}${job.audio_url}` && globalPlayerPlaying
+                        currentPlayUrl === (job.cdn_audio_url || `${api.getApiBaseUrl()}${job.audio_url}`) && globalPlayerPlaying
                           ? "bg-primary text-white border-primary shadow-lg shadow-primary/20"
                           : "border-border hover:border-primary/40 hover:bg-muted text-foreground"
                       }`}
-                      title={currentPlayUrl === `${api.getApiBaseUrl()}${job.audio_url}` && globalPlayerPlaying ? "Tạm dừng" : "Nghe kết quả"}
+                      title={currentPlayUrl === (job.cdn_audio_url || `${api.getApiBaseUrl()}${job.audio_url}`) && globalPlayerPlaying ? "Tạm dừng" : "Nghe kết quả"}
                     >
-                      {currentPlayUrl === `${api.getApiBaseUrl()}${job.audio_url}` && globalPlayerPlaying ? (
+                      {currentPlayUrl === (job.cdn_audio_url || `${api.getApiBaseUrl()}${job.audio_url}`) && globalPlayerPlaying ? (
                         <Pause className="w-4 h-4 fill-current" />
                       ) : (
                         <Play className="w-4 h-4 fill-current ml-0.5" />
