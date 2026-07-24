@@ -108,5 +108,9 @@ def get_tts_audio(job_id: str, db: Session = Depends(get_db), current_user: User
         job.output_audio_path,
         media_type="audio/wav",
         filename=f"tts_{job_id}.wav",
-        content_disposition_type="inline"
+        content_disposition_type="inline",
+        headers={
+            "Cache-Control": "public, max-age=86400",
+            "Accept-Ranges": "bytes"
+        }
     )

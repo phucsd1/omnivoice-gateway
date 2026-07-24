@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     
     WORKER_TOKEN: str = "default_secure_worker_token_12345"
     WORKER_IDLE_TIMEOUT_SECONDS: int = 100
-    WORKER_POLL_INTERVAL_SECONDS: int = 3
+    WORKER_POLL_INTERVAL_SECONDS: int = 1
     
     KAGGLE_USERNAME: str = ""
     KAGGLE_KEY: str = ""

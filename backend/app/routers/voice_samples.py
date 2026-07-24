@@ -327,7 +327,11 @@ def get_voice_sample_audio(voice_sample_id: str, db: Session = Depends(get_db)):
         sample.file_path,
         media_type="audio/wav",
         filename=f"{voice_sample_id}.wav",
-        content_disposition_type="inline"
+        content_disposition_type="inline",
+        headers={
+            "Cache-Control": "public, max-age=86400",
+            "Accept-Ranges": "bytes"
+        }
     )
 
 @router.delete("/{voice_sample_id}")
