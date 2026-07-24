@@ -347,11 +347,15 @@ def salvage_corrupted_databases(db_url: str):
     if not os.path.exists(db_dir):
         return
         
-    import sqlite3
-    import glob
-    
+    # Clean up any leftover recursive .restored or lock backup files
+    for f in glob.glob(os.path.join(db_dir, f"{base_name}.corrupt_*")):
+        if f.count(".restored") > 0 or f.endswith("-shm") or f.endswith("-wal") or "-shm." in f or "-wal." in f:
+            try: os.remove(f)
+            except: pass
+            
     corrupt_files = [
         f for f in glob.glob(os.path.join(db_dir, f"{base_name}.corrupt_*"))
+        if not f.endswith("-shm") and not f.endswith("-wal") and not f.endswith(".restored") and ".restored" not in f and "-shm." not in f and "-wal." not in f
     ]
     
     if not corrupt_files:

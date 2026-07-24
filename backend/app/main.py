@@ -93,11 +93,17 @@ def run_startup_data_recovery():
         target_cursor.execute("SELECT COUNT(*) FROM voice_samples")
         vs_count = target_cursor.fetchone()[0]
         
+        # Clean up any leftover recursive .restored or lock backup files
+        for f in glob.glob(os.path.join(db_dir, f"{base_name}.corrupt_*")):
+            if f.count(".restored") > 0 or f.endswith("-shm") or f.endswith("-wal") or "-shm." in f or "-wal." in f:
+                try: os.remove(f)
+                except: pass
+
         if vs_count < 6:
             print(f"[Startup Recovery] Current voice_samples count is {vs_count}. Scanning backup files for data salvage...")
             backup_files = [
                 f for f in glob.glob(os.path.join(db_dir, f"{base_name}.corrupt_*"))
-                if not f.endswith("-wal") and not f.endswith("-shm") and "-wal." not in f and "-shm." not in f
+                if not f.endswith("-wal") and not f.endswith("-shm") and "-wal." not in f and "-shm." not in f and ".restored" not in f
             ]
             
             tables_to_restore = [
@@ -188,19 +194,37 @@ async def lifespan(app: FastAPI):
     from app.database import SessionLocal
     from app.models import User
     from app.utils.auth import get_password_hash
+    from sqlalchemy import text
     import secrets
     db = SessionLocal()
     try:
-        # Migrate legacy admin if exists
+        # Migrate legacy admin if exists safely without UNIQUE constraint error
         legacy_admin = db.query(User).filter((User.username == "admin") | (User.email == "admin@omnivoice.local")).first()
+        existing_phucsd = db.query(User).filter((User.email == "phucsd@gmail.com") | (User.username == "phucsd@gmail.com")).first()
+        
         if legacy_admin:
-            legacy_admin.username = "phucsd@gmail.com"
-            legacy_admin.email = "phucsd@gmail.com"
-            legacy_admin.is_admin = True
-            legacy_admin.is_approved = True
-            legacy_admin.is_verified = True
-            db.commit()
-            print("[Admin Transfer] Transferred legacy admin account to phucsd@gmail.com")
+            if existing_phucsd and existing_phucsd.id != legacy_admin.id:
+                try:
+                    db.execute(text("UPDATE voice_samples SET user_id = :new_id WHERE user_id = :old_id"), {"new_id": existing_phucsd.id, "old_id": legacy_admin.id})
+                    db.execute(text("UPDATE api_keys SET user_id = :new_id WHERE user_id = :old_id"), {"new_id": existing_phucsd.id, "old_id": legacy_admin.id})
+                    db.execute(text("UPDATE tts_jobs SET user_id = :new_id WHERE user_id = :old_id"), {"new_id": existing_phucsd.id, "old_id": legacy_admin.id})
+                    db.delete(legacy_admin)
+                    existing_phucsd.is_admin = True
+                    existing_phucsd.is_approved = True
+                    existing_phucsd.is_verified = True
+                    db.commit()
+                    print("[Admin Transfer] Merged legacy admin into existing phucsd@gmail.com account")
+                except Exception as merge_err:
+                    db.rollback()
+                    print(f"[Admin Transfer Error] Merge failed: {merge_err}")
+            else:
+                legacy_admin.username = "phucsd@gmail.com"
+                legacy_admin.email = "phucsd@gmail.com"
+                legacy_admin.is_admin = True
+                legacy_admin.is_approved = True
+                legacy_admin.is_verified = True
+                db.commit()
+                print("[Admin Transfer] Transferred legacy admin account to phucsd@gmail.com")
 
         admin_user = db.query(User).filter((User.email == "phucsd@gmail.com") | (User.username == "phucsd@gmail.com")).first()
         if not admin_user:
