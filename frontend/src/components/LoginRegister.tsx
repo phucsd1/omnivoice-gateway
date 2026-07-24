@@ -18,11 +18,6 @@ const GoogleIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
 export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) => {
   const apiBaseUrl = api.getApiBaseUrl();
 
-  // Mock OAuth Modal states
-  const [showOAuthModal, setShowOAuthModal] = useState(false);
-  const [oauthMockName, setOauthMockName] = useState("Phúc SD");
-  const [oauthMockEmail, setOauthMockEmail] = useState("phucsd@gmail.com");
-  
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -46,7 +41,7 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
         .catch((err: any) => {
           const msg = err.message || "";
           if (msg.includes("chưa được duyệt") || msg.includes("chưa xác thực")) {
-            setErrorMsg("Tài khoản Google của bạn đã được đăng ký nhưng hiện đang ở trạng thái chờ Admin (phucsd@gmail.com) phê duyệt.");
+            setErrorMsg("Tài khoản Google của bạn đã được đăng ký nhưng hiện đang ở trạng thái chờ Admin phê duyệt.");
           } else {
             setErrorMsg(msg || "Lỗi xác thực OAuth từ Google.");
           }
@@ -64,53 +59,17 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
 
     const redirectUri = window.location.origin + window.location.pathname;
     try {
-      // Try real Google OAuth redirect
+      // Direct redirect to real Google OAuth
       const res = await api.oauthLogin("google", redirectUri);
       if (res && res.auth_url) {
         window.location.href = res.auth_url;
         return;
       }
+      setErrorMsg("Không thể nhận liên kết đăng nhập Google từ hệ thống.");
     } catch (err: any) {
       console.warn("Real Google OAuth error:", err);
       const msg = err.message || "";
-      if (msg.includes("Client ID")) {
-        // Fallback to simulated modal if Client ID not set yet on server
-        setOauthMockName("Phúc SD");
-        setOauthMockEmail("phucsd@gmail.com");
-        setShowOAuthModal(true);
-      } else {
-        setErrorMsg(msg || "Không thể khởi tạo đăng nhập Google.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleMockOAuthSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!oauthMockEmail) return;
-    setLoading(true);
-    setShowOAuthModal(false);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-    
-    try {
-      const oauthId = `google_mock_${Math.random().toString(36).substr(2, 9)}`;
-      const res = await api.oauthMock(
-        oauthMockEmail,
-        (oauthMockName || oauthMockEmail.split("@")[0]).replace(/\s+/g, "_").toLowerCase(),
-        "google",
-        oauthId
-      );
-      localStorage.setItem("VITE_JWT_TOKEN", res.access_token);
-      onLoginSuccess(res.access_token);
-    } catch (err: any) {
-      const msg = err.message || "";
-      if (msg.includes("chưa được duyệt") || msg.includes("chưa xác thực")) {
-        setErrorMsg("Tài khoản Google của bạn đã được đăng ký nhưng hiện đang ở trạng thái chờ Admin (phucsd@gmail.com) phê duyệt.");
-      } else {
-        setErrorMsg(msg || "Lỗi đăng nhập qua Google.");
-      }
+      setErrorMsg(msg || "Không thể khởi tạo đăng nhập Google.");
     } finally {
       setLoading(false);
     }
@@ -175,15 +134,10 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
                 : "bg-muted text-muted-foreground border-transparent cursor-not-allowed"
             }`}
           >
-            <GoogleIcon className="w-5 h-5 text-red-500 shrink-0" />
+            <GoogleIcon className="w-5 h-5 shrink-0" />
             <span>{loading ? "Đang kết nối Google..." : "Đăng nhập bằng Google"}</span>
             <ArrowRight className="w-4 h-4 ml-auto text-gray-400" />
           </button>
-
-          {/* Admin Note */}
-          <div className="text-center text-[11px] text-muted-foreground">
-            Tài khoản Admin hệ thống: <span className="font-mono font-bold text-foreground">phucsd@gmail.com</span>
-          </div>
 
           {/* Public Docs Link */}
           <div className="flex justify-center mt-1">
@@ -206,73 +160,6 @@ export const LoginRegister: React.FC<LoginRegisterProps> = ({ onLoginSuccess }) 
         </div>
 
       </div>
-
-      {/* Google OAuth Modal Popup */}
-      {showOAuthModal && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-fadeIn"
-          onClick={() => setShowOAuthModal(false)}
-        >
-          <form 
-            onSubmit={handleMockOAuthSubmit} 
-            className="bg-card border border-border rounded-[32px] p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3 border-b border-border/60 pb-3">
-              <div className="p-2.5 bg-red-500/10 rounded-2xl text-red-500">
-                <GoogleIcon className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-bold text-sm text-foreground">Đăng nhập Google OAuth</h3>
-                <p className="text-[10px] text-muted-foreground">Chọn hoặc nhập email Google để tiếp tục</p>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3 my-1">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase pl-1">Địa chỉ Google Email (*)</label>
-                <input
-                  type="email"
-                  value={oauthMockEmail}
-                  onChange={(e) => setOauthMockEmail(e.target.value)}
-                  placeholder="name@gmail.com"
-                  className="bg-background border border-border focus:border-primary/50 rounded-2xl p-3 text-xs text-foreground font-semibold focus:outline-none font-mono transition-all duration-200"
-                  required
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase pl-1">Tên hiển thị Google</label>
-                <input
-                  type="text"
-                  value={oauthMockName}
-                  onChange={(e) => setOauthMockName(e.target.value)}
-                  placeholder="Nhập tên..."
-                  className="bg-background border border-border focus:border-primary/50 rounded-2xl p-3 text-xs text-foreground font-semibold focus:outline-none transition-all duration-200"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-2 justify-end mt-2 pt-3 border-t border-border/60">
-              <button
-                type="button"
-                onClick={() => setShowOAuthModal(false)}
-                className="px-5 py-2.5 bg-muted border border-border text-xs font-bold text-muted-foreground rounded-full cursor-pointer transition-colors"
-              >
-                Hủy
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-5 py-2.5 bg-gradient-to-r from-primary to-accent text-white hover:brightness-105 text-xs font-bold rounded-full cursor-pointer transition-colors border-none shadow-md shadow-primary/10 flex items-center gap-1.5"
-              >
-                <span>Xác nhận đăng nhập</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
     </div>
   );
 };
