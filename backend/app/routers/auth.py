@@ -402,7 +402,7 @@ def oauth_mock(payload: MockOAuthRequest, db: Session = Depends(get_db)):
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.get("/oauth/login/{provider}")
-def oauth_login(provider: str, redirect_uri: str):
+def oauth_login(provider: str, redirect_uri: str, state: str | None = None):
     """Initiates actual OAuth redirect (Google Authorize endpoint)."""
     if provider != "google":
         raise HTTPException(
@@ -416,14 +416,16 @@ def oauth_login(provider: str, redirect_uri: str):
             detail="Google OAuth chưa được cấu hình Client ID trên hệ thống."
         )
 
+    csrf_state = state or secrets.token_hex(16)
     auth_url = (
         f"https://accounts.google.com/o/oauth2/v2/auth?"
         f"response_type=code&"
         f"client_id={settings.GOOGLE_CLIENT_ID}&"
         f"redirect_uri={redirect_uri}&"
-        f"scope=openid%20email%20profile"
+        f"scope=openid%20email%20profile&"
+        f"state={csrf_state}"
     )
-    return {"auth_url": auth_url}
+    return {"auth_url": auth_url, "state": csrf_state}
 
 @router.get("/oauth/callback/{provider}", response_model=TokenResponse)
 def oauth_callback(provider: str, code: str, redirect_uri: str, db: Session = Depends(get_db)):
