@@ -518,6 +518,10 @@ export const api = {
     return request<{ auth_url: string }>(`/v1/auth/oauth/login/${provider}?redirect_uri=${encodeURIComponent(redirectUri)}`);
   },
 
+  oauthCallback: async (provider: string, code: string, redirectUri: string): Promise<{ access_token: string; token_type: string }> => {
+    return request<{ access_token: string; token_type: string }>(`/v1/auth/oauth/callback/${provider}?code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(redirectUri)}`);
+  },
+
   getMe: async (): Promise<UserMeResponse> => {
     return request<UserMeResponse>(`/v1/auth/me?t=${Date.now()}`);
   },
