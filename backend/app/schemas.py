@@ -154,6 +154,7 @@ class JobStatusResponse(BaseModel):
     message: Optional[str] = None
     progress: int
     audio_url: Optional[str] = None
+    cdn_audio_url: Optional[str] = None
     error_message: Optional[str] = None
     worker_id: Optional[str] = None
     job_type: Optional[str] = None

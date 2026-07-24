@@ -330,6 +330,18 @@ class JobService:
             job.alignment = alignment
         
         job.completed_at = datetime.utcnow()
+
+        # Upload audio to S3 CDN Storage for instant playback
+        try:
+            from app.services.s3_storage_service import s3_storage_service
+            filename = f"{job_id}.wav"
+            if local_output_path.endswith(".mp3"):
+                filename = f"{job_id}.mp3"
+            cdn_url = s3_storage_service.upload_audio_to_s3_cdn(local_output_path, filename)
+            if cdn_url:
+                job.cdn_audio_url = cdn_url
+        except Exception as upload_err:
+            print(f"[JobService] S3 CDN upload warning: {upload_err}")
         
         # Sync and copy to preview if it's a voice design preview
         if job.job_type == "voice_design_preview" and job.preview_id:

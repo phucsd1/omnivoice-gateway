@@ -327,6 +327,9 @@ export const PlaygroundPanel: React.FC = () => {
   const token = localStorage.getItem("VITE_JWT_TOKEN");
   const authenticatedUrl = React.useMemo(() => {
     if (!jobStatus) return "";
+    if (jobStatus.cdn_audio_url) {
+      return jobStatus.cdn_audio_url;
+    }
     if (jobStatus.job_type === "asr") {
       return api.getASRAudioUrl(jobStatus.job_id);
     }

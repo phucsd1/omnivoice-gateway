@@ -91,6 +91,7 @@ export interface JobStatusResponse {
   message: string | null;
   progress: number;
   audio_url: string | null;
+  cdn_audio_url?: string | null;
   error_message: string | null;
   job_type?: string;
   text?: string;

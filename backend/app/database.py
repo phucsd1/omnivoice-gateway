@@ -244,7 +244,8 @@ def migrate_database(db_url: str):
             "completed_at": "DATETIME",
             "language": "VARCHAR(50)",
             "pad_duration": "FLOAT",
-            "fade_duration": "FLOAT"
+            "fade_duration": "FLOAT",
+            "cdn_audio_url": "TEXT"
         }
         
         for col, col_type in new_cols.items():
