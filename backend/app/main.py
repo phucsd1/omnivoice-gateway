@@ -450,28 +450,19 @@ app.include_router(compat.router)
 from app.routers.compat import elevenlabs_compat_router
 app.include_router(elevenlabs_compat_router)
 
-# Serve built frontend static bundle if present
+# Serve built frontend static bundle if present (after all API routers are registered)
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 
-frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../frontend/dist"))
-if os.path.exists(frontend_dist):
+frontend_dist_candidates = [
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "../../frontend/dist")),
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "../frontend/dist")),
+    os.path.abspath("../frontend/dist"),
+]
+frontend_dist = next((p for p in frontend_dist_candidates if os.path.exists(p) and os.path.exists(os.path.join(p, "index.html"))), None)
+
+if frontend_dist:
     print(f"[Main] Mounting frontend static bundle from {frontend_dist}")
-    assets_dir = os.path.join(frontend_dist, "assets")
-    if os.path.exists(assets_dir):
-        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
-
-    @app.get("/{full_path:path}", include_in_schema=False)
-    async def serve_frontend_spa(full_path: str):
-        if full_path.startswith("v1/") or full_path.startswith("health") or full_path.startswith("docs") or full_path.startswith("redoc") or full_path.startswith("openapi.json"):
-            return None
-        file_path = os.path.join(frontend_dist, full_path)
-        if full_path and os.path.exists(file_path) and os.path.isfile(file_path):
-            return FileResponse(file_path)
-        index_file = os.path.join(frontend_dist, "index.html")
-        if os.path.exists(index_file):
-            return FileResponse(index_file)
-        return {"status": "online", "app": "OmniVoice On-Demand Gateway"}
+    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
 else:
     @app.get("/")
     def read_root():
