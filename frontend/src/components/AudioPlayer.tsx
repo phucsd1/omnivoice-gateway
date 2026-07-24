@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Download, Play, Pause, Volume1, Volume2, VolumeX, X, RotateCcw, RotateCw, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { audioEngine } from "../services/audioEngine";
 
 interface AudioPlayerProps {
   url: string;
@@ -32,26 +33,59 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
 
-  // Auto load and play when url changes
+  // In-memory Blob URL & Web Audio API Preload for instant 0ms playback
+  const [blobUrl, setBlobUrl] = useState<string>("");
+
+  useEffect(() => {
+    if (!authenticatedUrl) {
+      setBlobUrl("");
+      return;
+    }
+    let isCancelled = false;
+    setIsLoading(true);
+
+    // Preload both via Web Audio Engine and Blob Object URL
+    audioEngine.preload(authenticatedUrl);
+
+    fetch(authenticatedUrl)
+      .then(res => res.blob())
+      .then(blob => {
+        if (!isCancelled) {
+          const objectUrl = URL.createObjectURL(blob);
+          setBlobUrl(objectUrl);
+          setIsLoading(false);
+        }
+      })
+      .catch(err => {
+        console.warn("Pre-fetch audio blob failed, falling back to direct URL", err);
+        if (!isCancelled) {
+          setBlobUrl(authenticatedUrl);
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [authenticatedUrl]);
+
+  // Auto play when blobUrl changes
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    if (url) {
-      setIsLoading(true);
+    if (blobUrl || authenticatedUrl) {
       setHasError(false);
-      audio.load();
       audio.play()
         .then(() => {
           setIsPlaying(true);
           onPlayingGlobalChange(true);
         })
-        .catch(err => {
-          console.error("Audio autoplay error:", err);
+        .catch(() => {
           // Play abort is normal when loading a new track fast
         });
     }
-  }, [authenticatedUrl]);
+  }, [blobUrl]);
 
   // Sync state with HTML5 Audio Element
   useEffect(() => {
@@ -253,7 +287,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       </div>
 
       <div className="h-full px-6 flex items-center justify-between gap-4 relative z-10">
-        <audio ref={audioRef} src={authenticatedUrl} />
+        <audio ref={audioRef} src={blobUrl || authenticatedUrl} preload="auto" />
 
         {/* Left: SkipBack, Play, SkipForward & Metadata & Equalizer */}
         <div className="flex items-center gap-3.5 min-w-0">

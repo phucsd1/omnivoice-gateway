@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { audioEngine } from "../services/audioEngine";
 import { 
   Play, 
   Pause, 
@@ -333,6 +334,13 @@ export const PlaygroundPanel: React.FC = () => {
       ? `${api.getApiBaseUrl()}${jobStatus.audio_url}${jobStatus.audio_url.includes("?") ? "&" : "?"}token=${token || ""}`
       : "";
   }, [jobStatus, token]);
+
+  // Preload audio into memory buffer for instant 0ms playback
+  useEffect(() => {
+    if (authenticatedUrl) {
+      audioEngine.preload(authenticatedUrl);
+    }
+  }, [authenticatedUrl]);
 
   // Audio Event Bindings
   useEffect(() => {
