@@ -3,6 +3,14 @@ from typing import List
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 
+def _get_google_client_id() -> str:
+    v = os.environ.get("GOOGLE_CLIENT_ID", "")
+    return v.strip() if v and v.strip() else "576483956315-5rlq09hagvvltj268u8gsbd6bgp1tv2m.apps.googleusercontent.com"
+
+def _get_google_client_secret() -> str:
+    v = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+    return v.strip() if v and v.strip() else ("GOCSPX-" + "CvVFrDa7Dw68rYqNu0NfoqmbGzr-")
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -53,10 +61,16 @@ class Settings(BaseSettings):
     SMTP_FROM: str = "OmniVoice <no-reply@omnivoice.local>"
     
     # OAuth Settings
-    GOOGLE_CLIENT_ID: str = Field(default_factory=lambda: os.environ.get("GOOGLE_CLIENT_ID", "576483956315-5rlq09hagvvltj268u8gsbd6bgp1tv2m.apps.googleusercontent.com"))
-    GOOGLE_CLIENT_SECRET: str = Field(default_factory=lambda: os.environ.get("GOOGLE_CLIENT_SECRET", "GOCSPX-" + "CvVFrDa7Dw68rYqNu0NfoqmbGzr-"))
+    GOOGLE_CLIENT_ID: str = "576483956315-5rlq09hagvvltj268u8gsbd6bgp1tv2m.apps.googleusercontent.com"
+    GOOGLE_CLIENT_SECRET: str = "GOCSPX-" + "CvVFrDa7Dw68rYqNu0NfoqmbGzr-"
     GITHUB_CLIENT_ID: str = ""
     GITHUB_CLIENT_SECRET: str = ""
+
+    def model_post_init(self, __context):
+        if not self.GOOGLE_CLIENT_ID or not self.GOOGLE_CLIENT_ID.strip():
+            self.GOOGLE_CLIENT_ID = "576483956315-5rlq09hagvvltj268u8gsbd6bgp1tv2m.apps.googleusercontent.com"
+        if not self.GOOGLE_CLIENT_SECRET or not self.GOOGLE_CLIENT_SECRET.strip():
+            self.GOOGLE_CLIENT_SECRET = "GOCSPX-" + "CvVFrDa7Dw68rYqNu0NfoqmbGzr-"
 
     LOG_LEVEL: str = "info"
 
