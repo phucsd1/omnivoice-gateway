@@ -174,11 +174,14 @@ class VideoDubbingJob(Base):
     source_type = Column(String(50), nullable=False)  # "upload" | "youtube"
     source_url = Column(Text, nullable=True)
     target_language = Column(String(50), nullable=False)
+    llm_profile_id = Column(String(50), nullable=True)
     
     input_file_path = Column(String(255), nullable=True)
     original_audio_path = Column(String(255), nullable=True)
     vocals_audio_path = Column(String(255), nullable=True)
     bgm_audio_path = Column(String(255), nullable=True)
+    vocals_volume = Column(Float, default=1.0, nullable=True)
+    bgm_volume = Column(Float, default=0.4, nullable=True)
     
     original_subtitles = Column(Text, nullable=True)  # JSON string
     translated_subtitles = Column(Text, nullable=True)  # JSON string

@@ -19,7 +19,7 @@ import {
   Upload,
   PlaySquare
 } from "lucide-react";
-import { api, type VideoDubbingJobResponse, type SubtitleSegment } from "../api/client";
+import { api, type VideoDubbingJobResponse, type SubtitleSegment, type LLMProfile } from "../api/client";
 import { PageHeader } from "./ui/PageHeader";
 import { SectionCard } from "./ui/SectionCard";
 
@@ -63,6 +63,8 @@ export default function DubbingStudio() {
   const [llmProvider, setLlmProvider] = useState("gemini");
   const [llmModel, setLlmModel] = useState("gemini-2.5-flash");
   const [llmCustomEndpoint, setLlmCustomEndpoint] = useState("");
+  const [llmProfiles, setLlmProfiles] = useState<LLMProfile[]>([]);
+  const [selectedLlmProfileId, setSelectedLlmProfileId] = useState<string>("");
 
   // Subtitle editor state
   const [originalSubs, setOriginalSubs] = useState<SubtitleSegment[]>([]);
@@ -81,10 +83,26 @@ export default function DubbingStudio() {
   // Restore active job from localStorage on mount & fetch LLM settings
   useEffect(() => {
     fetchSystemLlmSettings();
+    fetchLlmProfiles();
     if (jobId) {
       fetchJobDetails(jobId);
     }
   }, []);
+
+  const fetchLlmProfiles = async () => {
+    try {
+      const profiles = await api.listLlmProfiles();
+      setLlmProfiles(profiles);
+      const activeProf = profiles.find(p => p.is_active);
+      if (activeProf) {
+        setSelectedLlmProfileId(activeProf.id);
+      } else if (profiles.length > 0) {
+        setSelectedLlmProfileId(profiles[0].id);
+      }
+    } catch {
+      // Non-admin fallback or ignore
+    }
+  };
 
   const fetchSystemLlmSettings = async () => {
     try {
@@ -205,7 +223,8 @@ export default function DubbingStudio() {
         uploadedJobId ? undefined : (selectedFile || undefined),
         youtubeUrl.trim() || undefined,
         targetLanguage,
-        uploadedJobId || undefined
+        uploadedJobId || undefined,
+        selectedLlmProfileId || undefined
       );
 
       setJobId(response.id);
@@ -238,7 +257,7 @@ export default function DubbingStudio() {
     setLoading(true);
     try {
       await api.updateDubbingSubtitles(jobId, originalSubs, translatedSubs);
-      await api.finalizeDubbingJob(jobId);
+      await api.finalizeDubbingJob(jobId, vocalsVolume, bgmVolume);
       const data = await api.getDubbingJob(jobId);
       setJob(data);
     } catch (err: any) {
@@ -596,21 +615,47 @@ export default function DubbingStudio() {
                   </select>
                 </div>
 
-                {/* LLM Admin Info Badge */}
-                <div className="p-3.5 bg-secondary/30 rounded-xl border border-border flex flex-col gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <Key className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-xs font-bold text-foreground">Cấu hình Mô hình Dịch AI (LLM)</span>
-                  </div>
-                  <div className="text-[10px] text-muted-foreground flex flex-col gap-1">
-                    <span>Provider: <strong className="text-foreground">{llmProvider.toUpperCase()}</strong></span>
-                    <span>Model: <strong className="text-foreground">{llmModel}</strong></span>
-                    {llmCustomEndpoint && (
-                      <span className="truncate">Endpoint: <strong className="text-foreground font-mono">{llmCustomEndpoint}</strong></span>
+                {/* LLM Admin Info Badge / Selector */}
+                <div className="p-3.5 bg-secondary/30 rounded-xl border border-border flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Key className="w-3.5 h-3.5 text-primary" />
+                      <span className="text-xs font-bold text-foreground">Mô hình Dịch AI (LLM)</span>
+                    </div>
+                    {llmProfiles.length > 0 && (
+                      <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full border border-border/60 font-semibold">
+                        {llmProfiles.length} Profile LLM
+                      </span>
                     )}
                   </div>
-                  <span className="text-[9px] text-primary/80 italic mt-1">
-                    💡 Quản lý API Key, Quét Model & Thinking Effort tại Admin Portal -&gt; System Settings.
+
+                  {llmProfiles.length > 0 ? (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-semibold text-muted-foreground">Chọn Profile LLM muốn sử dụng:</label>
+                      <select
+                        value={selectedLlmProfileId}
+                        onChange={(e) => setSelectedLlmProfileId(e.target.value)}
+                        className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground font-medium focus:ring-1 focus:ring-primary outline-hidden cursor-pointer"
+                      >
+                        {llmProfiles.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} ({p.provider.toUpperCase()} - {p.model}) {p.is_active ? " [Mặc định]" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="text-[10px] text-muted-foreground flex flex-col gap-1">
+                      <span>Provider: <strong className="text-foreground">{llmProvider.toUpperCase()}</strong></span>
+                      <span>Model: <strong className="text-foreground">{llmModel}</strong></span>
+                      {llmCustomEndpoint && (
+                        <span className="truncate">Endpoint: <strong className="text-foreground font-mono">{llmCustomEndpoint}</strong></span>
+                      )}
+                    </div>
+                  )}
+
+                  <span className="text-[9px] text-primary/80 italic mt-0.5">
+                    💡 Quản lý, Thêm/Sửa API Key & Profile LLM tại Admin Portal -&gt; Tab Cấu hình LLM.
                   </span>
                 </div>
 
@@ -640,6 +685,7 @@ export default function DubbingStudio() {
                   ref={videoPlayerRef}
                   src={api.getDubbingFileUrl(jobId, "video")}
                   controls
+                  muted={Boolean(job.vocals_audio_path || job.bgm_audio_path)}
                   onPlay={handleVideoPlay}
                   onPause={handleVideoPause}
                   onSeeked={handleVideoSeek}

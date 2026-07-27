@@ -686,16 +686,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack, onSettin
                           </div>
 
                           {p.is_active ? (
-                            <span className="flex items-center gap-1.5 px-2.5 py-1 bg-success/15 text-success border border-success/30 rounded-full text-[10px] font-black uppercase tracking-wider">
-                              <Radio className="w-3 h-3 animate-pulse fill-emerald-400" />
+                            <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 rounded-full text-[10px] font-black uppercase tracking-wider shadow-xs">
+                              <Radio className="w-3 h-3 animate-pulse fill-emerald-500" />
                               Đang dùng (Active)
                             </span>
                           ) : (
                             <button
                               onClick={() => handleActivateLlmProfile(p.id)}
-                              className="text-[10px] font-bold text-muted-foreground hover:text-primary hover:bg-primary/10 px-2.5 py-1 rounded-full border border-border/60 transition-all cursor-pointer"
+                              className="text-xs font-bold text-primary bg-primary/10 hover:bg-primary hover:text-white px-3.5 py-1 rounded-full border border-primary/40 transition-all cursor-pointer shadow-xs flex items-center gap-1"
                             >
-                              Đặt làm Mặc định
+                              <span>✔ Kích hoạt sử dụng</span>
                             </button>
                           )}
                         </div>

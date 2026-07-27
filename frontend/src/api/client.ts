@@ -691,11 +691,12 @@ export const api = {
     });
   },
 
-  createDubbingJob: async (file?: File, youtubeUrl?: string, targetLanguage?: string, uploadedJobId?: string): Promise<VideoDubbingJobResponse> => {
+  createDubbingJob: async (file?: File, youtubeUrl?: string, targetLanguage?: string, uploadedJobId?: string, llmProfileId?: string): Promise<VideoDubbingJobResponse> => {
     const formData = new FormData();
     if (file) formData.append("file", file);
     if (youtubeUrl) formData.append("youtube_url", youtubeUrl);
     if (uploadedJobId) formData.append("uploaded_job_id", uploadedJobId);
+    if (llmProfileId) formData.append("llm_profile_id", llmProfileId);
     formData.append("target_language", targetLanguage || "Vietnamese");
     return request<VideoDubbingJobResponse>("/v1/video-dubbing", {
       method: "POST",
@@ -772,9 +773,13 @@ export const api = {
     });
   },
 
-  finalizeDubbingJob: async (jobId: string): Promise<{ status: string; message: string }> => {
+  finalizeDubbingJob: async (jobId: string, vocalsVolume?: number, bgmVolume?: number): Promise<{ status: string; message: string }> => {
+    const formData = new FormData();
+    if (vocalsVolume !== undefined) formData.append("vocals_volume", String(vocalsVolume));
+    if (bgmVolume !== undefined) formData.append("bgm_volume", String(bgmVolume));
     return request<{ status: string; message: string }>(`/v1/video-dubbing/jobs/${jobId}/finalize`, {
       method: "POST",
+      body: formData,
     });
   },
 

@@ -18,7 +18,13 @@ class VideoDubbingService:
         import time
         timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
         log_line = f"[{timestamp}] {message}"
-        print(f"[VideoDubbing][{job_id}] {message}", flush=True)
+        try:
+            print(f"[VideoDubbing][{job_id}] {message}", flush=True)
+        except Exception:
+            try:
+                print(f"[VideoDubbing][{job_id}] {message.encode('ascii', 'replace').decode('ascii')}", flush=True)
+            except Exception:
+                pass
         
         try:
             job_dir = os.path.join(settings.dubbing_dir, job_id)
@@ -148,16 +154,22 @@ class VideoDubbingService:
         return info.duration
 
     @staticmethod
-    def get_llm_settings(db: Session) -> Dict[str, Any]:
-        """Retrieves active LLM Profile or falls back to system settings."""
-        active_profile = db.query(LLMProfile).filter(LLMProfile.is_active == True).first()
-        if active_profile:
+    def get_llm_settings(db: Session, llm_profile_id: Optional[str] = None) -> Dict[str, Any]:
+        """Retrieves specific LLM Profile by ID, active LLM Profile, or falls back to system settings."""
+        selected_profile = None
+        if llm_profile_id:
+            selected_profile = db.query(LLMProfile).filter(LLMProfile.id == llm_profile_id).first()
+        if not selected_profile:
+            selected_profile = db.query(LLMProfile).filter(LLMProfile.is_active == True).first()
+
+        if selected_profile:
             return {
-                "provider": active_profile.provider,
-                "api_key": active_profile.api_key or "",
-                "model": active_profile.model,
-                "custom_endpoint": active_profile.custom_endpoint or "",
-                "thinking_effort": active_profile.thinking_effort or "none",
+                "provider": selected_profile.provider,
+                "api_key": selected_profile.api_key or "",
+                "model": selected_profile.model,
+                "custom_endpoint": selected_profile.custom_endpoint or "",
+                "thinking_effort": selected_profile.thinking_effort or "none",
+                "profile_name": selected_profile.name,
             }
 
         def get_setting(key: str, default: str) -> str:
@@ -172,10 +184,11 @@ class VideoDubbingService:
             "model": get_setting("llm_model", settings.LLM_MODEL),
             "custom_endpoint": get_setting("llm_custom_endpoint", settings.LLM_CUSTOM_ENDPOINT),
             "thinking_effort": get_setting("llm_thinking_effort", settings.LLM_THINKING_EFFORT),
+            "profile_name": "System Default Settings",
         }
 
     @staticmethod
-    def translate_subtitles_llm(subtitles: List[Dict[str, Any]], target_language: str, db: Session) -> List[Dict[str, Any]]:
+    def translate_subtitles_llm(subtitles: List[Dict[str, Any]], target_language: str, db: Session, llm_profile_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Translates a list of subtitle segments to target language using configured LLM.
         Expected input schema: [{"id": 1, "start": 1.2, "end": 4.5, "text": "..."}]
@@ -183,12 +196,13 @@ class VideoDubbingService:
         if not subtitles:
             return []
 
-        llm_config = VideoDubbingService.get_llm_settings(db)
+        llm_config = VideoDubbingService.get_llm_settings(db, llm_profile_id=llm_profile_id)
         provider = llm_config["provider"]
         api_key = llm_config["api_key"]
         model = llm_config["model"]
         custom_endpoint = llm_config["custom_endpoint"]
         thinking_effort = llm_config.get("thinking_effort", "none")
+        profile_name = llm_config.get("profile_name", "Default")
 
         if provider == "none" or (not api_key and provider != "custom"):
             # Fallback mock translation if no LLM configured

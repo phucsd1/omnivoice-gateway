@@ -4,6 +4,7 @@ import json
 import shutil
 import zipfile
 from typing import Optional, List
+import concurrent.futures
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -250,7 +251,27 @@ def trigger_translation_stage(dub_job_id: str, text: str, alignment_str: str, db
         alignment_data = json.loads(alignment_str) if alignment_str else []
     except Exception:
         alignment_data = []
-        
+
+    def extract_word_timing(word_item: dict) -> tuple:
+        start_v = word_item.get("start")
+        end_v = word_item.get("end")
+        if start_v is None or end_v is None:
+            ts = word_item.get("timestamp")
+            if isinstance(ts, (list, tuple)) and len(ts) >= 2:
+                if start_v is None:
+                    start_v = ts[0]
+                if end_v is None:
+                    end_v = ts[1]
+        try:
+            start_f = float(start_v) if start_v is not None else 0.0
+        except (ValueError, TypeError):
+            start_f = 0.0
+        try:
+            end_f = float(end_v) if end_v is not None else start_f
+        except (ValueError, TypeError):
+            end_f = start_f
+        return start_f, end_f
+
     # Standardize alignment to segments of ~6 seconds
     segments = []
     curr_seg = []
@@ -261,13 +282,13 @@ def trigger_translation_stage(dub_job_id: str, text: str, alignment_str: str, db
         w_txt = word.get("word") or word.get("text") or ""
         # Split segment if it has 8+ words or ends with a punctuation
         if len(curr_seg) >= 8 or w_txt.endswith((".", "?", "!")):
-            start_t = curr_seg[0].get("start", 0.0)
-            end_t = curr_seg[-1].get("end", 0.0)
+            start_t, _ = extract_word_timing(curr_seg[0])
+            _, end_t = extract_word_timing(curr_seg[-1])
             text_str = " ".join([w.get("word") or w.get("text") or "" for w in curr_seg]).strip()
             segments.append({
                 "id": seg_idx,
-                "start": start_t,
-                "end": end_t,
+                "start": round(start_t, 2),
+                "end": round(max(start_t + 0.5, end_t), 2),
                 "text": text_str
             })
             curr_seg = []
@@ -275,13 +296,13 @@ def trigger_translation_stage(dub_job_id: str, text: str, alignment_str: str, db
             
     # Handle leftover words
     if curr_seg:
-        start_t = curr_seg[0].get("start", 0.0)
-        end_t = curr_seg[-1].get("end", 0.0)
+        start_t, _ = extract_word_timing(curr_seg[0])
+        _, end_t = extract_word_timing(curr_seg[-1])
         text_str = " ".join([w.get("word") or w.get("text") or "" for w in curr_seg]).strip()
         segments.append({
             "id": seg_idx,
-            "start": start_t,
-            "end": end_t,
+            "start": round(start_t, 2),
+            "end": round(max(start_t + 0.5, end_t), 2),
             "text": text_str
         })
         
@@ -294,8 +315,8 @@ def trigger_translation_stage(dub_job_id: str, text: str, alignment_str: str, db
             step = duration / max(1, len(words) // 8)
             segments.append({
                 "id": len(segments) + 1,
-                "start": i * (step / 8),
-                "end": min(duration, (i+8) * (step / 8)),
+                "start": round(i * (step / 8), 2),
+                "end": round(min(duration, (i+8) * (step / 8)), 2),
                 "text": " ".join(chunk)
             })
 
@@ -304,8 +325,9 @@ def trigger_translation_stage(dub_job_id: str, text: str, alignment_str: str, db
     VideoDubbingService.log_to_job(dub_job_id, f"Hoàn tất phân tích phụ đề gốc: gồm {len(segments)} phân đoạn.")
 
     # Call LLM translator
-    VideoDubbingService.log_to_job(dub_job_id, f"Bắt đầu dịch thuật phụ đề tự động sang tiếng: {job.target_language} bằng LLM...")
-    translated = VideoDubbingService.translate_subtitles_llm(segments, job.target_language, db)
+    llm_prof_id = getattr(job, "llm_profile_id", None)
+    VideoDubbingService.log_to_job(dub_job_id, f"Bắt đầu dịch thuật phụ đề tự động sang tiếng: {job.target_language} bằng LLM (Profile ID: {llm_prof_id or 'Default'})...")
+    translated = VideoDubbingService.translate_subtitles_llm(segments, job.target_language, db, llm_profile_id=llm_prof_id)
     job.translated_subtitles = json.dumps(translated)
     
     job.status = "awaiting_review"
@@ -388,6 +410,7 @@ async def create_dubbing_job(
     youtube_url: Optional[str] = Form(None),
     target_language: str = Form("Vietnamese"),
     uploaded_job_id: Optional[str] = Form(None),
+    llm_profile_id: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_user_or_api_key)
 ):
@@ -407,13 +430,15 @@ async def create_dubbing_job(
             raise HTTPException(status_code=404, detail="Không tìm thấy tác vụ tải lên trước đó.")
         
         job.target_language = target_language
+        if llm_profile_id:
+            job.llm_profile_id = llm_profile_id
         job.status = "queued"
         job.progress = 5
         job.message = "Khởi tạo tác vụ lồng tiếng..."
         db.commit()
         db.refresh(job)
 
-        VideoDubbingService.log_to_job(job.id, f"Bắt đầu tác vụ lồng tiếng từ video đã tải lên trước đó. Ngôn ngữ đích: {target_language}")
+        VideoDubbingService.log_to_job(job.id, f"Bắt đầu tác vụ lồng tiếng từ video đã tải lên trước đó. Ngôn ngữ đích: {target_language}. Profile LLM ID: {llm_profile_id or 'Default'}")
 
         # Trigger background execution pipeline with isolated daemon thread
         import threading
@@ -429,7 +454,7 @@ async def create_dubbing_job(
     input_file_path = None
     source_type = "youtube" if youtube_url else "upload"
 
-    VideoDubbingService.log_to_job(job_id, f"Khởi tạo tác vụ lồng tiếng mới. Nguồn: {source_type}. Ngôn ngữ đích: {target_language}")
+    VideoDubbingService.log_to_job(job_id, f"Khởi tạo tác vụ lồng tiếng mới. Nguồn: {source_type}. Ngôn ngữ đích: {target_language}. Profile LLM ID: {llm_profile_id or 'Default'}")
 
     if file:
         # Save file directly
@@ -457,6 +482,7 @@ async def create_dubbing_job(
         source_type=source_type,
         source_url=youtube_url,
         target_language=target_language,
+        llm_profile_id=llm_profile_id,
         input_file_path=input_file_path
     )
     db.add(job)
@@ -506,8 +532,13 @@ def get_dubbing_job(
         source_type=job.source_type,
         source_url=job.source_url,
         target_language=job.target_language,
+        llm_profile_id=getattr(job, "llm_profile_id", None),
         original_subtitles=orig_subs,
         translated_subtitles=trans_subs,
+        vocals_audio_path=job.vocals_audio_path,
+        bgm_audio_path=job.bgm_audio_path,
+        vocals_volume=getattr(job, "vocals_volume", 1.0) or 1.0,
+        bgm_volume=getattr(job, "bgm_volume", 0.4) or 0.4,
         output_video_url=output_video_url,
         error_message=job.error_message,
         created_at=job.created_at,
@@ -538,6 +569,8 @@ def update_dubbing_subtitles(
 def finalize_dubbing_job(
     job_id: str,
     background_tasks: BackgroundTasks,
+    vocals_volume: Optional[float] = Form(None),
+    bgm_volume: Optional[float] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_user_or_api_key)
 ):
@@ -548,6 +581,11 @@ def finalize_dubbing_job(
 
     if job.status not in ["awaiting_review", "failed"]:
         raise HTTPException(status_code=400, detail="Trạng thái tác vụ không hợp lệ để hoàn tất.")
+
+    if vocals_volume is not None:
+        job.vocals_volume = vocals_volume
+    if bgm_volume is not None:
+        job.bgm_volume = bgm_volume
 
     job.status = "generating_tts"
     job.progress = 10
@@ -577,24 +615,72 @@ def run_finalization_pipeline(job_id: str):
         VideoDubbingService.log_to_job(job_id, f"Kiểm tra Worker Mode cho finalization. Chế độ: {mode_val}")
 
         if mode_val == "mock":
-            # Mock TTS generation: we copy the vocals track directly as the dubbed vocal track
             dubbed_vocal_path = os.path.join(job_dir, "dubbed_vocals.wav")
-            VideoDubbingService.log_to_job(job_id, f"[MOCK] Sao chép track vocals gốc {job.vocals_audio_path} làm giọng lồng tiếng mới...")
-            shutil.copy2(job.vocals_audio_path, dubbed_vocal_path)
+            VideoDubbingService.log_to_job(job_id, f"[LOCAL TTS] Tiến hành tổng hợp giọng đọc tiếng Việt bằng Edge-TTS...")
+
+            # Synthesize real TTS for each translated segment
+            seg_audio_list = []
+            seg_dir = os.path.join(job_dir, "tts_segments")
+            os.makedirs(seg_dir, exist_ok=True)
+
+            try:
+                import asyncio
+                import edge_tts
+
+                async def _synth_segment(text_val: str, wav_path: str):
+                    tmp_mp3 = wav_path + ".mp3"
+                    comm = edge_tts.Communicate(text_val, "vi-VN-HoaiMyNeural")
+                    await comm.save(tmp_mp3)
+                    conv_cmd = [
+                        "ffmpeg", "-y", "-i", tmp_mp3,
+                        "-acodec", "pcm_s16le", "-ar", "24000", "-ac", "1",
+                        wav_path
+                    ]
+                    subprocess.run(conv_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                    if os.path.exists(tmp_mp3):
+                        os.remove(tmp_mp3)
+
+                for idx, seg in enumerate(translated_subs):
+                    clean_txt = str(seg.get("text", "")).replace("[Vietnamese]", "").strip()
+                    if not clean_txt:
+                        continue
+                    seg_wav = os.path.join(seg_dir, f"seg_{idx+1}.wav")
+                    try:
+                        asyncio.run(_synth_segment(clean_txt, seg_wav))
+                        seg_audio_list.append({
+                            "start": float(seg.get("start", 0.0)),
+                            "file_path": seg_wav
+                        })
+                    except Exception as s_err:
+                        VideoDubbingService.log_to_job(job_id, f"[LOCAL TTS Warning] Segment {idx+1} synthesis error: {s_err}")
+
+                total_dur = VideoDubbingService.get_audio_duration(job.original_audio_path or job.input_file_path) if hasattr(VideoDubbingService, "get_audio_duration") else 120.0
+                if seg_audio_list:
+                    VideoDubbingService.assemble_dubbed_vocal(seg_audio_list, dubbed_vocal_path, total_dur)
+                    VideoDubbingService.log_to_job(job_id, f"[LOCAL TTS] Đã ghép thành công {len(seg_audio_list)} phân đoạn giọng đọc tiếng Việt vào dubbed_vocals.wav")
+                else:
+                    shutil.copy2(job.vocals_audio_path or job.original_audio_path, dubbed_vocal_path)
+            except Exception as tts_err:
+                VideoDubbingService.log_to_job(job_id, f"[LOCAL TTS Error] {tts_err}. Sử dụng track vocals làm fallback.")
+                shutil.copy2(job.vocals_audio_path or job.original_audio_path, dubbed_vocal_path)
             
             job.status = "mixing_audio"
             job.progress = 60
-            job.message = "Đang trộn giọng lồng tiếng mới với nhạc nền..."
+            job.message = "Đang trộn giọng lồng tiếng tiếng Việt mới với nhạc nền..."
             db.commit()
  
             output_video_path = os.path.join(job_dir, "output_dubbed.mp4")
-            VideoDubbingService.log_to_job(job_id, f"[MOCK] Bắt đầu trộn nhạc nền và giọng lồng tiếng bằng FFmpeg...")
+            vocal_v = getattr(job, "vocals_volume", None) if getattr(job, "vocals_volume", None) is not None else 1.0
+            bgm_v = getattr(job, "bgm_volume", None) if getattr(job, "bgm_volume", None) is not None else 0.4
+            VideoDubbingService.log_to_job(job_id, f"[MOCK] Bắt đầu trộn nhạc nền (vol={bgm_v}) và giọng lồng tiếng (vol={vocal_v}) bằng FFmpeg...")
             try:
                 VideoDubbingService.mix_and_mux_video(
                     video_path=job.input_file_path,
                     bgm_path=job.bgm_audio_path,
                     vocal_path=dubbed_vocal_path,
-                    output_path=output_video_path
+                    output_path=output_video_path,
+                    vocal_vol=vocal_v,
+                    bgm_vol=bgm_v
                 )
                 VideoDubbingService.log_to_job(job_id, f"[MOCK] Trộn nhạc nền & mux video thành công. File: {output_video_path}")
             except Exception as mix_err:

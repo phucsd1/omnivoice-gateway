@@ -244,10 +244,13 @@ class VideoDubbingJobResponse(BaseModel):
     source_type: str
     source_url: Optional[str] = None
     target_language: str
+    llm_profile_id: Optional[str] = None
     original_subtitles: Optional[List[SubtitleSegment]] = None
     translated_subtitles: Optional[List[SubtitleSegment]] = None
     vocals_audio_path: Optional[str] = None
     bgm_audio_path: Optional[str] = None
+    vocals_volume: Optional[float] = 1.0
+    bgm_volume: Optional[float] = 0.4
     output_video_url: Optional[str] = None
     error_message: Optional[str] = None
     created_at: datetime

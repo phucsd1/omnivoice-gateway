@@ -253,12 +253,16 @@ async def upload_job_output(
                 dub_job.progress = 85
                 db.commit()
 
-                VideoDubbingService.log_to_job(dub_job_id, "[KAGGLE] Đang trộn nhạc nền BGM & vocals lồng tiếng mới, đóng gói video thành phẩm bằng FFmpeg...")
+                vocal_v = getattr(dub_job, "vocals_volume", None) if getattr(dub_job, "vocals_volume", None) is not None else 1.0
+                bgm_v = getattr(dub_job, "bgm_volume", None) if getattr(dub_job, "bgm_volume", None) is not None else 0.4
+                VideoDubbingService.log_to_job(dub_job_id, f"[KAGGLE] Đang trộn nhạc nền BGM (vol={bgm_v}) & vocals lồng tiếng mới (vol={vocal_v}), đóng gói video thành phẩm bằng FFmpeg...")
                 VideoDubbingService.mix_and_mux_video(
                     video_path=dub_job.input_file_path,
                     bgm_path=dub_job.bgm_audio_path,
                     vocal_path=dubbed_vocals_path,
-                    output_path=output_video_path
+                    output_path=output_video_path,
+                    vocal_vol=vocal_v,
+                    bgm_vol=bgm_v
                 )
 
                 dub_job.output_video_path = output_video_path

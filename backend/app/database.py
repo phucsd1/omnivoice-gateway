@@ -271,20 +271,22 @@ def migrate_database(db_url: str):
                     cursor.execute(f"ALTER TABLE voice_samples ADD COLUMN {col} {col_type}")
                     print(f"[Migration] Added column {col} to voice_samples table in {db_path}")
                     
-        # Check and migrate worker_sessions table
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='worker_sessions'")
+        # Check and migrate video_dubbing_jobs table
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='video_dubbing_jobs'")
         if cursor.fetchone():
-            cursor.execute("PRAGMA table_info(worker_sessions)")
-            ws_columns = [row[1] for row in cursor.fetchall()]
+            cursor.execute("PRAGMA table_info(video_dubbing_jobs)")
+            vd_columns = [row[1] for row in cursor.fetchall()]
             
-            ws_new_cols = {
-                "user_id": "VARCHAR(50)"
+            vd_new_cols = {
+                "llm_profile_id": "VARCHAR(50)",
+                "vocals_volume": "FLOAT DEFAULT 1.0",
+                "bgm_volume": "FLOAT DEFAULT 0.4"
             }
-            for col, col_type in ws_new_cols.items():
-                if col not in ws_columns:
-                    cursor.execute(f"ALTER TABLE worker_sessions ADD COLUMN {col} {col_type}")
-                    print(f"[Migration] Added column {col} to worker_sessions table in {db_path}")
-                    
+            for col, col_type in vd_new_cols.items():
+                if col not in vd_columns:
+                    cursor.execute(f"ALTER TABLE video_dubbing_jobs ADD COLUMN {col} {col_type}")
+                    print(f"[Migration] Added column {col} to video_dubbing_jobs table in {db_path}")
+
         conn.commit()
     except Exception as e:
         print(f"[Migration Error] Failed to migrate database {db_path}: {e}")
@@ -455,3 +457,9 @@ def get_db():
         yield db
     finally:
         db.close()
+
+# Execute migration automatically on import
+try:
+    migrate_database(settings.DATABASE_URL)
+except Exception as _mig_err:
+    print(f"[Database Migration Warning] {_mig_err}")
