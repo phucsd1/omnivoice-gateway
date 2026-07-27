@@ -627,9 +627,26 @@ def run_finalization_pipeline(job_id: str):
                 import asyncio
                 import edge_tts
 
-                async def _synth_segment(text_val: str, wav_path: str):
+                lang_lower = str(job.target_language or "").lower()
+                voice_code = "vi-VN-HoaiMyNeural"
+                if "korea" in lang_lower or "hàn" in lang_lower:
+                    voice_code = "ko-KR-SunHiNeural"
+                elif "japan" in lang_lower or "nhật" in lang_lower:
+                    voice_code = "ja-JP-NanamiNeural"
+                elif "chinese" in lang_lower or "trung" in lang_lower:
+                    voice_code = "zh-CN-XiaoxiaoNeural"
+                elif "french" in lang_lower or "pháp" in lang_lower:
+                    voice_code = "fr-FR-DeniseNeural"
+                elif "spanish" in lang_lower or "tây ban nha" in lang_lower:
+                    voice_code = "es-ES-ElviraNeural"
+                elif "english" in lang_lower or "anh" in lang_lower:
+                    voice_code = "en-US-AvaNeural"
+
+                VideoDubbingService.log_to_job(job_id, f"[LOCAL TTS] Sử dụng giọng đọc Edge-TTS '{voice_code}' cho ngôn ngữ target '{job.target_language}'")
+
+                async def _synth_segment(text_val: str, wav_path: str, v_code: str):
                     tmp_mp3 = wav_path + ".mp3"
-                    comm = edge_tts.Communicate(text_val, "vi-VN-HoaiMyNeural")
+                    comm = edge_tts.Communicate(text_val, v_code)
                     await comm.save(tmp_mp3)
                     conv_cmd = [
                         "ffmpeg", "-y", "-i", tmp_mp3,
@@ -641,12 +658,14 @@ def run_finalization_pipeline(job_id: str):
                         os.remove(tmp_mp3)
 
                 for idx, seg in enumerate(translated_subs):
-                    clean_txt = str(seg.get("text", "")).replace("[Vietnamese]", "").strip()
+                    clean_txt = str(seg.get("text", "")).strip()
+                    for tag in ["[Korean]", "[Vietnamese]", "[Japanese]", "[English]", "[Chinese]"]:
+                        clean_txt = clean_txt.replace(tag, "").strip()
                     if not clean_txt:
                         continue
                     seg_wav = os.path.join(seg_dir, f"seg_{idx+1}.wav")
                     try:
-                        asyncio.run(_synth_segment(clean_txt, seg_wav))
+                        asyncio.run(_synth_segment(clean_txt, seg_wav, voice_code))
                         seg_audio_list.append({
                             "start": float(seg.get("start", 0.0)),
                             "file_path": seg_wav
