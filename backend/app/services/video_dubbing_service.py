@@ -6,7 +6,7 @@ import json
 import requests
 import soundfile as sf
 import numpy as np
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from sqlalchemy.orm import Session
 from app.config import settings
 from app.models import SystemSetting, LLMProfile
