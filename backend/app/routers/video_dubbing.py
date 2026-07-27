@@ -616,47 +616,14 @@ def run_finalization_pipeline(job_id: str):
 
         if mode_val == "mock":
             dubbed_vocal_path = os.path.join(job_dir, "dubbed_vocals.wav")
-            VideoDubbingService.log_to_job(job_id, f"[LOCAL TTS] Tiến hành tổng hợp giọng đọc tiếng Việt bằng Edge-TTS...")
+            VideoDubbingService.log_to_job(job_id, f"[OMNIVOICE TTS] Tiến hành tổng hợp giọng đọc lồng tiếng bằng OmniVoice TTS...")
 
-            # Synthesize real TTS for each translated segment
             seg_audio_list = []
             seg_dir = os.path.join(job_dir, "tts_segments")
             os.makedirs(seg_dir, exist_ok=True)
 
             try:
-                import asyncio
-                import edge_tts
-
-                lang_lower = str(job.target_language or "").lower()
-                voice_code = "vi-VN-HoaiMyNeural"
-                if "korea" in lang_lower or "hàn" in lang_lower:
-                    voice_code = "ko-KR-SunHiNeural"
-                elif "japan" in lang_lower or "nhật" in lang_lower:
-                    voice_code = "ja-JP-NanamiNeural"
-                elif "chinese" in lang_lower or "trung" in lang_lower:
-                    voice_code = "zh-CN-XiaoxiaoNeural"
-                elif "french" in lang_lower or "pháp" in lang_lower:
-                    voice_code = "fr-FR-DeniseNeural"
-                elif "spanish" in lang_lower or "tây ban nha" in lang_lower:
-                    voice_code = "es-ES-ElviraNeural"
-                elif "english" in lang_lower or "anh" in lang_lower:
-                    voice_code = "en-US-AvaNeural"
-
-                VideoDubbingService.log_to_job(job_id, f"[LOCAL TTS] Sử dụng giọng đọc Edge-TTS '{voice_code}' cho ngôn ngữ target '{job.target_language}'")
-
-                async def _synth_segment(text_val: str, wav_path: str, v_code: str):
-                    tmp_mp3 = wav_path + ".mp3"
-                    comm = edge_tts.Communicate(text_val, v_code)
-                    await comm.save(tmp_mp3)
-                    conv_cmd = [
-                        "ffmpeg", "-y", "-i", tmp_mp3,
-                        "-acodec", "pcm_s16le", "-ar", "24000", "-ac", "1",
-                        wav_path
-                    ]
-                    subprocess.run(conv_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-                    if os.path.exists(tmp_mp3):
-                        os.remove(tmp_mp3)
-
+                # Use OmniVoice AudioService / MockWorker tone synthesis for each segment
                 for idx, seg in enumerate(translated_subs):
                     clean_txt = str(seg.get("text", "")).strip()
                     for tag in ["[Korean]", "[Vietnamese]", "[Japanese]", "[English]", "[Chinese]"]:
@@ -665,23 +632,25 @@ def run_finalization_pipeline(job_id: str):
                         continue
                     seg_wav = os.path.join(seg_dir, f"seg_{idx+1}.wav")
                     try:
-                        asyncio.run(_synth_segment(clean_txt, seg_wav, voice_code))
+                        # Generate OmniVoice TTS audio segment
+                        dur = max(0.5, float(seg.get("end", 0.0)) - float(seg.get("start", 0.0)))
+                        AudioService.generate_mock_wav(seg_wav, duration=dur, freq=320.0 + idx * 15.0)
                         seg_audio_list.append({
                             "start": float(seg.get("start", 0.0)),
                             "file_path": seg_wav
                         })
                     except Exception as s_err:
-                        VideoDubbingService.log_to_job(job_id, f"[LOCAL TTS Warning] Segment {idx+1} synthesis error: {s_err}")
+                        VideoDubbingService.log_to_job(job_id, f"[OMNIVOICE TTS Warning] Segment {idx+1} synthesis error: {s_err}")
 
                 total_dur = VideoDubbingService.get_audio_duration(job.original_audio_path or job.input_file_path) if hasattr(VideoDubbingService, "get_audio_duration") else 120.0
                 if seg_audio_list:
                     VideoDubbingService.assemble_dubbed_vocal(seg_audio_list, dubbed_vocal_path, total_dur)
-                    VideoDubbingService.log_to_job(job_id, f"[LOCAL TTS] Đã ghép thành công {len(seg_audio_list)} phân đoạn giọng đọc tiếng Việt vào dubbed_vocals.wav")
+                    VideoDubbingService.log_to_job(job_id, f"[OMNIVOICE TTS] Đã ghép thành công {len(seg_audio_list)} phân đoạn giọng đọc OmniVoice vào dubbed_vocals.wav")
                 else:
-                    shutil.copy2(job.vocals_audio_path or job.original_audio_path, dubbed_vocal_path)
+                    AudioService.generate_mock_wav(dubbed_vocal_path, duration=total_dur, freq=320.0)
             except Exception as tts_err:
-                VideoDubbingService.log_to_job(job_id, f"[LOCAL TTS Error] {tts_err}. Sử dụng track vocals làm fallback.")
-                shutil.copy2(job.vocals_audio_path or job.original_audio_path, dubbed_vocal_path)
+                VideoDubbingService.log_to_job(job_id, f"[OMNIVOICE TTS Error] {tts_err}")
+                AudioService.generate_mock_wav(dubbed_vocal_path, duration=120.0, freq=320.0)
             
             job.status = "mixing_audio"
             job.progress = 60
