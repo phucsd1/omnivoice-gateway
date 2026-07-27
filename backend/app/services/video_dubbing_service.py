@@ -389,20 +389,36 @@ class VideoDubbingService:
         """
         Mixes vocal track and background music together and remuxes them with the original video track.
         """
-        # Create a temp file for the mixed audio track
         temp_dir = os.path.dirname(output_path)
         temp_mixed_audio = os.path.join(temp_dir, f"temp_mixed_{os.path.basename(output_path)}.wav")
-        
-        # Mix audio tracks using FFmpeg amix
-        mix_cmd = [
-            "ffmpeg", "-y",
-            "-i", vocal_path,
-            "-i", bgm_path,
-            "-filter_complex", f"[0:a]volume={vocal_vol}[vocal];[1:a]volume={bgm_vol}[bgm];[vocal][bgm]amix=inputs=2:duration=first:dropout_transition=0[out]",
-            "-map", "[out]",
-            "-acodec", "pcm_s16le", "-ar", "24000",
-            temp_mixed_audio
-        ]
+
+        # Check if bgm_path is original_audio (contains original speech)
+        is_orig_bgm = False
+        if bgm_path and os.path.exists(bgm_path):
+            if "original_audio" in os.path.basename(bgm_path):
+                is_orig_bgm = True
+
+        if is_orig_bgm or bgm_vol <= 0.01 or not bgm_path or not os.path.exists(bgm_path):
+            # Only use new dubbed vocal track to ensure original English speech is 100% removed!
+            mix_cmd = [
+                "ffmpeg", "-y",
+                "-i", vocal_path,
+                "-filter_complex", f"[0:a]volume={vocal_vol}[out]",
+                "-map", "[out]",
+                "-acodec", "pcm_s16le", "-ar", "24000",
+                temp_mixed_audio
+            ]
+        else:
+            # Mix audio tracks using FFmpeg amix
+            mix_cmd = [
+                "ffmpeg", "-y",
+                "-i", vocal_path,
+                "-i", bgm_path,
+                "-filter_complex", f"[0:a]volume={vocal_vol}[vocal];[1:a]volume={bgm_vol}[bgm];[vocal][bgm]amix=inputs=2:duration=first:dropout_transition=0[out]",
+                "-map", "[out]",
+                "-acodec", "pcm_s16le", "-ar", "24000",
+                temp_mixed_audio
+            ]
         
         subprocess.run(mix_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
         
