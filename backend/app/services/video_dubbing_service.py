@@ -420,9 +420,12 @@ class VideoDubbingService:
                 temp_mixed_audio
             ]
         
-        subprocess.run(mix_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        res_mix = subprocess.run(mix_cmd, capture_output=True, text=True)
+        if res_mix.returncode != 0:
+            print(f"[FFmpeg Mix Error] {res_mix.stderr}")
+            raise RuntimeError(f"FFmpeg audio mixing failed: {res_mix.stderr[:300]}")
         
-        # Mux mixed audio with original video
+        # Mux mixed audio with original video (replacing original audio completely)
         mux_cmd = [
             "ffmpeg", "-y",
             "-i", video_path,
@@ -436,7 +439,10 @@ class VideoDubbingService:
             output_path
         ]
         
-        subprocess.run(mux_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        res_mux = subprocess.run(mux_cmd, capture_output=True, text=True)
+        if res_mux.returncode != 0:
+            print(f"[FFmpeg Mux Error] {res_mux.stderr}")
+            raise RuntimeError(f"FFmpeg video remuxing failed: {res_mux.stderr[:300]}")
         
         # Clean up temporary mixed audio track
         if os.path.exists(temp_mixed_audio):

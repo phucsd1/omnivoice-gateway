@@ -670,10 +670,9 @@ def run_finalization_pipeline(job_id: str):
                     vocal_vol=vocal_v,
                     bgm_vol=bgm_v
                 )
-                VideoDubbingService.log_to_job(job_id, f"[MOCK] Trộn nhạc nền & mux video thành công. File: {output_video_path}")
             except Exception as mix_err:
-                VideoDubbingService.log_to_job(job_id, f"[MOCK] mix_and_mux_video thất bại: {mix_err}. Sử dụng video gốc làm fallback...")
-                shutil.copy2(job.input_file_path, output_video_path)
+                VideoDubbingService.log_to_job(job_id, f"[ERROR] mix_and_mux_video thất bại: {mix_err}")
+                raise RuntimeError(f"Trộn âm thanh và đóng gói video thất bại: {mix_err}")
             
             job.output_video_path = output_video_path
             job.status = "completed"

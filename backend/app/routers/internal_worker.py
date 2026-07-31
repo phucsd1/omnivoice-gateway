@@ -191,7 +191,7 @@ async def upload_job_output(
                     if not os.path.exists(vocals_path):
                         shutil.copy2(dub_job.original_audio_path, vocals_path)
                     if not os.path.exists(bgm_path):
-                        shutil.copy2(dub_job.original_audio_path, bgm_path)
+                        bgm_path = None
 
                 VideoDubbingService.log_to_job(dub_job_id, f"[KAGGLE] Giải nén thành công. Vocals: {vocals_path}, BGM: {bgm_path}")
                 dub_job.vocals_audio_path = vocals_path
