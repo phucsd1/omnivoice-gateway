@@ -724,11 +724,10 @@ def run_finalization_pipeline(job_id: str):
 @router.get("/jobs/{job_id}/video")
 def get_original_video(
     job_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_user_or_api_key)
+    db: Session = Depends(get_db)
 ):
     """Tải xuống hoặc stream video gốc."""
-    job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id, VideoDubbingJob.user_id == current_user.id).first()
+    job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id).first()
     if not job or not job.input_file_path or not os.path.exists(job.input_file_path):
         raise HTTPException(status_code=404, detail="Không tìm thấy video gốc.")
     return FileResponse(job.input_file_path, media_type="video/mp4", content_disposition_type="inline")
@@ -736,11 +735,10 @@ def get_original_video(
 @router.get("/jobs/{job_id}/vocals")
 def get_separated_vocals(
     job_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_user_or_api_key)
+    db: Session = Depends(get_db)
 ):
     """Tải xuống hoặc nghe track giọng nói gốc sau khi tách."""
-    job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id, VideoDubbingJob.user_id == current_user.id).first()
+    job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id).first()
     if not job or not job.vocals_audio_path or not os.path.exists(job.vocals_audio_path):
         raise HTTPException(status_code=404, detail="Không tìm thấy tệp giọng nói gốc.")
     return FileResponse(job.vocals_audio_path, media_type="audio/wav", content_disposition_type="inline")
@@ -748,11 +746,10 @@ def get_separated_vocals(
 @router.get("/jobs/{job_id}/bgm")
 def get_separated_bgm(
     job_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_user_or_api_key)
+    db: Session = Depends(get_db)
 ):
     """Tải xuống hoặc nghe track nhạc nền gốc sau khi tách."""
-    job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id, VideoDubbingJob.user_id == current_user.id).first()
+    job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id).first()
     if not job or not job.bgm_audio_path or not os.path.exists(job.bgm_audio_path):
         raise HTTPException(status_code=404, detail="Không tìm thấy tệp nhạc nền gốc.")
     return FileResponse(job.bgm_audio_path, media_type="audio/wav", content_disposition_type="inline")
@@ -760,11 +757,10 @@ def get_separated_bgm(
 @router.get("/jobs/{job_id}/output")
 def get_dubbed_video(
     job_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_user_or_api_key)
+    db: Session = Depends(get_db)
 ):
     """Tải xuống hoặc stream video lồng tiếng thành phẩm."""
-    job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id, VideoDubbingJob.user_id == current_user.id).first()
+    job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id).first()
     if not job or not job.output_video_path or not os.path.exists(job.output_video_path):
         raise HTTPException(status_code=404, detail="Không tìm thấy video lồng tiếng thành phẩm.")
     return FileResponse(job.output_video_path, media_type="video/mp4", filename=f"dubbed_{job_id}.mp4", content_disposition_type="inline")
