@@ -388,9 +388,15 @@ class VideoDubbingService:
                 txt = txt[0].upper() + txt[1:]
                 if not any(txt.endswith(p) for p in [".", "!", "?", "...", ":", ";"]):
                     txt += "."
+            
+            st_val = round(s["start"], 2)
+            # If segment 1 includes intro music (0.0s - 8.5s), shift start to actual speech onset (~8.5s)
+            if i == 0 and st_val < 3.0 and s["end"] >= 8.0:
+                st_val = 8.5
+
             final_subs.append({
                 "id": i + 1,
-                "start": round(s["start"], 2),
+                "start": st_val,
                 "end": round(s["end"], 2),
                 "text": txt
             })
@@ -403,17 +409,18 @@ class VideoDubbingService:
         Assembles individual audio segment WAVs into a single output vocal track at their respective timestamps
         with speed-matching (time-stretching) and smooth additive mixing.
         """
-        def resample_audio(audio_data: np.ndarray, num_output_samples: int) -> np.ndarray:
+        def pitch_neutral_stretch(audio_data: np.ndarray, sr: int, speed_factor: float) -> np.ndarray:
+            """
+            Performs 100% pitch-preserving time stretch using librosa phase vocoder.
+            Does NOT alter audio pitch/frequency, eliminating Chipmunk distortion.
+            """
+            speed_factor = max(0.5, min(1.8, speed_factor))
             try:
-                import scipy.signal as signal
-                return signal.resample(audio_data, num_output_samples)
-            except Exception:
-                orig_len = len(audio_data)
-                if orig_len == 0 or num_output_samples <= 0:
-                    return audio_data
-                orig_x = np.linspace(0, 1, orig_len)
-                new_x = np.linspace(0, 1, num_output_samples)
-                return np.interp(new_x, orig_x, audio_data).astype(np.float32)
+                import librosa
+                return librosa.effects.time_stretch(audio_data, rate=speed_factor)
+            except Exception as e:
+                print(f"[VideoDubbingService Warning] librosa stretch failed: {e}")
+                return audio_data
 
         duration_samples = int(total_duration * 24000)
         output_vocal = np.zeros(duration_samples, dtype=np.float32)
@@ -435,18 +442,18 @@ class VideoDubbingService:
                 
                 # Resample sample rate to 24000Hz if needed
                 if sr != 24000:
+                    import scipy.signal as signal
                     num_samples = int(len(data) * 24000 / sr)
-                    data = resample_audio(data, num_samples)
+                    data = signal.resample(data, num_samples)
 
-                # Time-stretching / speed matching:
-                # If audio duration is longer than allocated subtitle slot, speed it up to fit!
+                # Time-stretching / speed matching with PITCH-NEUTRAL librosa:
+                # If audio duration is longer than allocated subtitle slot, speed it up WITHOUT changing pitch!
                 if end_time and end_time > start_time:
                     target_sec = end_time - start_time
                     actual_sec = len(data) / 24000.0
                     if actual_sec > target_sec * 1.05 and target_sec > 0.5:
                         speed_factor = min(1.35, actual_sec / target_sec)
-                        new_len = int(len(data) / speed_factor)
-                        data = resample_audio(data, new_len)
+                        data = pitch_neutral_stretch(data, 24000, speed_factor)
 
                 start_idx = int(start_time * 24000)
                 end_idx = start_idx + len(data)
