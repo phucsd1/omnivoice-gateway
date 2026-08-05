@@ -211,7 +211,9 @@ def main():
                         if not clean_t:
                             continue
                         seg_args = {"text": clean_t}
-                        if local_ref_path and os.path.exists(local_ref_path):
+                        # Do not force English speaker ref_audio onto Vietnamese text to avoid English accent prompt bleed!
+                        # Only use ref_audio if explicitly provided as a native target voice sample
+                        if local_ref_path and os.path.exists(local_ref_path) and job.get("use_voice_clone"):
                             seg_args["ref_audio"] = local_ref_path
                         
                         log(f"Synthesizing segment {seg['id']} via OmniVoice: '{clean_t[:30]}...'")
