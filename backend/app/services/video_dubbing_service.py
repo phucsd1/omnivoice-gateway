@@ -412,7 +412,18 @@ class VideoDubbingService:
         Assembles individual audio segment WAVs into a single output vocal track at their respective timestamps
         with speed-matching (time-stretching) and smooth additive mixing.
         """
-        import scipy.signal as signal
+        def resample_audio(audio_data: np.ndarray, num_output_samples: int) -> np.ndarray:
+            try:
+                import scipy.signal as signal
+                return signal.resample(audio_data, num_output_samples)
+            except Exception:
+                orig_len = len(audio_data)
+                if orig_len == 0 or num_output_samples <= 0:
+                    return audio_data
+                orig_x = np.linspace(0, 1, orig_len)
+                new_x = np.linspace(0, 1, num_output_samples)
+                return np.interp(new_x, orig_x, audio_data).astype(np.float32)
+
         duration_samples = int(total_duration * 24000)
         output_vocal = np.zeros(duration_samples, dtype=np.float32)
 
@@ -434,7 +445,7 @@ class VideoDubbingService:
                 # Resample sample rate to 24000Hz if needed
                 if sr != 24000:
                     num_samples = int(len(data) * 24000 / sr)
-                    data = signal.resample(data, num_samples)
+                    data = resample_audio(data, num_samples)
 
                 # Time-stretching / speed matching:
                 # If audio duration is longer than allocated subtitle slot, speed it up to fit!
@@ -444,7 +455,7 @@ class VideoDubbingService:
                     if actual_sec > target_sec * 1.05 and target_sec > 0.5:
                         speed_factor = min(1.35, actual_sec / target_sec)
                         new_len = int(len(data) / speed_factor)
-                        data = signal.resample(data, new_len)
+                        data = resample_audio(data, new_len)
 
                 start_idx = int(start_time * 24000)
                 end_idx = start_idx + len(data)
