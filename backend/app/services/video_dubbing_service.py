@@ -327,17 +327,8 @@ class VideoDubbingService:
             raise Exception("LLM returned non-array JSON.")
 
         except Exception as e:
-            print(f"[VideoDubbingService] LLM Translation failed: {e}. Falling back to mock translation.")
-            # Fallback
-            translated = []
-            for seg in subtitles:
-                translated.append({
-                    "id": seg["id"],
-                    "start": seg["start"],
-                    "end": seg["end"],
-                    "text": f"[{target_language}] {seg['text']}"
-                })
-            return translated
+            print(f"[VideoDubbingService] LLM Translation failed ({profile_name}): {e}")
+            raise RuntimeError(f"Lỗi dịch thuật phụ đề qua LLM ({profile_name}): {e}")
 
     @staticmethod
     def merge_and_normalize_subtitles(subs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
