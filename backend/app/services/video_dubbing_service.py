@@ -340,18 +340,86 @@ class VideoDubbingService:
             return translated
 
     @staticmethod
+    def merge_and_normalize_subtitles(subs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Filters out empty/junk segments, merges fragmented short sentences into coherent paragraphs,
+        and normalizes capitalization/punctuation for natural native Vietnamese TTS intonation.
+        """
+        if not subs:
+            return []
+
+        # 1. Filter out empty or punctuation-only segments
+        cleaned = []
+        for s in subs:
+            txt = str(s.get("text", "")).strip()
+            for tag in ["[Korean]", "[Vietnamese]", "[Japanese]", "[English]", "[Chinese]"]:
+                txt = txt.replace(tag, "").strip()
+            alpha_chars = [c for c in txt if c.isalnum()]
+            if not alpha_chars:
+                continue
+            cleaned.append({
+                "id": len(cleaned) + 1,
+                "start": float(s.get("start", 0.0)),
+                "end": float(s.get("end", 0.0)),
+                "text": txt
+            })
+
+        if not cleaned:
+            return []
+
+        # 2. Merge short adjacent fragments into natural sentences
+        merged = []
+        curr = dict(cleaned[0])
+
+        for nxt in cleaned[1:]:
+            curr_txt = curr["text"].strip()
+            curr_words = len(curr_txt.split())
+            time_gap = nxt["start"] - curr["end"]
+            
+            does_not_end_sentence = not any(curr_txt.endswith(p) for p in [".", "!", "?", "...", ":"])
+            is_short = curr_words < 6
+            merged_duration = nxt["end"] - curr["start"]
+
+            if (does_not_end_sentence or is_short) and time_gap < 1.2 and merged_duration <= 12.0:
+                curr["end"] = nxt["end"]
+                curr["text"] = f"{curr_txt} {nxt['text'].strip()}"
+            else:
+                merged.append(curr)
+                curr = dict(nxt)
+
+        merged.append(curr)
+
+        # 3. Final normalization (Capitalization, punctuation ending, re-numbering)
+        final_subs = []
+        for i, s in enumerate(merged):
+            txt = s["text"].strip()
+            if txt:
+                txt = txt[0].upper() + txt[1:]
+                if not any(txt.endswith(p) for p in [".", "!", "?", "...", ":", ";"]):
+                    txt += "."
+            final_subs.append({
+                "id": i + 1,
+                "start": round(s["start"], 2),
+                "end": round(s["end"], 2),
+                "text": txt
+            })
+
+        return final_subs
+
+    @staticmethod
     def assemble_dubbed_vocal(segments: List[Dict[str, Any]], output_vocal_path: str, total_duration: float):
         """
-        Assembles individual audio segment WAVs into a single output vocal track at their respective timestamps.
-        segments schema: [{"start": 1.2, "file_path": "/path/to/segment.wav"}]
+        Assembles individual audio segment WAVs into a single output vocal track at their respective timestamps
+        with speed-matching (time-stretching) and smooth additive mixing.
         """
-        # Initialize an empty array of zeros at 24000Hz
+        import scipy.signal as signal
         duration_samples = int(total_duration * 24000)
         output_vocal = np.zeros(duration_samples, dtype=np.float32)
 
         for seg in segments:
             seg_path = seg.get("file_path")
-            start_time = seg.get("start", 0.0)
+            start_time = float(seg.get("start", 0.0))
+            end_time = float(seg.get("end", 0.0)) if seg.get("end") else None
             
             if not seg_path or not os.path.exists(seg_path):
                 continue
@@ -363,11 +431,20 @@ class VideoDubbingService:
                 if len(data.shape) > 1:
                     data = data.mean(axis=1)
                 
-                # Simple resampling if sample rate isn't 24000 (though worker output is 24000)
+                # Resample sample rate to 24000Hz if needed
                 if sr != 24000:
-                    import scipy.signal as signal
                     num_samples = int(len(data) * 24000 / sr)
                     data = signal.resample(data, num_samples)
+
+                # Time-stretching / speed matching:
+                # If audio duration is longer than allocated subtitle slot, speed it up to fit!
+                if end_time and end_time > start_time:
+                    target_sec = end_time - start_time
+                    actual_sec = len(data) / 24000.0
+                    if actual_sec > target_sec * 1.05 and target_sec > 0.5:
+                        speed_factor = min(1.35, actual_sec / target_sec)
+                        new_len = int(len(data) / speed_factor)
+                        data = signal.resample(data, new_len)
 
                 start_idx = int(start_time * 24000)
                 end_idx = start_idx + len(data)
@@ -376,9 +453,15 @@ class VideoDubbingService:
                     padding = np.zeros(end_idx - len(output_vocal), dtype=np.float32)
                     output_vocal = np.concatenate([output_vocal, padding])
                     
-                output_vocal[start_idx:end_idx] = data
+                # Additive mixing to avoid cutting off prior audio
+                output_vocal[start_idx:end_idx] += data
             except Exception as e:
                 print(f"[VideoDubbingService] Failed to insert segment {seg_path} into vocal track: {e}")
+
+        # Peak normalize to 0.95 to avoid digital clipping
+        max_val = np.max(np.abs(output_vocal))
+        if max_val > 0.95:
+            output_vocal = output_vocal * (0.95 / max_val)
 
         # Save output vocal file
         os.makedirs(os.path.dirname(output_vocal_path), exist_ok=True)

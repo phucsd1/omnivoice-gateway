@@ -239,6 +239,7 @@ async def upload_job_output(
                     
                     segments_payload.append({
                         "start": seg["start"],
+                        "end": seg.get("end"),
                         "file_path": seg_wav_path
                     })
 

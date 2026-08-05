@@ -320,15 +320,20 @@ def trigger_translation_stage(dub_job_id: str, text: str, alignment_str: str, db
                 "text": " ".join(chunk)
             })
 
-    job.original_subtitles = json.dumps(segments)
+    # Preprocess and merge short/fragmented segments into complete sentences
+    merged_orig_segments = VideoDubbingService.merge_and_normalize_subtitles(segments)
+    job.original_subtitles = json.dumps(merged_orig_segments)
     db.commit()
-    VideoDubbingService.log_to_job(dub_job_id, f"Hoàn tất phân tích phụ đề gốc: gồm {len(segments)} phân đoạn.")
+    VideoDubbingService.log_to_job(dub_job_id, f"Hoàn tất phân tích & hợp nhất phụ đề gốc: gồm {len(merged_orig_segments)} phân đoạn hoàn chỉnh.")
 
     # Call LLM translator
     llm_prof_id = getattr(job, "llm_profile_id", None)
     VideoDubbingService.log_to_job(dub_job_id, f"Bắt đầu dịch thuật phụ đề tự động sang tiếng: {job.target_language} bằng LLM (Profile ID: {llm_prof_id or 'Default'})...")
-    translated = VideoDubbingService.translate_subtitles_llm(segments, job.target_language, db, llm_profile_id=llm_prof_id)
-    job.translated_subtitles = json.dumps(translated)
+    translated = VideoDubbingService.translate_subtitles_llm(merged_orig_segments, job.target_language, db, llm_profile_id=llm_prof_id)
+    
+    # Merge and normalize translated subtitles as well
+    merged_translated = VideoDubbingService.merge_and_normalize_subtitles(translated)
+    job.translated_subtitles = json.dumps(merged_translated)
     
     job.status = "awaiting_review"
     job.progress = 100
