@@ -695,20 +695,27 @@ def run_finalization_pipeline(job_id: str):
 
             VideoDubbingService.log_to_job(job_id, f"[KAGGLE] Tạo sub-job dub_segments 'dub_{job_id}' trong hàng đợi với {len(translated_subs)} phân đoạn...")
 
-            # We submit a special batch job of type 'dub_segments'
-            dub_tts_job = TTSJob(
-                id=f"dub_{job_id}",
-                user_id=job.user_id,
-                job_type="dub_segments",
-                text=job.translated_subtitles,  # passing JSON translated subtitles
-                voice_sample_id=None,
-                # We use the separated vocals WAV as the cloning reference voice
-                ref_audio_path=job.vocals_audio_path,
-                status="queued",
-                progress=0,
-                message="Đang chờ Kaggle lồng tiếng..."
-            )
-            db.add(dub_tts_job)
+            # Check if sub-job already exists to prevent UNIQUE constraint error
+            existing_tts = db.query(TTSJob).filter(TTSJob.id == f"dub_{job_id}").first()
+            if existing_tts:
+                existing_tts.text = job.translated_subtitles
+                existing_tts.ref_audio_path = job.vocals_audio_path
+                existing_tts.status = "queued"
+                existing_tts.progress = 0
+                existing_tts.message = "Đang chờ Kaggle lồng tiếng..."
+            else:
+                dub_tts_job = TTSJob(
+                    id=f"dub_{job_id}",
+                    user_id=job.user_id,
+                    job_type="dub_segments",
+                    text=job.translated_subtitles,  # passing JSON translated subtitles
+                    voice_sample_id=None,
+                    ref_audio_path=job.vocals_audio_path,
+                    status="queued",
+                    progress=0,
+                    message="Đang chờ Kaggle lồng tiếng..."
+                )
+                db.add(dub_tts_job)
             db.commit()
             VideoDubbingService.log_to_job(job_id, "[KAGGLE] Đã đưa sub-job dub_segments vào hàng đợi, chờ GPU Worker xử lý...")
             
