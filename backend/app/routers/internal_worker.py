@@ -222,29 +222,41 @@ async def upload_job_output(
                 orig_info = sf.info(dub_job.original_audio_path)
                 duration = orig_info.duration
 
+                all_extracted_files = []
+                for root, _, files in os.walk(segments_dir):
+                    for f in files:
+                        all_extracted_files.append(os.path.join(root, f))
+                VideoDubbingService.log_to_job(dub_job_id, f"[KAGGLE] Đã giải nén {len(all_extracted_files)} tệp trong segments_dir: {[os.path.basename(f) for f in all_extracted_files[:15]]}")
+
                 # Compile vocal track
                 translated_list = json.loads(dub_job.translated_subtitles or "[]")
                 segments_payload = []
-                for seg in translated_list:
-                    # Look for segment WAV in extracted folder
-                    seg_wav_name = f"segment_{seg['id']}.wav"
-                    seg_wav_path = os.path.join(segments_dir, seg_wav_name)
-                    if not os.path.exists(seg_wav_path):
-                        # check if it exists in base segments dir
-                        for root, _, files in os.walk(segments_dir):
-                            for name in files:
-                                if f"_{seg['id']}.wav" in name or name == f"{seg['id']}.wav":
-                                    seg_wav_path = os.path.join(root, name)
-                                    break
-                    
-                    segments_payload.append({
-                        "start": seg["start"],
-                        "end": seg.get("end"),
-                        "file_path": seg_wav_path
-                    })
+                for idx, seg in enumerate(translated_list):
+                    seg_id = seg.get("id", idx + 1)
+                    possible_names = [
+                        f"segment_{seg_id}.wav", f"seg_{seg_id}.wav", f"{seg_id}.wav",
+                        f"segment_{idx+1}.wav", f"seg_{idx+1}.wav", f"{idx+1}.wav"
+                    ]
+                    found_wav = None
+                    for p_name in possible_names:
+                        for f_path in all_extracted_files:
+                            if os.path.basename(f_path).lower() == p_name.lower():
+                                found_wav = f_path
+                                break
+                        if found_wav:
+                            break
+
+                    if found_wav and os.path.exists(found_wav):
+                        segments_payload.append({
+                            "start": seg["start"],
+                            "end": seg.get("end"),
+                            "file_path": found_wav
+                        })
+                    else:
+                        VideoDubbingService.log_to_job(dub_job_id, f"[WARNING] Không tìm thấy tệp WAV lồng tiếng cho phân đoạn #{seg_id} (ID: {seg_id})")
 
                 dubbed_vocals_path = os.path.join(job_dir, "dubbed_vocals.wav")
-                VideoDubbingService.log_to_job(dub_job_id, f"[KAGGLE] Đang ghép {len(segments_payload)} tệp audio lồng tiếng thành một track chính...")
+                VideoDubbingService.log_to_job(dub_job_id, f"[KAGGLE] Đang ghép {len(segments_payload)}/{len(translated_list)} tệp audio lồng tiếng thành một track chính...")
                 VideoDubbingService.assemble_dubbed_vocal(segments_payload, dubbed_vocals_path, duration)
                 VideoDubbingService.log_to_job(dub_job_id, f"[KAGGLE] Ghép track vocals lồng tiếng thành công: {dubbed_vocals_path}")
 
