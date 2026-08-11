@@ -75,6 +75,10 @@ class VideoDubbingService:
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
             ctx.set_ciphers('DEFAULT:@SECLEVEL=1')
+            if hasattr(ssl, 'TLSVersion'):
+                ctx.maximum_version = ssl.TLSVersion.TLSv1_2
+            elif hasattr(ssl, 'OP_NO_TLSv1_3'):
+                ctx.options |= ssl.OP_NO_TLSv1_3
             ssl._create_default_https_context = lambda: ctx
         except Exception:
             pass
