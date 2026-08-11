@@ -88,11 +88,17 @@ class VideoDubbingService:
                 'no_warnings': True,
                 'socket_timeout': 30,
                 'source_address': '0.0.0.0',
+                'force_ipv4': True,
+                'nocheckcertificate': True,
+                'legacy_server_connect': True,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                },
                 'js_runtimes': {'node': {}},
                 'remote_components': ['ejs:github'],
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_vr', 'android', 'web']
+                        'player_client': ['tv', 'android', 'web']
                     }
                 }
             }
@@ -115,6 +121,9 @@ class VideoDubbingService:
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
                 "-4",
+                "--no-check-certificate",
+                "--legacy-server-connect",
+                "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
                 "-f", format_spec,
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
@@ -122,7 +131,7 @@ class VideoDubbingService:
                 "--js-runtimes", "node",
                 "--remote-components", "ejs:github",
                 "--print", "%(title)s",
-                "--extractor-args", "youtube:player_client=android_vr,android,web",
+                "--extractor-args", "youtube:player_client=tv,android,web",
                 url
             ]
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
@@ -144,6 +153,8 @@ class VideoDubbingService:
         # Method 3: pytubefix fallback
         try:
             _log("Attempting YouTube download via pytubefix fallback...")
+            import ssl
+            ssl._create_default_https_context = ssl._create_unverified_context
             from pytubefix import YouTube
             yt = YouTube(url, client='ANDROID')
             title = yt.title or "YouTube Video"
