@@ -58,7 +58,7 @@ class VideoDubbingService:
         target_path = os.path.join(output_dir, "input_video.mp4")
 
         # Format spec: best video + best audio merged into MP4 format, with fallback to best single file
-        format_spec = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best"
+        format_spec = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/18/best"
 
         err_ytdlp = None
         err_sub = None
@@ -77,6 +77,8 @@ class VideoDubbingService:
                 'no_warnings': True,
                 'socket_timeout': 30,
                 'source_address': '0.0.0.0',
+                'js_runtimes': {'node': {}},
+                'remote_components': ['ejs:github'],
                 'extractor_args': {
                     'youtube': {
                         'player_client': ['android_vr', 'android', 'web']
@@ -106,6 +108,8 @@ class VideoDubbingService:
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
                 "--socket-timeout", "30",
+                "--js-runtimes", "node",
+                "--remote-components", "ejs:github",
                 "--print", "%(title)s",
                 "--extractor-args", "youtube:player_client=android_vr,android,web",
                 url
