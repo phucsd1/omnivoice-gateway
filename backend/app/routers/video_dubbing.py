@@ -22,32 +22,32 @@ router = APIRouter(prefix="/v1/video-dubbing", tags=["Video Dubbing"])
 
 @router.get("/debug-yt")
 def debug_yt(url: str = "https://www.youtube.com/watch?v=_HA6-A8itVY"):
-    import time, traceback
-    t0 = time.time()
-    tmp_dir = "/tmp/debug_yt"
-    os.makedirs(tmp_dir, exist_ok=True)
-    try:
-        path, title = VideoDubbingService.download_youtube_video(url, tmp_dir)
-        size = os.path.getsize(path) if os.path.exists(path) else 0
-        elapsed = time.time() - t0
-        return {
-            "status": "success",
-            "url": url,
-            "title": title,
-            "path": path,
-            "size_bytes": size,
-            "size_mb": round(size / (1024 * 1024), 2),
-            "time_seconds": round(elapsed, 2)
-        }
-    except Exception as e:
-        elapsed = time.time() - t0
-        return {
-            "status": "error",
-            "url": url,
-            "error": str(e),
-            "traceback": traceback.format_exc(),
-            "time_seconds": round(elapsed, 2)
-        }
+    import threading, time, traceback
+    def bg_debug():
+        log_path = "/tmp/debug_log.txt"
+        t0 = time.time()
+        def write_log(line: str):
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(f"[{time.strftime('%H:%M:%S')}] {line}\n")
+
+        with open(log_path, "w", encoding="utf-8") as f:
+            f.write(f"[{time.strftime('%H:%M:%S')}] Bắt đầu debug download cho URL: {url}\n")
+
+        try:
+            tmp_dir = "/tmp/debug_yt"
+            os.makedirs(tmp_dir, exist_ok=True)
+            write_log("Đang gọi VideoDubbingService.download_youtube_video...")
+            path, title = VideoDubbingService.download_youtube_video(url, tmp_dir)
+            size = os.path.getsize(path) if os.path.exists(path) else 0
+            elapsed = time.time() - t0
+            write_log(f"SUCCESS: Title='{title}', Path={path}, Size={size} bytes ({size/(1024*1024):.2f} MB), Time={elapsed:.2f}s")
+        except Exception as e:
+            elapsed = time.time() - t0
+            write_log(f"ERROR sau {elapsed:.2f}s: {e}\n{traceback.format_exc()}")
+
+    t = threading.Thread(target=bg_debug)
+    t.start()
+    return {"status": "started", "message": "Check /v1/video-dubbing/debug-log for live status"}
 
 @router.get("/debug-log")
 def debug_log():
