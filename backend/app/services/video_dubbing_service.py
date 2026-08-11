@@ -109,10 +109,15 @@ class VideoDubbingService:
                 'remote_components': ['ejs:github'],
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['web', 'android_vr', 'android']
+                        'player_client': ['web', 'android']
                     }
                 }
             }
+            try:
+                from yt_dlp.networking.impersonate import ImpersonateTarget
+                ydl_opts['impersonate'] = ImpersonateTarget.from_str('chrome-131:android-14')
+            except Exception:
+                pass
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 title = info.get('title', 'YouTube Video')
@@ -135,6 +140,7 @@ class VideoDubbingService:
                 "--no-check-certificate",
                 "--legacy-server-connect",
                 "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                "--impersonate", "chrome-131:android-14",
                 "-f", format_spec,
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
@@ -142,7 +148,7 @@ class VideoDubbingService:
                 "--js-runtimes", "node",
                 "--remote-components", "ejs:github",
                 "--print", "%(title)s",
-                "--extractor-args", "youtube:player_client=web,android_vr,android",
+                "--extractor-args", "youtube:player_client=web,android",
                 url
             ]
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
