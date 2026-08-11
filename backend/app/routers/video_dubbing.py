@@ -22,26 +22,32 @@ router = APIRouter(prefix="/v1/video-dubbing", tags=["Video Dubbing"])
 
 @router.get("/debug-yt")
 def debug_yt(url: str = "https://www.youtube.com/watch?v=_HA6-A8itVY"):
-    import threading, time, traceback
-    def bg_debug():
-        log_path = "/tmp/debug_log.txt"
-        with open(log_path, "w", encoding="utf-8") as f:
-            f.write(f"[{time.strftime('%H:%M:%S')}] Starting debug download for {url}...\n")
-            f.flush()
-            try:
-                tmp_dir = "/tmp/debug_yt"
-                os.makedirs(tmp_dir, exist_ok=True)
-                f.write(f"[{time.strftime('%H:%M:%S')}] Calling VideoDubbingService.download_youtube_video...\n")
-                f.flush()
-                path, title = VideoDubbingService.download_youtube_video(url, tmp_dir)
-                size = os.path.getsize(path) if os.path.exists(path) else 0
-                f.write(f"[{time.strftime('%H:%M:%S')}] SUCCESS: path={path}, title={title}, size={size}\n")
-            except Exception as e:
-                f.write(f"[{time.strftime('%H:%M:%S')}] ERROR: {e}\n{traceback.format_exc()}\n")
-            f.flush()
-    t = threading.Thread(target=bg_debug)
-    t.start()
-    return {"status": "started", "message": "Check /v1/video-dubbing/debug-log in a few seconds"}
+    import time, traceback
+    t0 = time.time()
+    tmp_dir = "/tmp/debug_yt"
+    os.makedirs(tmp_dir, exist_ok=True)
+    try:
+        path, title = VideoDubbingService.download_youtube_video(url, tmp_dir)
+        size = os.path.getsize(path) if os.path.exists(path) else 0
+        elapsed = time.time() - t0
+        return {
+            "status": "success",
+            "url": url,
+            "title": title,
+            "path": path,
+            "size_bytes": size,
+            "size_mb": round(size / (1024 * 1024), 2),
+            "time_seconds": round(elapsed, 2)
+        }
+    except Exception as e:
+        elapsed = time.time() - t0
+        return {
+            "status": "error",
+            "url": url,
+            "error": str(e),
+            "traceback": traceback.format_exc(),
+            "time_seconds": round(elapsed, 2)
+        }
 
 @router.get("/debug-log")
 def debug_log():
