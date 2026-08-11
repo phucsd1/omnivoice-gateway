@@ -37,7 +37,7 @@ def debug_yt(url: str = "https://www.youtube.com/watch?v=_HA6-A8itVY"):
             tmp_dir = "/tmp/debug_yt"
             os.makedirs(tmp_dir, exist_ok=True)
             write_log("Đang gọi VideoDubbingService.download_youtube_video...")
-            path, title = VideoDubbingService.download_youtube_video(url, tmp_dir)
+            path, title = VideoDubbingService.download_youtube_video(url, tmp_dir, log_file=log_path)
             size = os.path.getsize(path) if os.path.exists(path) else 0
             elapsed = time.time() - t0
             write_log(f"SUCCESS: Title='{title}', Path={path}, Size={size} bytes ({size/(1024*1024):.2f} MB), Time={elapsed:.2f}s")

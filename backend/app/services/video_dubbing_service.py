@@ -48,7 +48,7 @@ class VideoDubbingService:
                 subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "-U", "-q", "yt-dlp"])
 
     @staticmethod
-    def download_youtube_video(url: str, output_dir: str) -> Tuple[str, str]:
+    def download_youtube_video(url: str, output_dir: str, log_file: Optional[str] = None) -> Tuple[str, str]:
         """
         Downloads a YouTube video in the best available quality and returns (video_path, title).
         Uses Python yt_dlp primary with bestvideo+bestaudio merged to MP4 via ffmpeg.
@@ -56,6 +56,16 @@ class VideoDubbingService:
         """
         os.makedirs(output_dir, exist_ok=True)
         target_path = os.path.join(output_dir, "input_video.mp4")
+
+        def _log(msg: str):
+            print(f"[VideoDubbingService] {msg}", flush=True)
+            if log_file:
+                try:
+                    with open(log_file, "a", encoding="utf-8") as f:
+                        f.write(f"[{time.strftime('%H:%M:%S')}] {msg}\n")
+                        f.flush()
+                except Exception:
+                    pass
 
         # Format spec: best video + best audio merged into MP4 format, with fallback to best single file
         format_spec = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/18/best"
@@ -66,7 +76,7 @@ class VideoDubbingService:
 
         # Method 1: Python yt_dlp module (Best Quality, real title extraction)
         try:
-            print("[VideoDubbingService] Attempting YouTube download via Python yt_dlp (Best Quality)...")
+            _log("Attempting YouTube download via Python yt_dlp (Best Quality)...")
             import yt_dlp
             outtmpl = os.path.join(output_dir, "input_video.%(ext)s")
             ydl_opts = {
@@ -91,15 +101,15 @@ class VideoDubbingService:
                 for ext in ['.mp4', '.mkv', '.webm']:
                     candidate = os.path.join(output_dir, f"input_video{ext}")
                     if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
-                        print(f"[VideoDubbingService] Python yt_dlp download success: '{title}' ({candidate}, size={os.path.getsize(candidate)})")
+                        _log(f"Python yt_dlp download success: '{title}' ({candidate}, size={os.path.getsize(candidate)})")
                         return candidate, title
         except Exception as e:
             err_ytdlp = e
-            print(f"[VideoDubbingService] Python yt_dlp failed: {e}")
+            _log(f"Python yt_dlp failed: {e}")
 
         # Method 2: CLI subprocess yt-dlp (Best Quality, CLI fallback with title print)
         try:
-            print("[VideoDubbingService] Attempting YouTube download via CLI subprocess yt-dlp (Best Quality)...")
+            _log("Attempting YouTube download via CLI subprocess yt-dlp (Best Quality)...")
             cmd = [
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
@@ -121,18 +131,18 @@ class VideoDubbingService:
                 for ext in ['.mp4', '.m4a', '.mp3', '.wav', '.mkv', '.webm']:
                     candidate = os.path.join(output_dir, f"input_video{ext}")
                     if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
-                        print(f"[VideoDubbingService] CLI yt-dlp download success: '{title}' ({candidate})")
+                        _log(f"CLI yt-dlp download success: '{title}' ({candidate})")
                         return candidate, title
             else:
                 err_sub = res.stderr[:300]
-                print(f"[VideoDubbingService] CLI yt-dlp failed (rc={res.returncode}): {err_sub}")
+                _log(f"CLI yt-dlp failed (rc={res.returncode}): {err_sub}")
         except Exception as e:
             err_sub = e
-            print(f"[VideoDubbingService] CLI yt-dlp exception: {e}")
+            _log(f"CLI yt-dlp exception: {e}")
 
         # Method 3: pytubefix fallback
         try:
-            print("[VideoDubbingService] Attempting YouTube download via pytubefix fallback...")
+            _log("Attempting YouTube download via pytubefix fallback...")
             from pytubefix import YouTube
             yt = YouTube(url, client='ANDROID')
             title = yt.title or "YouTube Video"
@@ -142,11 +152,11 @@ class VideoDubbingService:
             if stream:
                 stream.download(output_path=output_dir, filename="input_video.mp4")
                 if os.path.exists(target_path) and os.path.getsize(target_path) > 0:
-                    print(f"[VideoDubbingService] pytubefix download success: '{title}'")
+                    _log(f"pytubefix download success: '{title}'")
                     return target_path, title
         except Exception as e:
             err_pytubefix = e
-            print(f"[VideoDubbingService] pytubefix failed: {e}")
+            _log(f"pytubefix failed: {e}")
 
         raise Exception(f"Không thể tải video từ YouTube: (yt-dlp: {err_ytdlp}) | (CLI: {err_sub}) | (pytubefix: {err_pytubefix})")
 
