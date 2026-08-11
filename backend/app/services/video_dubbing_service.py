@@ -109,39 +109,18 @@ class VideoDubbingService:
                 'remote_components': ['ejs:github'],
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['web', 'android']
+                        'player_client': ['android_vr', 'android', 'web']
                     }
                 }
             }
-            try:
-                from yt_dlp.networking.impersonate import ImpersonateTarget
-                ydl_opts['impersonate'] = ImpersonateTarget.from_str('chrome')
-            except Exception:
-                pass
-
-            try:
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(url, download=True)
-                    title = info.get('title', 'YouTube Video')
-                    for ext in ['.mp4', '.mkv', '.webm']:
-                        candidate = os.path.join(output_dir, f"input_video{ext}")
-                        if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
-                            _log(f"Python yt_dlp download success: '{title}' ({candidate}, size={os.path.getsize(candidate)})")
-                            return candidate, title
-            except Exception as imp_err:
-                if 'impersonate' in ydl_opts:
-                    _log(f"Impersonate failed ({imp_err}), retrying Python yt_dlp without impersonate...")
-                    ydl_opts.pop('impersonate', None)
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        info = ydl.extract_info(url, download=True)
-                        title = info.get('title', 'YouTube Video')
-                        for ext in ['.mp4', '.mkv', '.webm']:
-                            candidate = os.path.join(output_dir, f"input_video{ext}")
-                            if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
-                                _log(f"Python yt_dlp download success: '{title}' ({candidate}, size={os.path.getsize(candidate)})")
-                                return candidate, title
-                else:
-                    raise imp_err
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                title = info.get('title', 'YouTube Video')
+                for ext in ['.mp4', '.mkv', '.webm']:
+                    candidate = os.path.join(output_dir, f"input_video{ext}")
+                    if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
+                        _log(f"Python yt_dlp download success: '{title}' ({candidate}, size={os.path.getsize(candidate)})")
+                        return candidate, title
         except Exception as e:
             err_ytdlp = e
             _log(f"Python yt_dlp failed: {e}")
@@ -156,7 +135,6 @@ class VideoDubbingService:
                 "--no-check-certificate",
                 "--legacy-server-connect",
                 "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                "--impersonate", "chrome",
                 "-f", format_spec,
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
@@ -164,7 +142,7 @@ class VideoDubbingService:
                 "--js-runtimes", "node",
                 "--remote-components", "ejs:github",
                 "--print", "%(title)s",
-                "--extractor-args", "youtube:player_client=web,android",
+                "--extractor-args", "youtube:player_client=android_vr,android,web",
                 url
             ]
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
@@ -198,8 +176,16 @@ class VideoDubbingService:
                 'force_ipv4': True,
                 'nocheckcertificate': True,
                 'legacy_server_connect': True,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                },
                 'js_runtimes': {'node': {}},
                 'remote_components': ['ejs:github'],
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['android_vr', 'android', 'web']
+                    }
+                }
             }
             with yt_dlp.YoutubeDL(ydl_opts_f18) as ydl:
                 info = ydl.extract_info(url, download=True)
