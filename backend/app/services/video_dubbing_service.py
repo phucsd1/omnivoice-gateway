@@ -183,7 +183,36 @@ class VideoDubbingService:
             err_sub = e
             _log(f"CLI yt-dlp exception: {e}")
 
-        # Method 3: pytubefix fallback
+        # Method 3: Fast Progressive Stream (Format 18 / best fallback for Cloud IP unblocking)
+        try:
+            _log("Attempting YouTube download via Fast Progressive Stream (18/best)...")
+            import yt_dlp
+            outtmpl = os.path.join(output_dir, "input_video.%(ext)s")
+            ydl_opts_f18 = {
+                'format': '18/best',
+                'outtmpl': outtmpl,
+                'quiet': True,
+                'no_warnings': True,
+                'socket_timeout': 30,
+                'source_address': '0.0.0.0',
+                'force_ipv4': True,
+                'nocheckcertificate': True,
+                'legacy_server_connect': True,
+                'js_runtimes': {'node': {}},
+                'remote_components': ['ejs:github'],
+            }
+            with yt_dlp.YoutubeDL(ydl_opts_f18) as ydl:
+                info = ydl.extract_info(url, download=True)
+                title = info.get('title', 'YouTube Video')
+                for ext in ['.mp4', '.mkv', '.webm']:
+                    candidate = os.path.join(output_dir, f"input_video{ext}")
+                    if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
+                        _log(f"Fast Progressive (18/best) download success: '{title}' ({candidate}, size={os.path.getsize(candidate)})")
+                        return candidate, title
+        except Exception as e:
+            _log(f"Fast Progressive (18/best) failed: {e}")
+
+        # Method 4: pytubefix fallback
         try:
             _log("Attempting YouTube download via pytubefix fallback...")
             import ssl
