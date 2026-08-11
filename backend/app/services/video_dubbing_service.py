@@ -68,6 +68,17 @@ class VideoDubbingService:
                 except Exception:
                     pass
 
+        # Ensure SSL context bypass for OpenSSL 3.0 on Linux Cloud Server IPs
+        try:
+            import ssl
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            ctx.set_ciphers('DEFAULT:@SECLEVEL=1')
+            ssl._create_default_https_context = lambda: ctx
+        except Exception:
+            pass
+
         # Format spec: best video + best audio merged into MP4 format, with fallback to best single file
         format_spec = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/18/best"
 
@@ -98,7 +109,7 @@ class VideoDubbingService:
                 'remote_components': ['ejs:github'],
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['tv', 'android', 'web']
+                        'player_client': ['web', 'android_vr', 'android']
                     }
                 }
             }
@@ -131,7 +142,7 @@ class VideoDubbingService:
                 "--js-runtimes", "node",
                 "--remote-components", "ejs:github",
                 "--print", "%(title)s",
-                "--extractor-args", "youtube:player_client=tv,android,web",
+                "--extractor-args", "youtube:player_client=web,android_vr,android",
                 url
             ]
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
