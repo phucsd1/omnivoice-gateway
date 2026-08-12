@@ -50,6 +50,38 @@ class VideoDubbingService:
                 subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "-U", "curl_cffi", "yt-dlp[default,curl-cffi]", "bgutil-ytdlp-pot-provider"])
 
     @staticmethod
+    def _generate_visitor_cookies(cookie_file_path: str) -> bool:
+        """
+        Generates fresh Netscape format YouTube visitor cookies using requests.
+        Bypasses bot detection on datacenter IPs (AWS / Hugging Face Spaces).
+        """
+        try:
+            import requests
+            sess = requests.Session()
+            sess.headers.update({
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+                'Accept-Language': 'en-US,en;q=0.9'
+            })
+            sess.get('https://www.youtube.com', timeout=10)
+            
+            os.makedirs(os.path.dirname(cookie_file_path), exist_ok=True)
+            with open(cookie_file_path, 'w', encoding='utf-8') as f:
+                f.write('# Netscape HTTP Cookie File\n')
+                for c in sess.cookies:
+                    domain = c.domain
+                    flag = 'TRUE' if domain.startswith('.') else 'FALSE'
+                    path = c.path
+                    secure = 'TRUE' if c.secure else 'FALSE'
+                    expiry = str(c.expires or 2147483647)
+                    name = c.name
+                    val = c.value
+                    f.write(f'{domain}\t{flag}\t{path}\t{secure}\t{expiry}\t{name}\t{val}\n')
+            return True
+        except Exception as e:
+            print(f"[VideoDubbingService] Failed to generate visitor cookies: {e}", flush=True)
+            return False
+
+    @staticmethod
     def download_youtube_video(url: str, output_dir: str, log_file: Optional[str] = None) -> Tuple[str, str]:
         """
         Downloads a YouTube video in the best available quality and returns (video_path, title).
@@ -59,6 +91,7 @@ class VideoDubbingService:
         VideoDubbingService.ensure_dependencies()
         os.makedirs(output_dir, exist_ok=True)
         target_path = os.path.join(output_dir, "input_video.mp4")
+        cookie_path = os.path.join(output_dir, "yt_visitor_cookies.txt")
 
         def _log(msg: str):
             print(f"[VideoDubbingService] {msg}", flush=True)
@@ -69,6 +102,10 @@ class VideoDubbingService:
                         f.flush()
                 except Exception:
                     pass
+
+        # Generate fresh visitor cookies to bypass bot checks on datacenter IPs
+        _log("Generating fresh YouTube visitor cookies...")
+        VideoDubbingService._generate_visitor_cookies(cookie_path)
 
         # Force IPv4 at Python socket layer to prevent Docker IPv6 TCP timeouts
         try:
@@ -87,9 +124,9 @@ class VideoDubbingService:
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Ultra-fast yt_dlp subprocess with Chrome BoringSSL & android_creator,android_pro client
+        # Method 1: Ultra-fast yt_dlp subprocess with Chrome BoringSSL, visitor cookies & android_creator client
         try:
-            _log("Attempting YouTube download via Ultra-fast yt_dlp (android_creator,android_pro)...")
+            _log("Attempting YouTube download via Ultra-fast yt_dlp (visitor cookies + android_creator)...")
             target_pattern = os.path.join(output_dir, "input_video.%(ext)s")
             py_runner = """import sys, os, socket
 _orig_gai = socket.getaddrinfo
@@ -98,16 +135,16 @@ def _force_ipv4(host, port, family=0, type=0, proto=0, flags=0):
 socket.getaddrinfo = _force_ipv4
 
 import yt_dlp
-out_tmpl, video_url = sys.argv[1], sys.argv[2]
+out_tmpl, video_url, ck_path = sys.argv[1], sys.argv[2], sys.argv[3]
 args = [
     'yt_dlp',
     '--no-warnings',
     '--no-check-certificate',
     '--impersonate', 'chrome',
     '--force-ipv4',
-    '--js-runtimes', 'nodejs',
-    '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    '--extractor-args', 'youtube:player_client=android_creator,android_pro,android',
+    '--cookies', ck_path,
+    '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+    '--extractor-args', 'youtube:player_client=android_creator,android_pro,android,mweb,web',
     '--socket-timeout', '30',
     '-f', '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
     '--print', 'after_video:%(title)s',
@@ -117,7 +154,7 @@ args = [
 sys.argv = args
 yt_dlp.main()
 """
-            cmd_runner = [sys.executable, "-c", py_runner, target_pattern, url]
+            cmd_runner = [sys.executable, "-c", py_runner, target_pattern, url, cookie_path]
             res_r = subprocess.run(cmd_runner, capture_output=True, text=True, timeout=120)
             if res_r.returncode == 0:
                 stdout_lines = [line.strip() for line in res_r.stdout.strip().splitlines() if line.strip()]
@@ -133,18 +170,18 @@ yt_dlp.main()
             err_ytdlp = e
             _log(f"Ultra-fast yt_dlp runner failed: {e}")
 
-        # Method 2: CLI subprocess yt-dlp with android_creator client
+        # Method 2: CLI subprocess yt-dlp with visitor cookies & android_creator client
         try:
-            _log("Attempting YouTube download via CLI subprocess yt-dlp with android_creator client...")
+            _log("Attempting YouTube download via CLI subprocess yt-dlp with visitor cookies...")
             cmd = [
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
                 "--no-check-certificate",
                 "--impersonate", "chrome",
                 "--force-ipv4",
-                "--js-runtimes", "nodejs",
-                "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-                "--extractor-args", "youtube:player_client=android_creator,android_pro,android",
+                "--cookies", cookie_path,
+                "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+                "--extractor-args", "youtube:player_client=android_creator,android_pro,android,mweb,web",
                 "-f", "18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
@@ -175,6 +212,7 @@ yt_dlp.main()
             out_tmpl = os.path.join(output_dir, "input_video.%(ext)s")
             ydl_opts = {
                 'outtmpl': out_tmpl,
+                'cookiefile': cookie_path,
                 'format': '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
                 'merge_output_format': 'mp4',
                 'impersonate': 'chrome',
@@ -184,11 +222,11 @@ yt_dlp.main()
                 'source_address': '0.0.0.0',
                 'socket_timeout': 30,
                 'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
                 },
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_creator', 'android_pro', 'android']
+                        'player_client': ['android_creator', 'android_pro', 'android', 'mweb', 'web']
                     }
                 }
             }
