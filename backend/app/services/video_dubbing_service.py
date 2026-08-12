@@ -83,27 +83,13 @@ class VideoDubbingService:
         # Format spec: best video + best audio merged into MP4 format, with fallback to best single file
         format_spec = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/18/best"
 
-        cookie_file = os.path.join(output_dir, "yt_cookies.txt")
-        try:
-            cmd_cookie = [
-                'curl', '-4', '--connect-timeout', '3', '-s', '-L',
-                '-c', cookie_file,
-                '-A', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                url
-            ]
-            res_c = subprocess.run(cmd_cookie, capture_output=True, timeout=5)
-            if os.path.exists(cookie_file) and os.path.getsize(cookie_file) > 0:
-                _log(f"Generated fresh YouTube visitor cookies ({os.path.getsize(cookie_file)} bytes)")
-        except Exception as e:
-            _log(f"Visitor cookie generation notice: {e}")
-
         err_ytdlp = None
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Ultra-fast yt_dlp subprocess with early IPv4 socket monkeypatch & curl downloader
+        # Method 1: Ultra-fast yt_dlp subprocess with early IPv4 socket monkeypatch & android player client
         try:
-            _log("Attempting YouTube download via Ultra-fast yt_dlp (IPv4 socket patch + curl downloader)...")
+            _log("Attempting YouTube download via Ultra-fast yt_dlp (IPv4 socket patch + Android client)...")
             target_pattern = os.path.join(output_dir, "input_video.%(ext)s")
             py_runner = """import sys, os, socket
 _orig_gai = socket.getaddrinfo
@@ -117,10 +103,9 @@ args = [
     'yt_dlp',
     '--no-warnings',
     '--no-check-certificate',
-    '--impersonate', 'chrome',
     '--force-ipv4',
-    '--socket-timeout', '15',
-    '--extractor-args', 'youtube:player_client=android,tv_embedded',
+    '--socket-timeout', '20',
+    '--extractor-args', 'youtube:player_client=android,android_tv',
     '-f', '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
     '--print', '%(title)s',
     '-o', out_tmpl,
@@ -145,16 +130,15 @@ yt_dlp.main()
             err_ytdlp = e
             _log(f"Ultra-fast yt_dlp runner failed: {e}")
 
-        # Method 2: CLI subprocess yt-dlp with --impersonate chrome
+        # Method 2: CLI subprocess yt-dlp with android client
         try:
-            _log("Attempting YouTube download via CLI subprocess yt-dlp with --impersonate chrome...")
+            _log("Attempting YouTube download via CLI subprocess yt-dlp with Android client...")
             cmd = [
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
                 "--no-check-certificate",
-                "--impersonate", "chrome",
                 "--force-ipv4",
-                "--extractor-args", "youtube:player_client=android,tv_embedded",
+                "--extractor-args", "youtube:player_client=android,android_tv",
                 "-f", "18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
@@ -182,28 +166,23 @@ yt_dlp.main()
         try:
             _log("Attempting YouTube download via Fast Progressive Stream (18/best)...")
             import yt_dlp
-            outtmpl = os.path.join(output_dir, "input_video.%(ext)s")
-            ydl_opts_f18 = {
-                'format': '18/best',
-                'outtmpl': outtmpl,
+            out_tmpl = os.path.join(output_dir, "input_video.%(ext)s")
+            ydl_opts = {
+                'outtmpl': out_tmpl,
+                'format': '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
+                'merge_output_format': 'mp4',
                 'quiet': True,
                 'no_warnings': True,
-                'socket_timeout': 30,
-                'force_ipv4': True,
                 'nocheckcertificate': True,
-                'legacy_server_connect': True,
-                'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                },
+                'source_address': '0.0.0.0',
+                'socket_timeout': 30,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android']
+                        'player_client': ['android', 'android_tv']
                     }
                 }
             }
-            if os.path.exists(cookie_file) and os.path.getsize(cookie_file) > 0:
-                ydl_opts_f18['cookiefile'] = cookie_file
-            with yt_dlp.YoutubeDL(ydl_opts_f18) as ydl:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 title = info.get('title', 'YouTube Video')
                 for ext in ['.mp4', '.mkv', '.webm']:
