@@ -137,7 +137,6 @@ class VideoDubbingService:
                 'quiet': True,
                 'no_warnings': True,
                 'nocheckcertificate': True,
-                'source_address': '0.0.0.0',
                 'socket_timeout': 30,
                 'extractor_args': {
                     'youtube': {
@@ -169,7 +168,6 @@ class VideoDubbingService:
                 'quiet': True,
                 'no_warnings': True,
                 'nocheckcertificate': True,
-                'source_address': '0.0.0.0',
                 'socket_timeout': 30,
                 'extractor_args': {
                     'youtube': {
