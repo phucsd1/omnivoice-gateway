@@ -203,30 +203,49 @@ yt_dlp.main()
         except Exception as e:
             _log(f"Fast Progressive (18/best) failed: {e}")
 
-        # Method 4: pytubefix fallback with curl_cffi session patch
+        # Method 4: pytubefix fallback with requests session patch
         try:
-            _log("Attempting YouTube download via pytubefix fallback (curl_cffi patched)...")
+            _log("Attempting YouTube download via pytubefix fallback (requests patched)...")
             try:
                 import pytubefix.request
-                import curl_cffi.requests as cffi_requests
+                import requests, urllib3
+                urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+                
+                req_sess = requests.Session()
+                req_sess.headers.update({
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+                })
 
-                def _patched_p_get(url=None, extra_headers=None, timeout=None, **kwargs):
-                    if not url and 'url' in kwargs: url = kwargs['url']
-                    res = cffi_requests.get(url, headers=extra_headers, timeout=timeout or 15, impersonate="chrome")
-                    return res.content.decode('utf-8', errors='ignore')
+                def _patched_req_get(url_p=None, extra_headers=None, timeout=None, **kwargs):
+                    if not url_p and 'url' in kwargs: url_p = kwargs['url']
+                    h = dict(req_sess.headers)
+                    if extra_headers: h.update(extra_headers)
+                    res = req_sess.get(url_p, headers=h, timeout=timeout or 15, verify=False)
+                    return res.text
 
-                def _patched_p_post(url=None, extra_headers=None, data=None, timeout=None, **kwargs):
-                    if not url and 'url' in kwargs: url = kwargs['url']
-                    res = cffi_requests.post(url, headers=extra_headers, data=data, timeout=timeout or 15, impersonate="chrome")
-                    return res.content.decode('utf-8', errors='ignore')
+                def _patched_req_post(url_p=None, extra_headers=None, data=None, timeout=None, **kwargs):
+                    if not url_p and 'url' in kwargs: url_p = kwargs['url']
+                    h = dict(req_sess.headers)
+                    if extra_headers: h.update(extra_headers)
+                    res = req_sess.post(url_p, headers=h, data=data, timeout=timeout or 15, verify=False)
+                    return res.text
 
-                pytubefix.request.get = _patched_p_get
-                pytubefix.request.post = _patched_p_post
+                def _patched_req_stream(url_p=None, timeout=None, max_retries=3, **kwargs):
+                    if not url_p and 'url' in kwargs: url_p = kwargs['url']
+                    h = dict(req_sess.headers)
+                    h.update({'Origin': 'https://www.youtube.com', 'Referer': 'https://www.youtube.com/'})
+                    res = req_sess.get(url_p, headers=h, timeout=timeout or 30, stream=True, verify=False)
+                    for chunk in res.iter_content(chunk_size=1024*1024):
+                        if chunk: yield chunk
+
+                pytubefix.request.get = _patched_req_get
+                pytubefix.request.post = _patched_req_post
+                pytubefix.request.stream = _patched_req_stream
             except Exception as patch_e:
                 _log(f"pytubefix patch warning: {patch_e}")
 
             from pytubefix import YouTube
-            yt = YouTube(url, client='WEB')
+            yt = YouTube(url, client='MWEB')
             title = yt.title or "YouTube Video"
             stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
             if not stream:
@@ -235,7 +254,7 @@ yt_dlp.main()
                 target_p = os.path.join(output_dir, "input_video.mp4")
                 stream.download(output_path=output_dir, filename="input_video.mp4")
                 if os.path.exists(target_p) and os.path.getsize(target_p) > 0:
-                    _log(f"pytubefix download success: '{title}'")
+                    _log(f"pytubefix download success: '{title}' ({target_p}, size={os.path.getsize(target_p)} bytes)")
                     return target_p, title
         except Exception as e:
             err_pytubefix = e
