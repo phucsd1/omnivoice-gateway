@@ -89,17 +89,16 @@ class VideoDubbingService:
         cookie_file = os.path.join(output_dir, "yt_cookies.txt")
         has_cookies = False
         try:
-            from curl_cffi import requests as cffi_requests
-            s = cffi_requests.Session(impersonate="chrome120")
-            s.get("https://www.youtube.com", timeout=10)
-            c_dict = s.cookies.get_dict()
-            if c_dict:
-                with open(cookie_file, "w", encoding="utf-8") as cf:
-                    cf.write("# Netscape HTTP Cookie File\n\n")
-                    for name, val in c_dict.items():
-                        cf.write(f".youtube.com\tTRUE\t/\tFALSE\t2147483647\t{name}\t{val}\n")
+            cmd_cookie = [
+                'curl', '-4', '-s', '-L',
+                '-c', cookie_file,
+                '-A', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                'https://www.youtube.com'
+            ]
+            res_cookie = subprocess.run(cmd_cookie, capture_output=True, timeout=10)
+            if res_cookie.returncode == 0 and os.path.exists(cookie_file) and os.path.getsize(cookie_file) > 0:
                 has_cookies = True
-                _log(f"Generated fresh YouTube visitor cookies ({len(c_dict)} cookies)")
+                _log(f"Generated fresh YouTube visitor cookies via curl -4 ({os.path.getsize(cookie_file)} bytes)")
         except Exception as e:
             _log(f"Visitor cookie generation notice: {e}")
 
