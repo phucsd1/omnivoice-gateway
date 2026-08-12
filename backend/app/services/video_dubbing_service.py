@@ -103,9 +103,10 @@ args = [
     'yt_dlp',
     '--no-warnings',
     '--no-check-certificate',
+    '--impersonate', 'chrome',
     '--force-ipv4',
     '--socket-timeout', '20',
-    '--extractor-args', 'youtube:player_client=android,android_tv',
+    '--extractor-args', 'youtube:player_client=android',
     '-f', '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
     '--print', '%(title)s',
     '-o', out_tmpl,
@@ -137,8 +138,9 @@ yt_dlp.main()
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
                 "--no-check-certificate",
+                "--impersonate", "chrome",
                 "--force-ipv4",
-                "--extractor-args", "youtube:player_client=android,android_tv",
+                "--extractor-args", "youtube:player_client=android",
                 "-f", "18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
@@ -171,6 +173,7 @@ yt_dlp.main()
                 'outtmpl': out_tmpl,
                 'format': '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
                 'merge_output_format': 'mp4',
+                'impersonate': 'chrome',
                 'quiet': True,
                 'no_warnings': True,
                 'nocheckcertificate': True,
@@ -178,7 +181,7 @@ yt_dlp.main()
                 'socket_timeout': 30,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android', 'android_tv']
+                        'player_client': ['android']
                     }
                 }
             }
