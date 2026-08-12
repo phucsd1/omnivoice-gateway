@@ -68,21 +68,6 @@ class VideoDubbingService:
                 except Exception:
                     pass
 
-        # Ensure SSL context bypass for OpenSSL 3.0 on Linux Cloud Server IPs
-        try:
-            import ssl
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-            ctx.set_ciphers('DEFAULT:@SECLEVEL=1')
-            if hasattr(ssl, 'TLSVersion'):
-                ctx.maximum_version = ssl.TLSVersion.TLSv1_2
-            elif hasattr(ssl, 'OP_NO_TLSv1_3'):
-                ctx.options |= ssl.OP_NO_TLSv1_3
-            ssl._create_default_https_context = lambda: ctx
-        except Exception:
-            pass
-
         # Force IPv4 at Python socket layer to prevent Docker IPv6 TCP timeouts
         try:
             import socket
