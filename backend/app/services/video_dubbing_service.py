@@ -99,42 +99,53 @@ class VideoDubbingService:
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Ultra-fast yt_dlp with request_handler curl + downloader curl (forces native libcurl HTTP/2 TLS)
+        # Method 1: Ultra-fast yt_dlp subprocess with early IPv4 socket monkeypatch & curl downloader
         try:
-            _log("Attempting YouTube download via Ultra-fast yt_dlp (request_handler=curl)...")
-            import yt_dlp
-            out_file_pattern = os.path.join(output_dir, "input_video.%(ext)s")
-            ydl_opts = {
-                'quiet': True,
-                'no_warnings': True,
-                'nocheckcertificate': True,
-                'force_ipv4': True,
-                'socket_timeout': 15,
-                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                'extractor_args': {'youtube': {'player_client': ['mweb', 'android']}},
-                'request_handler': 'curl',
-                'downloader': 'curl',
-                'downloader_args': {'curl': ['-4', '--connect-timeout', '5']},
-                'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/18/best',
-                'outtmpl': out_file_pattern
-            }
-            if os.path.exists(cookie_file) and os.path.getsize(cookie_file) > 0:
-                ydl_opts['cookiefile'] = cookie_file
+            _log("Attempting YouTube download via Ultra-fast yt_dlp (IPv4 socket patch + curl downloader)...")
+            target_pattern = os.path.join(output_dir, "input_video.%(ext)s")
+            py_runner = """import sys, os, socket, json
+_orig = socket.getaddrinfo
+def _force_ipv4(host, port, family=0, type=0, proto=0, flags=0):
+    return _orig(host, port, socket.AF_INET, type, proto, flags)
+socket.getaddrinfo = _force_ipv4
 
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                title = info.get('title', 'YouTube Video')
+import yt_dlp
+out_tmpl, video_url, c_file = sys.argv[1], sys.argv[2], sys.argv[3]
+args = [
+    'yt_dlp',
+    '--no-warnings',
+    '--no-check-certificate',
+    '--force-ipv4',
+    '--socket-timeout', '15',
+    '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    '--extractor-args', 'youtube:player_client=mweb,android',
+    '--downloader', 'curl',
+    '--downloader-args', 'curl:-4 --connect-timeout 5',
+    '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/18/best',
+    '--print', '%(title)s',
+    '-o', out_tmpl
+]
+if os.path.exists(c_file) and os.path.getsize(c_file) > 0:
+    args.extend(['--cookies', c_file])
+args.append(video_url)
+sys.argv = args
+yt_dlp.main()
+"""
+            cmd_runner = [sys.executable, "-c", py_runner, target_pattern, url, cookie_file]
+            res_r = subprocess.run(cmd_runner, capture_output=True, text=True, timeout=120)
+            if res_r.returncode == 0:
+                stdout_lines = [line.strip() for line in res_r.stdout.strip().splitlines() if line.strip()]
+                title = stdout_lines[0] if stdout_lines else "YouTube Video"
                 for ext in ['.mp4', '.m4a', '.webm', '.mkv']:
                     candidate = os.path.join(output_dir, f"input_video{ext}")
                     if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
                         _log(f"Ultra-fast yt_dlp download success: '{title}' ({candidate}, size={os.path.getsize(candidate)} bytes)")
                         return candidate, title
+            else:
+                _log(f"Ultra-fast yt_dlp runner non-zero code {res_r.returncode}: {res_r.stderr[:200]}")
         except Exception as e:
             err_ytdlp = e
-            _log(f"Ultra-fast yt_dlp download failed: {e}")
-        except Exception as e:
-            err_ytdlp = e
-            _log(f"In-process yt_dlp + direct curl failed: {e}")
+            _log(f"Ultra-fast yt_dlp runner failed: {e}")
 
         # Method 2: CLI subprocess yt-dlp with --downloader curl
         try:
