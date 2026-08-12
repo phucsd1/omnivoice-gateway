@@ -103,11 +103,28 @@ class VideoDubbingService:
         try:
             _log("Attempting YouTube download via Ultra-fast yt_dlp (IPv4 socket patch + curl downloader)...")
             target_pattern = os.path.join(output_dir, "input_video.%(ext)s")
-            py_runner = """import sys, os, socket
-_orig = socket.getaddrinfo
+            py_runner = """import sys, os, socket, ssl
+_orig_gai = socket.getaddrinfo
 def _force_ipv4(host, port, family=0, type=0, proto=0, flags=0):
-    return _orig(host, port, socket.AF_INET, type, proto, flags)
+    return _orig_gai(host, port, socket.AF_INET, type, proto, flags)
 socket.getaddrinfo = _force_ipv4
+
+_orig_ssl_ctx = ssl.create_default_context
+def _custom_ssl_ctx(*args, **kwargs):
+    ctx = _orig_ssl_ctx(*args, **kwargs)
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    try:
+        ctx.options |= ssl.OP_LEGACY_SERVER_CONNECT
+    except Exception:
+        pass
+    try:
+        ctx.set_ciphers('DEFAULT@SECLEVEL=1')
+    except Exception:
+        pass
+    return ctx
+ssl.create_default_context = _custom_ssl_ctx
+ssl._create_default_https_context = _custom_ssl_ctx
 
 import yt_dlp
 out_tmpl, video_url, c_file = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -115,6 +132,7 @@ args = [
     'yt_dlp',
     '--no-warnings',
     '--no-check-certificate',
+    '--legacy-server-connect',
     '--force-ipv4',
     '--socket-timeout', '15',
     '--user-agent', 'com.google.android.youtube/19.11.38 (Linux; U; Android 11)',
