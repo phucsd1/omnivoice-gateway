@@ -103,11 +103,50 @@ class VideoDubbingService:
         try:
             _log("Attempting YouTube download via Ultra-fast yt_dlp (IPv4 socket patch + curl downloader)...")
             target_pattern = os.path.join(output_dir, "input_video.%(ext)s")
-            py_runner = """import sys, os, socket, json
+            py_runner = """import sys, os, socket, json, urllib.request, subprocess, io
 _orig = socket.getaddrinfo
 def _force_ipv4(host, port, family=0, type=0, proto=0, flags=0):
     return _orig(host, port, socket.AF_INET, type, proto, flags)
 socket.getaddrinfo = _force_ipv4
+
+class CurlResponse:
+    def __init__(self, data_bytes, code=200):
+        self.data_bytes = data_bytes
+        self.status = code
+        self.code = code
+        self._io = io.BytesIO(data_bytes)
+    def read(self, amt=-1):
+        return self._io.read(amt)
+    def getcode(self):
+        return self.status
+    def info(self):
+        class Headers:
+            def get_content_type(self):
+                return 'application/json'
+        return Headers()
+
+def _curl_urlopen(url, data=None, timeout=15, **kwargs):
+    if isinstance(url, urllib.request.Request):
+        req_url = url.full_url
+        headers = {k: v for k, v in url.headers.items()}
+        if url.data:
+            data = url.data
+    else:
+        req_url = str(url)
+        headers = {}
+    cmd = ['curl', '-4', '-s', '-L', '--connect-timeout', '10']
+    for k, v in headers.items():
+        cmd.extend(['-H', f'{k}: {v}'])
+    if data:
+        if isinstance(data, bytes):
+            cmd.extend(['--data-binary', data.decode('utf-8', errors='ignore')])
+        else:
+            cmd.extend(['-d', str(data)])
+    cmd.append(req_url)
+    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+    return CurlResponse(res.stdout)
+
+urllib.request.urlopen = _curl_urlopen
 
 import yt_dlp
 out_tmpl, video_url, c_file = sys.argv[1], sys.argv[2], sys.argv[3]
