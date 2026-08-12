@@ -13,6 +13,6 @@ passlib[bcrypt]>=1.7.4
 bcrypt>=4.0.1
 httpx>=0.24.0
 pytubefix>=8.0.0
-yt-dlp[curl-cffi]>=2024.12.1
+yt-dlp[impersonate]>=2025.1.15
 curl_cffi>=0.7.0
 scipy>=1.10.0

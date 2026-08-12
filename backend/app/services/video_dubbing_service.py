@@ -132,6 +132,11 @@ class VideoDubbingService:
                     }
                 }
             }
+            try:
+                from yt_dlp.networking.impersonate import ImpersonateTarget
+                ydl_opts['impersonate'] = ImpersonateTarget.from_str('chrome-131:android-14')
+            except Exception as imp_err:
+                _log(f"Impersonate notice: {imp_err}")
 
             if has_cookies and os.path.exists(cookie_file):
                 ydl_opts['cookiefile'] = cookie_file
