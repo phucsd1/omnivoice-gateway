@@ -98,8 +98,11 @@ class VideoDubbingService:
         try:
             import socket
             _orig_getaddrinfo = socket.getaddrinfo
-            def _force_ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
-                return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+            def _force_ipv4_getaddrinfo(*args, **kwargs):
+                kwargs['family'] = socket.AF_INET
+                if len(args) > 2:
+                    args = (args[0], args[1], socket.AF_INET) + args[3:]
+                return _orig_getaddrinfo(*args, **kwargs)
             socket.getaddrinfo = _force_ipv4_getaddrinfo
         except Exception:
             pass
