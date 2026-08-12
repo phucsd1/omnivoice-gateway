@@ -119,8 +119,6 @@ args = [
     '--socket-timeout', '15',
     '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     '--extractor-args', 'youtube:player_client=mweb,android',
-    '--downloader', 'curl',
-    '--downloader-args', 'curl:-4 --connect-timeout 5',
     '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/18/best',
     '--print', '%(title)s',
     '-o', out_tmpl
