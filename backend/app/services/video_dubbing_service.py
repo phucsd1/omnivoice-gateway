@@ -10,7 +10,15 @@ import numpy as np
 from typing import List, Dict, Any, Tuple, Optional
 from sqlalchemy.orm import Session
 from app.config import settings
-from app.models import SystemSetting, LLMProfile
+# Force IPv4 socket resolution globally at module import time
+try:
+    import socket
+    _orig_getaddrinfo = socket.getaddrinfo
+    def _force_ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+        return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+    socket.getaddrinfo = _force_ipv4_getaddrinfo
+except Exception:
+    pass
 
 class VideoDubbingService:
     @staticmethod
