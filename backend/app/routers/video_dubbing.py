@@ -57,6 +57,15 @@ def debug_log():
             return {"log": f.read()}
     return {"log": "No log file found"}
 
+@router.get("/debug-targets")
+def debug_targets():
+    import subprocess, sys
+    try:
+        res = subprocess.run([sys.executable, "-m", "yt_dlp", "--list-impersonate-targets"], capture_output=True, text=True, timeout=10)
+        return {"stdout": res.stdout, "stderr": res.stderr}
+    except Exception as e:
+        return {"error": str(e)}
+
 def run_dubbing_pipeline(job_id: str):
     """Background task to run the video dubbing stages (Download -> Extract Audio -> Separate -> Transcribe -> Translate)."""
     db = SessionLocal()
