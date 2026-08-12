@@ -87,9 +87,9 @@ class VideoDubbingService:
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Ultra-fast yt_dlp subprocess with Safari Mobile & mweb,android client
+        # Method 1: Ultra-fast yt_dlp subprocess with Chrome BoringSSL & mweb,android client
         try:
-            _log("Attempting YouTube download via Ultra-fast yt_dlp (Safari Mobile + mweb/android)...")
+            _log("Attempting YouTube download via Ultra-fast yt_dlp (Chrome impersonate + mweb/android)...")
             target_pattern = os.path.join(output_dir, "input_video.%(ext)s")
             py_runner = """import sys, os, socket
 _orig_gai = socket.getaddrinfo
@@ -103,10 +103,10 @@ args = [
     'yt_dlp',
     '--no-warnings',
     '--no-check-certificate',
-    '--impersonate', 'safari',
+    '--impersonate', 'chrome',
     '--force-ipv4',
-    '--user-agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
-    '--extractor-args', 'youtube:player_client=mweb,android,web',
+    '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    '--extractor-args', 'youtube:player_client=mweb,android',
     '--socket-timeout', '30',
     '-f', '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
     '--print', 'after_video:%(title)s',
@@ -132,17 +132,17 @@ yt_dlp.main()
             err_ytdlp = e
             _log(f"Ultra-fast yt_dlp runner failed: {e}")
 
-        # Method 2: CLI subprocess yt-dlp with Smart TV client
+        # Method 2: CLI subprocess yt-dlp with android_vr client
         try:
-            _log("Attempting YouTube download via CLI subprocess yt-dlp with Smart TV client...")
+            _log("Attempting YouTube download via CLI subprocess yt-dlp with android_vr client...")
             cmd = [
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
                 "--no-check-certificate",
                 "--impersonate", "chrome",
                 "--force-ipv4",
-                "--user-agent", "Mozilla/5.0 (SMART-TV; Linux; Tizen 5.0) AppleWebKit/538.1 (KHTML, like Gecko) Version/5.0 NativeClient-FreeBSD Dbg/0.2 SmartTV Chrome/56.0.2924.0 Safari/538.1",
-                "--extractor-args", "youtube:player_client=tv,android",
+                "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                "--extractor-args", "youtube:player_client=mweb,android",
                 "-f", "18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
@@ -175,18 +175,18 @@ yt_dlp.main()
                 'outtmpl': out_tmpl,
                 'format': '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
                 'merge_output_format': 'mp4',
-                'impersonate': 'safari',
+                'impersonate': 'chrome',
                 'quiet': True,
                 'no_warnings': True,
                 'nocheckcertificate': True,
                 'source_address': '0.0.0.0',
                 'socket_timeout': 30,
                 'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
                 },
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['mweb', 'android', 'web']
+                        'player_client': ['mweb', 'android']
                     }
                 }
             }
@@ -201,13 +201,28 @@ yt_dlp.main()
         except Exception as e:
             _log(f"Fast Progressive (18/best) failed: {e}")
 
-        # Method 4: pytubefix fallback
+        # Method 4: pytubefix fallback with curl_cffi session patch
         try:
-            _log("Attempting YouTube download via pytubefix fallback...")
-            import ssl
-            ssl._create_default_https_context = ssl._create_unverified_context
+            _log("Attempting YouTube download via pytubefix fallback (curl_cffi patched)...")
+            try:
+                import pytubefix.request
+                import curl_cffi.requests as cffi_requests
+
+                def _patched_p_get(url_req, extra_headers=None, timeout=None):
+                    res = cffi_requests.get(url_req, headers=extra_headers, timeout=timeout or 15, impersonate="chrome")
+                    return res.content.decode('utf-8', errors='ignore')
+
+                def _patched_p_post(url_req, extra_headers=None, data=None, timeout=None):
+                    res = cffi_requests.post(url_req, headers=extra_headers, data=data, timeout=timeout or 15, impersonate="chrome")
+                    return res.content.decode('utf-8', errors='ignore')
+
+                pytubefix.request.get = _patched_p_get
+                pytubefix.request.post = _patched_p_post
+            except Exception as patch_e:
+                _log(f"pytubefix patch warning: {patch_e}")
+
             from pytubefix import YouTube
-            yt = YouTube(url, client='ANDROID')
+            yt = YouTube(url, client='WEB')
             title = yt.title or "YouTube Video"
             stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
             if not stream:
