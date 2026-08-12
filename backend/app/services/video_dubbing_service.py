@@ -158,7 +158,9 @@ class VideoDubbingService:
                 'no_warnings': True,
                 'nocheckcertificate': True,
                 'force_ipv4': True,
-                'socket_timeout': 15,
+                'socket_timeout': 5,
+                'retries': 0,
+                'extractor_retries': 0,
                 'logger': YtDlpLogger(),
                 'extractor_args': {
                     'youtube': {
@@ -192,7 +194,9 @@ class VideoDubbingService:
                 'no_warnings': True,
                 'nocheckcertificate': True,
                 'force_ipv4': True,
-                'socket_timeout': 15,
+                'socket_timeout': 5,
+                'retries': 0,
+                'extractor_retries': 0,
                 'extractor_args': {
                     'youtube': {
                         'player_client': ['android', 'android_creator', 'android_pro', 'tv_embedded', 'creator'],
