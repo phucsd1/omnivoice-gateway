@@ -38,16 +38,16 @@ class VideoDubbingService:
 
     @staticmethod
     def ensure_dependencies():
-        """Dynamically ensures yt-dlp and curl_cffi are installed and up-to-date."""
+        """Dynamically ensures yt-dlp, curl_cffi, and POT provider are installed."""
         try:
             import curl_cffi
             import yt_dlp
         except ImportError:
-            print("[VideoDubbingService] Installing curl_cffi & yt-dlp[curl-cffi] dynamically...")
+            print("[VideoDubbingService] Installing yt-dlp dependencies...")
             try:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "-U", "curl_cffi", "yt-dlp[curl-cffi]"])
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "-U", "curl_cffi", "yt-dlp[default,curl-cffi]", "bgutil-ytdlp-pot-provider"])
             except Exception:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "-U", "curl_cffi", "yt-dlp[curl-cffi]"])
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "-U", "curl_cffi", "yt-dlp[default,curl-cffi]", "bgutil-ytdlp-pot-provider"])
 
     @staticmethod
     def download_youtube_video(url: str, output_dir: str, log_file: Optional[str] = None) -> Tuple[str, str]:
