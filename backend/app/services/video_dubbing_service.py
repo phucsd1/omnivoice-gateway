@@ -90,12 +90,12 @@ class VideoDubbingService:
         has_cookies = False
         try:
             cmd_cookie = [
-                'curl', '-s', '-L',
+                'curl', '-4', '--connect-timeout', '3', '-s', '-L',
                 '-c', cookie_file,
                 '-A', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                 url
             ]
-            res_cookie = subprocess.run(cmd_cookie, capture_output=True, timeout=10)
+            res_cookie = subprocess.run(cmd_cookie, capture_output=True, timeout=5)
             if res_cookie.returncode == 0 and os.path.exists(cookie_file) and os.path.getsize(cookie_file) > 0:
                 has_cookies = True
                 _log(f"Generated fresh YouTube visitor cookies via curl ({os.path.getsize(cookie_file)} bytes)")
