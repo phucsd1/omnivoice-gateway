@@ -124,9 +124,9 @@ class VideoDubbingService:
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Ultra-fast yt_dlp subprocess with Chrome BoringSSL, visitor cookies & android_creator client
+        # Method 1: Ultra-fast yt_dlp subprocess with non-bot-checked mobile/tv clients
         try:
-            _log("Attempting YouTube download via Ultra-fast yt_dlp (visitor cookies + android_creator)...")
+            _log("Attempting YouTube download via Ultra-fast yt_dlp (android,android_creator,tv_embedded)...")
             target_pattern = os.path.join(output_dir, "input_video.%(ext)s")
             py_runner = """import sys, os, socket
 _orig_gai = socket.getaddrinfo
@@ -135,16 +135,13 @@ def _force_ipv4(host, port, family=0, type=0, proto=0, flags=0):
 socket.getaddrinfo = _force_ipv4
 
 import yt_dlp
-out_tmpl, video_url, ck_path = sys.argv[1], sys.argv[2], sys.argv[3]
+out_tmpl, video_url = sys.argv[1], sys.argv[2]
 args = [
     'yt_dlp',
     '--no-warnings',
     '--no-check-certificate',
-    '--impersonate', 'chrome',
     '--force-ipv4',
-    '--cookies', ck_path,
-    '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-    '--extractor-args', 'youtube:player_client=android_creator,android_pro,android,mweb,web',
+    '--extractor-args', 'youtube:player_client=android,android_creator,android_pro,tv_embedded,creator',
     '--socket-timeout', '30',
     '-f', '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
     '--print', 'after_video:%(title)s',
@@ -154,7 +151,7 @@ args = [
 sys.argv = args
 yt_dlp.main()
 """
-            cmd_runner = [sys.executable, "-c", py_runner, target_pattern, url, cookie_path]
+            cmd_runner = [sys.executable, "-c", py_runner, target_pattern, url]
             res_r = subprocess.run(cmd_runner, capture_output=True, text=True, timeout=120)
             if res_r.returncode == 0:
                 stdout_lines = [line.strip() for line in res_r.stdout.strip().splitlines() if line.strip()]
@@ -170,18 +167,15 @@ yt_dlp.main()
             err_ytdlp = e
             _log(f"Ultra-fast yt_dlp runner failed: {e}")
 
-        # Method 2: CLI subprocess yt-dlp with visitor cookies & android_creator client
+        # Method 2: CLI subprocess yt-dlp with exclusive mobile/tv clients
         try:
-            _log("Attempting YouTube download via CLI subprocess yt-dlp with visitor cookies...")
+            _log("Attempting YouTube download via CLI subprocess yt-dlp with mobile/tv clients...")
             cmd = [
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
                 "--no-check-certificate",
-                "--impersonate", "chrome",
                 "--force-ipv4",
-                "--cookies", cookie_path,
-                "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-                "--extractor-args", "youtube:player_client=android_creator,android_pro,android,mweb,web",
+                "--extractor-args", "youtube:player_client=android,android_creator,android_pro,tv_embedded,creator",
                 "-f", "18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
@@ -212,21 +206,16 @@ yt_dlp.main()
             out_tmpl = os.path.join(output_dir, "input_video.%(ext)s")
             ydl_opts = {
                 'outtmpl': out_tmpl,
-                'cookiefile': cookie_path,
                 'format': '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
                 'merge_output_format': 'mp4',
-                'impersonate': 'chrome',
                 'quiet': True,
                 'no_warnings': True,
                 'nocheckcertificate': True,
                 'source_address': '0.0.0.0',
                 'socket_timeout': 30,
-                'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
-                },
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_creator', 'android_pro', 'android', 'mweb', 'web']
+                        'player_client': ['android', 'android_creator', 'android_pro', 'tv_embedded', 'creator']
                     }
                 }
             }
