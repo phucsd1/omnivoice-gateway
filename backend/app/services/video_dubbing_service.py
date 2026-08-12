@@ -87,7 +87,6 @@ class VideoDubbingService:
         format_spec = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/18/best"
 
         cookie_file = os.path.join(output_dir, "yt_cookies.txt")
-        has_cookies = False
         try:
             cmd_cookie = [
                 'curl', '-4', '--connect-timeout', '3', '-s', '-L',
@@ -95,10 +94,9 @@ class VideoDubbingService:
                 '-A', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                 url
             ]
-            res_cookie = subprocess.run(cmd_cookie, capture_output=True, timeout=5)
-            if res_cookie.returncode == 0 and os.path.exists(cookie_file) and os.path.getsize(cookie_file) > 0:
-                has_cookies = True
-                _log(f"Generated fresh YouTube visitor cookies via curl ({os.path.getsize(cookie_file)} bytes)")
+            res_c = subprocess.run(cmd_cookie, capture_output=True, timeout=5)
+            if os.path.exists(cookie_file) and os.path.getsize(cookie_file) > 0:
+                _log(f"Generated fresh YouTube visitor cookies ({os.path.getsize(cookie_file)} bytes)")
         except Exception as e:
             _log(f"Visitor cookie generation notice: {e}")
 
@@ -115,10 +113,11 @@ class VideoDubbingService:
                 "--no-warnings",
                 "--no-check-certificate",
                 "--force-ipv4",
+                "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
                 "--extractor-args", "youtube:player_client=android",
                 "--socket-timeout", "15"
             ]
-            if has_cookies and os.path.exists(cookie_file):
+            if os.path.exists(cookie_file) and os.path.getsize(cookie_file) > 0:
                 cmd_info.extend(["--cookies", cookie_file])
             cmd_info.append(url)
             
@@ -194,7 +193,7 @@ class VideoDubbingService:
                 "--print", "%(title)s",
                 "--extractor-args", "youtube:player_client=android"
             ]
-            if has_cookies and os.path.exists(cookie_file):
+            if os.path.exists(cookie_file) and os.path.getsize(cookie_file) > 0:
                 cmd.extend(["--cookies", cookie_file])
             cmd.append(url)
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
@@ -236,7 +235,7 @@ class VideoDubbingService:
                     }
                 }
             }
-            if has_cookies and os.path.exists(cookie_file):
+            if os.path.exists(cookie_file) and os.path.getsize(cookie_file) > 0:
                 ydl_opts_f18['cookiefile'] = cookie_file
             with yt_dlp.YoutubeDL(ydl_opts_f18) as ydl:
                 info = ydl.extract_info(url, download=True)
