@@ -99,10 +99,11 @@ class VideoDubbingService:
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: In-process yt_dlp extract_info + Direct Curl stream download (uses IPv4 socket monkeypatch)
+        # Method 1: Ultra-fast yt_dlp with request_handler curl + downloader curl (forces native libcurl HTTP/2 TLS)
         try:
-            _log("Attempting YouTube download via In-process yt_dlp + Direct Curl...")
+            _log("Attempting YouTube download via Ultra-fast yt_dlp (request_handler=curl)...")
             import yt_dlp
+            out_file_pattern = os.path.join(output_dir, "input_video.%(ext)s")
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
@@ -110,61 +111,27 @@ class VideoDubbingService:
                 'force_ipv4': True,
                 'socket_timeout': 15,
                 'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                'extractor_args': {'youtube': {'player_client': ['android']}},
+                'extractor_args': {'youtube': {'player_client': ['mweb', 'android']}},
+                'request_handler': 'curl',
+                'downloader': 'curl',
+                'downloader_args': {'curl': ['-4', '--connect-timeout', '5']},
+                'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/18/best',
+                'outtmpl': out_file_pattern
             }
             if os.path.exists(cookie_file) and os.path.getsize(cookie_file) > 0:
                 ydl_opts['cookiefile'] = cookie_file
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                data = ydl.extract_info(url, download=False)
-
-            if data:
-                title = data.get('title', 'YouTube Video')
-                formats = data.get('formats', [])
-                
-                best_v = None
-                best_a = None
-                prog_18 = None
-                
-                for f in formats:
-                    vurl = f.get('url')
-                    if not vurl:
-                        continue
-                    if f.get('format_id') == '18':
-                        prog_18 = f
-                    if f.get('vcodec') != 'none' and f.get('acodec') == 'none' and f.get('ext') == 'mp4':
-                        if not best_v or f.get('height', 0) > best_v.get('height', 0):
-                            best_v = f
-                    if f.get('acodec') != 'none' and f.get('vcodec') == 'none' and (f.get('ext') in ['m4a', 'mp4']):
-                        if not best_a or f.get('tbr', 0) > best_a.get('tbr', 0):
-                            best_a = f
-                            
-                target_path = os.path.join(output_dir, "input_video.mp4")
-                
-                if best_v and best_a:
-                    v_file = os.path.join(output_dir, "v_tmp.mp4")
-                    a_file = os.path.join(output_dir, "a_tmp.m4a")
-                    _log(f"Downloading best video stream ({best_v.get('height')}p) + audio stream via direct curl...")
-                    cmd_v = ['curl', '-4', '-L', '-s', '-c', cookie_file, '-b', cookie_file, '-o', v_file, best_v['url']]
-                    cmd_a = ['curl', '-4', '-L', '-s', '-c', cookie_file, '-b', cookie_file, '-o', a_file, best_a['url']]
-                    subprocess.run(cmd_v, check=True, timeout=120)
-                    subprocess.run(cmd_a, check=True, timeout=120)
-                    subprocess.run(['ffmpeg', '-y', '-i', v_file, '-i', a_file, '-c', 'copy', target_path], capture_output=True, check=True, timeout=60)
-                    if os.path.exists(v_file): os.remove(v_file)
-                    if os.path.exists(a_file): os.remove(a_file)
-                elif prog_18:
-                    _log("Downloading progressive format 18 via direct curl...")
-                    cmd_prog = ['curl', '-4', '-L', '-s', '-c', cookie_file, '-b', cookie_file, '-o', target_path, prog_18['url']]
-                    subprocess.run(cmd_prog, check=True, timeout=120)
-                else:
-                    any_f = formats[-1]
-                    _log(f"Downloading stream format {any_f.get('format_id')} via direct curl...")
-                    cmd_any = ['curl', '-4', '-L', '-s', '-c', cookie_file, '-b', cookie_file, '-o', target_path, any_f['url']]
-                    subprocess.run(cmd_any, check=True, timeout=120)
-                    
-                if os.path.exists(target_path) and os.path.getsize(target_path) > 0:
-                    _log(f"In-process yt_dlp + direct curl success: '{title}' ({os.path.getsize(target_path)} bytes)")
-                    return target_path, title
+                info = ydl.extract_info(url, download=True)
+                title = info.get('title', 'YouTube Video')
+                for ext in ['.mp4', '.m4a', '.webm', '.mkv']:
+                    candidate = os.path.join(output_dir, f"input_video{ext}")
+                    if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
+                        _log(f"Ultra-fast yt_dlp download success: '{title}' ({candidate}, size={os.path.getsize(candidate)} bytes)")
+                        return candidate, title
+        except Exception as e:
+            err_ytdlp = e
+            _log(f"Ultra-fast yt_dlp download failed: {e}")
         except Exception as e:
             err_ytdlp = e
             _log(f"In-process yt_dlp + direct curl failed: {e}")
