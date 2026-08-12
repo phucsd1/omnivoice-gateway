@@ -113,7 +113,8 @@ class VideoDubbingService:
                 'remote_components': ['ejs:github'],
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_vr', 'android', 'web']
+                        'player_client': ['android_vr', 'android', 'ios'],
+                        'player_skip': ['webpage', 'configs']
                     }
                 }
             }
@@ -146,7 +147,7 @@ class VideoDubbingService:
                 "--js-runtimes", "node",
                 "--remote-components", "ejs:github",
                 "--print", "%(title)s",
-                "--extractor-args", "youtube:player_client=android_vr,android,web",
+                "--extractor-args", "youtube:player_client=android_vr,android,ios;player_skip=webpage,configs",
                 url
             ]
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
@@ -187,7 +188,8 @@ class VideoDubbingService:
                 'remote_components': ['ejs:github'],
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_vr', 'android', 'web']
+                        'player_client': ['android_vr', 'android', 'ios'],
+                        'player_skip': ['webpage', 'configs']
                     }
                 }
             }
