@@ -23,7 +23,7 @@ WORKDIR $HOME/app
 
 # Copy requirements and install dependencies
 COPY --chown=user backend/requirements.txt $HOME/app/requirements.txt
-RUN pip install --no-cache-dir --user -r $HOME/app/requirements.txt
+RUN pip install --no-cache-dir --user -r $HOME/app/requirements.txt && pip install --no-cache-dir --user curl_cffi "yt-dlp[default,curl-cffi]"
 
 # Copy all files and set ownership to user
 COPY --chown=user . $HOME/app
