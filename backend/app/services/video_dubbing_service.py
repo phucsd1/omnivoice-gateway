@@ -99,26 +99,26 @@ class VideoDubbingService:
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Ultra-fast 2-step Direct Curl Download (dump-json + direct stream curl)
+        # Method 1: In-process yt_dlp extract_info + Direct Curl stream download (uses IPv4 socket monkeypatch)
         try:
-            _log("Attempting YouTube download via Ultra-fast 2-step Direct Curl...")
-            cmd_info = [
-                sys.executable, "-m", "yt_dlp",
-                "--dump-json",
-                "--no-warnings",
-                "--no-check-certificate",
-                "--force-ipv4",
-                "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                "--extractor-args", "youtube:player_client=android",
-                "--socket-timeout", "15"
-            ]
+            _log("Attempting YouTube download via In-process yt_dlp + Direct Curl...")
+            import yt_dlp
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'nocheckcertificate': True,
+                'force_ipv4': True,
+                'socket_timeout': 15,
+                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                'extractor_args': {'youtube': {'player_client': ['android']}},
+            }
             if os.path.exists(cookie_file) and os.path.getsize(cookie_file) > 0:
-                cmd_info.extend(["--cookies", cookie_file])
-            cmd_info.append(url)
-            
-            res_info = subprocess.run(cmd_info, capture_output=True, text=True, timeout=25)
-            if res_info.returncode == 0 and res_info.stdout.strip():
-                data = json.loads(res_info.stdout.strip().splitlines()[0])
+                ydl_opts['cookiefile'] = cookie_file
+
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                data = ydl.extract_info(url, download=False)
+
+            if data:
                 title = data.get('title', 'YouTube Video')
                 formats = data.get('formats', [])
                 
@@ -163,13 +163,11 @@ class VideoDubbingService:
                     subprocess.run(cmd_any, check=True, timeout=120)
                     
                 if os.path.exists(target_path) and os.path.getsize(target_path) > 0:
-                    _log(f"Ultra-fast 2-step direct curl success: '{title}' ({os.path.getsize(target_path)} bytes)")
+                    _log(f"In-process yt_dlp + direct curl success: '{title}' ({os.path.getsize(target_path)} bytes)")
                     return target_path, title
-            else:
-                _log(f"dump-json returned non-zero code {res_info.returncode}: {res_info.stderr[:200]}")
         except Exception as e:
             err_ytdlp = e
-            _log(f"Ultra-fast 2-step direct curl failed: {e}")
+            _log(f"In-process yt_dlp + direct curl failed: {e}")
 
         # Method 2: CLI subprocess yt-dlp with --downloader curl
         try:
