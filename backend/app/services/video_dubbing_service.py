@@ -132,11 +132,7 @@ class VideoDubbingService:
                     }
                 }
             }
-            try:
-                from yt_dlp.networking.impersonate import ImpersonateTarget
-                ydl_opts['impersonate'] = ImpersonateTarget.from_str('chrome-131:android-14')
-            except Exception:
-                pass
+
             if has_cookies and os.path.exists(cookie_file):
                 ydl_opts['cookiefile'] = cookie_file
 
@@ -169,8 +165,7 @@ class VideoDubbingService:
                 "--js-runtimes", "node",
                 "--remote-components", "ejs:github",
                 "--print", "%(title)s",
-                "--extractor-args", "youtube:player_client=android",
-                "--impersonate", "chrome-131:android-14"
+                "--extractor-args", "youtube:player_client=android"
             ]
             if has_cookies and os.path.exists(cookie_file):
                 cmd.extend(["--cookies", cookie_file])
@@ -216,11 +211,7 @@ class VideoDubbingService:
                     }
                 }
             }
-            try:
-                from yt_dlp.networking.impersonate import ImpersonateTarget
-                ydl_opts_f18['impersonate'] = ImpersonateTarget.from_str('chrome-131:android-14')
-            except Exception:
-                pass
+
             if has_cookies and os.path.exists(cookie_file):
                 ydl_opts_f18['cookiefile'] = cookie_file
             with yt_dlp.YoutubeDL(ydl_opts_f18) as ydl:
