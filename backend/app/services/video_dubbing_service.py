@@ -105,6 +105,7 @@ args = [
     '--no-check-certificate',
     '--impersonate', 'chrome',
     '--force-ipv4',
+    '--js-runtimes', 'nodejs',
     '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     '--extractor-args', 'youtube:player_client=mweb,android',
     '--socket-timeout', '30',
@@ -141,6 +142,7 @@ yt_dlp.main()
                 "--no-check-certificate",
                 "--impersonate", "chrome",
                 "--force-ipv4",
+                "--js-runtimes", "nodejs",
                 "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
                 "--extractor-args", "youtube:player_client=mweb,android",
                 "-f", "18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]",
@@ -208,12 +210,14 @@ yt_dlp.main()
                 import pytubefix.request
                 import curl_cffi.requests as cffi_requests
 
-                def _patched_p_get(url_req, extra_headers=None, timeout=None):
-                    res = cffi_requests.get(url_req, headers=extra_headers, timeout=timeout or 15, impersonate="chrome")
+                def _patched_p_get(url=None, extra_headers=None, timeout=None, **kwargs):
+                    if not url and 'url' in kwargs: url = kwargs['url']
+                    res = cffi_requests.get(url, headers=extra_headers, timeout=timeout or 15, impersonate="chrome")
                     return res.content.decode('utf-8', errors='ignore')
 
-                def _patched_p_post(url_req, extra_headers=None, data=None, timeout=None):
-                    res = cffi_requests.post(url_req, headers=extra_headers, data=data, timeout=timeout or 15, impersonate="chrome")
+                def _patched_p_post(url=None, extra_headers=None, data=None, timeout=None, **kwargs):
+                    if not url and 'url' in kwargs: url = kwargs['url']
+                    res = cffi_requests.post(url, headers=extra_headers, data=data, timeout=timeout or 15, impersonate="chrome")
                     return res.content.decode('utf-8', errors='ignore')
 
                 pytubefix.request.get = _patched_p_get
@@ -228,10 +232,11 @@ yt_dlp.main()
             if not stream:
                 stream = yt.streams.filter(file_extension='mp4').order_by('resolution').desc().first()
             if stream:
+                target_p = os.path.join(output_dir, "input_video.mp4")
                 stream.download(output_path=output_dir, filename="input_video.mp4")
-                if os.path.exists(target_path) and os.path.getsize(target_path) > 0:
+                if os.path.exists(target_p) and os.path.getsize(target_p) > 0:
                     _log(f"pytubefix download success: '{title}'")
-                    return target_path, title
+                    return target_p, title
         except Exception as e:
             err_pytubefix = e
             _log(f"pytubefix failed: {e}")
