@@ -130,14 +130,27 @@ class VideoDubbingService:
             _log("Attempting YouTube download via Direct yt_dlp.YoutubeDL (android,android_creator,tv_embedded)...")
             import yt_dlp
             out_tmpl = os.path.join(output_dir, "input_video.%(ext)s")
+            
+            class YtDlpLogger:
+                def debug(self, msg):
+                    if "Downloading" in msg or "Extracting" in msg or "ERROR" in msg or "destination" in msg:
+                        _log(f"[yt_dlp] {msg}")
+                def info(self, msg):
+                    _log(f"[yt_dlp] {msg}")
+                def warning(self, msg):
+                    _log(f"[yt_dlp WARN] {msg}")
+                def error(self, msg):
+                    _log(f"[yt_dlp ERR] {msg}")
+
             ydl_opts = {
                 'outtmpl': out_tmpl,
-                'format': format_spec,
+                'format': '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
                 'merge_output_format': 'mp4',
-                'quiet': True,
+                'quiet': False,
                 'no_warnings': True,
                 'nocheckcertificate': True,
-                'socket_timeout': 30,
+                'socket_timeout': 15,
+                'logger': YtDlpLogger(),
                 'extractor_args': {
                     'youtube': {
                         'player_client': ['android', 'android_creator', 'android_pro', 'tv_embedded', 'creator']
