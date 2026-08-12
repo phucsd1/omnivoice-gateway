@@ -56,13 +56,14 @@ class VideoDubbingService:
         Bypasses bot detection on datacenter IPs (AWS / Hugging Face Spaces).
         """
         try:
-            import requests
+            import requests, urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
             sess = requests.Session()
             sess.headers.update({
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
                 'Accept-Language': 'en-US,en;q=0.9'
             })
-            sess.get('https://www.youtube.com', timeout=10)
+            sess.get('https://www.youtube.com', timeout=10, verify=False)
             
             os.makedirs(os.path.dirname(cookie_file_path), exist_ok=True)
             with open(cookie_file_path, 'w', encoding='utf-8') as f:
@@ -93,6 +94,16 @@ class VideoDubbingService:
         target_path = os.path.join(output_dir, "input_video.mp4")
         cookie_path = os.path.join(output_dir, "yt_visitor_cookies.txt")
 
+        # Force IPv4 at Python socket layer FIRST to prevent Docker IPv6 TCP timeouts & SSL EOF errors
+        try:
+            import socket
+            _orig_getaddrinfo = socket.getaddrinfo
+            def _force_ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+                return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+            socket.getaddrinfo = _force_ipv4_getaddrinfo
+        except Exception:
+            pass
+
         def _log(msg: str):
             print(f"[VideoDubbingService] {msg}", flush=True)
             if log_file:
@@ -103,19 +114,9 @@ class VideoDubbingService:
                 except Exception:
                     pass
 
-        # Generate fresh visitor cookies to bypass bot checks on datacenter IPs
+        # Generate fresh visitor cookies to bypass bot checks on datacenter IPs (optional)
         _log("Generating fresh YouTube visitor cookies...")
         VideoDubbingService._generate_visitor_cookies(cookie_path)
-
-        # Force IPv4 at Python socket layer to prevent Docker IPv6 TCP timeouts
-        try:
-            import socket
-            _orig_getaddrinfo = socket.getaddrinfo
-            def _force_ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
-                return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
-            socket.getaddrinfo = _force_ipv4_getaddrinfo
-        except Exception:
-            pass
 
         # Format spec: best video + best audio merged into MP4 format, with fallback to best single file
         format_spec = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/18/best"
