@@ -105,8 +105,9 @@ args = [
     '--no-check-certificate',
     '--impersonate', 'chrome',
     '--force-ipv4',
+    '--js-runtimes', 'nodejs',
     '--socket-timeout', '20',
-    '--extractor-args', 'youtube:player_client=android_creator,android_music,tv_embedded,ios_music',
+    '--extractor-args', 'youtube:player_client=android_vr,android_pro,android_creator',
     '-f', '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
     '--print', '%(title)s',
     '-o', out_tmpl,
@@ -140,7 +141,8 @@ yt_dlp.main()
                 "--no-check-certificate",
                 "--impersonate", "chrome",
                 "--force-ipv4",
-                "--extractor-args", "youtube:player_client=android_creator,android_music,tv_embedded,ios_music",
+                "--js-runtimes", "nodejs",
+                "--extractor-args", "youtube:player_client=android_vr,android_pro,android_creator",
                 "-f", "18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
@@ -179,9 +181,10 @@ yt_dlp.main()
                 'nocheckcertificate': True,
                 'source_address': '0.0.0.0',
                 'socket_timeout': 30,
+                'js_runtimes': {'nodejs': {}},
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_creator', 'android_music', 'tv_embedded', 'ios_music']
+                        'player_client': ['android_vr', 'android_pro', 'android_creator']
                     }
                 }
             }
