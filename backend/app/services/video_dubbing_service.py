@@ -106,72 +106,93 @@ class VideoDubbingService:
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Python yt_dlp module (Best Quality, real title extraction)
+        # Method 1: Ultra-fast 2-step Direct Curl Download (dump-json + direct stream curl)
         try:
-            _log("Attempting YouTube download via Python yt_dlp (Best Quality)...")
-            import yt_dlp
-            outtmpl = os.path.join(output_dir, "input_video.%(ext)s")
-            ydl_opts = {
-                'format': format_spec,
-                'merge_output_format': 'mp4',
-                'outtmpl': outtmpl,
-                'quiet': True,
-                'no_warnings': True,
-                'socket_timeout': 30,
-                'force_ipv4': True,
-                'nocheckcertificate': True,
-                'legacy_server_connect': True,
-                'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                },
-                'js_runtimes': {'node': {}},
-                'remote_components': ['ejs:github'],
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['android']
-                    }
-                }
-            }
-            try:
-                from yt_dlp.networking.impersonate import ImpersonateTarget
-                ydl_opts['impersonate'] = ImpersonateTarget.from_str('chrome-110:windows-10')
-            except Exception as imp_err:
-                _log(f"Impersonate notice: {imp_err}")
-
+            _log("Attempting YouTube download via Ultra-fast 2-step Direct Curl...")
+            cmd_info = [
+                sys.executable, "-m", "yt_dlp",
+                "--dump-json",
+                "--no-warnings",
+                "--no-check-certificate",
+                "--force-ipv4",
+                "--extractor-args", "youtube:player_client=android",
+                "--socket-timeout", "15"
+            ]
             if has_cookies and os.path.exists(cookie_file):
-                ydl_opts['cookiefile'] = cookie_file
-
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                title = info.get('title', 'YouTube Video')
-                for ext in ['.mp4', '.mkv', '.webm']:
-                    candidate = os.path.join(output_dir, f"input_video{ext}")
-                    if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
-                        _log(f"Python yt_dlp download success: '{title}' ({candidate}, size={os.path.getsize(candidate)})")
-                        return candidate, title
+                cmd_info.extend(["--cookies", cookie_file])
+            cmd_info.append(url)
+            
+            res_info = subprocess.run(cmd_info, capture_output=True, text=True, timeout=25)
+            if res_info.returncode == 0 and res_info.stdout.strip():
+                data = json.loads(res_info.stdout.strip().splitlines()[0])
+                title = data.get('title', 'YouTube Video')
+                formats = data.get('formats', [])
+                
+                best_v = None
+                best_a = None
+                prog_18 = None
+                
+                for f in formats:
+                    vurl = f.get('url')
+                    if not vurl:
+                        continue
+                    if f.get('format_id') == '18':
+                        prog_18 = f
+                    if f.get('vcodec') != 'none' and f.get('acodec') == 'none' and f.get('ext') == 'mp4':
+                        if not best_v or f.get('height', 0) > best_v.get('height', 0):
+                            best_v = f
+                    if f.get('acodec') != 'none' and f.get('vcodec') == 'none' and (f.get('ext') in ['m4a', 'mp4']):
+                        if not best_a or f.get('tbr', 0) > best_a.get('tbr', 0):
+                            best_a = f
+                            
+                target_path = os.path.join(output_dir, "input_video.mp4")
+                
+                if best_v and best_a:
+                    v_file = os.path.join(output_dir, "v_tmp.mp4")
+                    a_file = os.path.join(output_dir, "a_tmp.m4a")
+                    _log(f"Downloading best video stream ({best_v.get('height')}p) + audio stream via direct curl...")
+                    cmd_v = ['curl', '-4', '-L', '-s', '-c', cookie_file, '-b', cookie_file, '-o', v_file, best_v['url']]
+                    cmd_a = ['curl', '-4', '-L', '-s', '-c', cookie_file, '-b', cookie_file, '-o', a_file, best_a['url']]
+                    subprocess.run(cmd_v, check=True, timeout=120)
+                    subprocess.run(cmd_a, check=True, timeout=120)
+                    subprocess.run(['ffmpeg', '-y', '-i', v_file, '-i', a_file, '-c', 'copy', target_path], capture_output=True, check=True, timeout=60)
+                    if os.path.exists(v_file): os.remove(v_file)
+                    if os.path.exists(a_file): os.remove(a_file)
+                elif prog_18:
+                    _log("Downloading progressive format 18 via direct curl...")
+                    cmd_prog = ['curl', '-4', '-L', '-s', '-c', cookie_file, '-b', cookie_file, '-o', target_path, prog_18['url']]
+                    subprocess.run(cmd_prog, check=True, timeout=120)
+                else:
+                    any_f = formats[-1]
+                    _log(f"Downloading stream format {any_f.get('format_id')} via direct curl...")
+                    cmd_any = ['curl', '-4', '-L', '-s', '-c', cookie_file, '-b', cookie_file, '-o', target_path, any_f['url']]
+                    subprocess.run(cmd_any, check=True, timeout=120)
+                    
+                if os.path.exists(target_path) and os.path.getsize(target_path) > 0:
+                    _log(f"Ultra-fast 2-step direct curl success: '{title}' ({os.path.getsize(target_path)} bytes)")
+                    return target_path, title
+            else:
+                _log(f"dump-json returned non-zero code {res_info.returncode}: {res_info.stderr[:200]}")
         except Exception as e:
             err_ytdlp = e
-            _log(f"Python yt_dlp failed: {e}")
+            _log(f"Ultra-fast 2-step direct curl failed: {e}")
 
-        # Method 2: CLI subprocess yt-dlp (Best Quality, CLI fallback with title print)
+        # Method 2: CLI subprocess yt-dlp with --downloader curl
         try:
-            _log("Attempting YouTube download via CLI subprocess yt-dlp (Best Quality)...")
+            _log("Attempting YouTube download via CLI subprocess yt-dlp with --downloader curl...")
             cmd = [
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
                 "--no-check-certificate",
-                "--legacy-server-connect",
-                "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                "--downloader", "curl",
+                "--downloader-args", "curl:-4 --connect-timeout 5",
                 "-f", format_spec,
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
                 "--socket-timeout", "30",
                 "--force-ipv4",
-                "--js-runtimes", "node",
-                "--remote-components", "ejs:github",
                 "--print", "%(title)s",
-                "--extractor-args", "youtube:player_client=android",
-                "--impersonate", "chrome-110:windows-10"
+                "--extractor-args", "youtube:player_client=android"
             ]
             if has_cookies and os.path.exists(cookie_file):
                 cmd.extend(["--cookies", cookie_file])
@@ -192,7 +213,7 @@ class VideoDubbingService:
             err_sub = e
             _log(f"CLI yt-dlp exception: {e}")
 
-        # Method 3: Fast Progressive Stream (Format 18 / best fallback for Cloud IP unblocking)
+        # Method 3: Fast Progressive Stream (Format 18 / best fallback)
         try:
             _log("Attempting YouTube download via Fast Progressive Stream (18/best)...")
             import yt_dlp
@@ -209,20 +230,12 @@ class VideoDubbingService:
                 'http_headers': {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                 },
-                'js_runtimes': {'node': {}},
-                'remote_components': ['ejs:github'],
                 'extractor_args': {
                     'youtube': {
                         'player_client': ['android']
                     }
                 }
             }
-            try:
-                from yt_dlp.networking.impersonate import ImpersonateTarget
-                ydl_opts_f18['impersonate'] = ImpersonateTarget.from_str('chrome-110:windows-10')
-            except Exception:
-                pass
-
             if has_cookies and os.path.exists(cookie_file):
                 ydl_opts_f18['cookiefile'] = cookie_file
             with yt_dlp.YoutubeDL(ydl_opts_f18) as ydl:
