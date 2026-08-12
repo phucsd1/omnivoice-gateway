@@ -87,9 +87,9 @@ class VideoDubbingService:
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Ultra-fast yt_dlp subprocess with Chrome BoringSSL & mweb,android client
+        # Method 1: Ultra-fast yt_dlp subprocess with Chrome BoringSSL & android_creator,android_pro client
         try:
-            _log("Attempting YouTube download via Ultra-fast yt_dlp (Chrome impersonate + mweb/android)...")
+            _log("Attempting YouTube download via Ultra-fast yt_dlp (android_creator,android_pro)...")
             target_pattern = os.path.join(output_dir, "input_video.%(ext)s")
             py_runner = """import sys, os, socket
 _orig_gai = socket.getaddrinfo
@@ -107,7 +107,7 @@ args = [
     '--force-ipv4',
     '--js-runtimes', 'nodejs',
     '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    '--extractor-args', 'youtube:player_client=mweb,android',
+    '--extractor-args', 'youtube:player_client=android_creator,android_pro,android',
     '--socket-timeout', '30',
     '-f', '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
     '--print', 'after_video:%(title)s',
@@ -133,9 +133,9 @@ yt_dlp.main()
             err_ytdlp = e
             _log(f"Ultra-fast yt_dlp runner failed: {e}")
 
-        # Method 2: CLI subprocess yt-dlp with android_vr client
+        # Method 2: CLI subprocess yt-dlp with android_creator client
         try:
-            _log("Attempting YouTube download via CLI subprocess yt-dlp with android_vr client...")
+            _log("Attempting YouTube download via CLI subprocess yt-dlp with android_creator client...")
             cmd = [
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
@@ -144,7 +144,7 @@ yt_dlp.main()
                 "--force-ipv4",
                 "--js-runtimes", "nodejs",
                 "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-                "--extractor-args", "youtube:player_client=mweb,android",
+                "--extractor-args", "youtube:player_client=android_creator,android_pro,android",
                 "-f", "18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
@@ -188,7 +188,7 @@ yt_dlp.main()
                 },
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['mweb', 'android']
+                        'player_client': ['android_creator', 'android_pro', 'android']
                     }
                 }
             }
