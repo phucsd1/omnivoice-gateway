@@ -149,11 +149,13 @@ class VideoDubbingService:
                 'quiet': False,
                 'no_warnings': True,
                 'nocheckcertificate': True,
+                'force_ipv4': True,
                 'socket_timeout': 15,
                 'logger': YtDlpLogger(),
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android', 'android_creator', 'android_pro', 'tv_embedded', 'creator']
+                        'player_client': ['android', 'android_creator', 'android_pro', 'tv_embedded', 'creator'],
+                        'skip': ['webpage']
                     }
                 }
             }
@@ -181,10 +183,12 @@ class VideoDubbingService:
                 'quiet': True,
                 'no_warnings': True,
                 'nocheckcertificate': True,
-                'socket_timeout': 30,
+                'force_ipv4': True,
+                'socket_timeout': 15,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android', 'android_creator', 'android_pro', 'tv_embedded', 'creator']
+                        'player_client': ['android', 'android_creator', 'android_pro', 'tv_embedded', 'creator'],
+                        'skip': ['webpage']
                     }
                 }
             }
