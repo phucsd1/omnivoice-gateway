@@ -128,7 +128,7 @@ class VideoDubbingService:
                 'remote_components': ['ejs:github'],
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_vr', 'android', 'web']
+                        'player_client': ['android', 'ios', 'mweb', 'android_vr']
                     }
                 }
             }
@@ -160,10 +160,11 @@ class VideoDubbingService:
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
                 "--socket-timeout", "30",
+                "--force-ipv4",
                 "--js-runtimes", "node",
                 "--remote-components", "ejs:github",
                 "--print", "%(title)s",
-                "--extractor-args", "youtube:player_client=android_vr,android,web"
+                "--extractor-args", "youtube:player_client=android,ios,mweb,android_vr"
             ]
             if has_cookies and os.path.exists(cookie_file):
                 cmd.extend(["--cookies", cookie_file])
@@ -205,7 +206,7 @@ class VideoDubbingService:
                 'remote_components': ['ejs:github'],
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_vr', 'android', 'web']
+                        'player_client': ['android', 'ios', 'mweb', 'android_vr']
                     }
                 }
             }
