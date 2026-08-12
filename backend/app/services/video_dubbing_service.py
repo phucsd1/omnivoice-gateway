@@ -125,6 +125,8 @@ class CurlResponse:
                 return 'application/json'
         return Headers()
 
+_orig_urlopen = urllib.request.urlopen
+
 def _curl_urlopen(url, data=None, timeout=15, **kwargs):
     if isinstance(url, urllib.request.Request):
         req_url = url.full_url
@@ -134,17 +136,21 @@ def _curl_urlopen(url, data=None, timeout=15, **kwargs):
     else:
         req_url = str(url)
         headers = {}
-    cmd = ['curl', '-4', '-s', '-L', '--connect-timeout', '10']
-    for k, v in headers.items():
-        cmd.extend(['-H', f'{k}: {v}'])
-    if data:
-        if isinstance(data, bytes):
-            cmd.extend(['--data-binary', data.decode('utf-8', errors='ignore')])
-        else:
-            cmd.extend(['-d', str(data)])
-    cmd.append(req_url)
-    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
-    return CurlResponse(res.stdout)
+
+    if 'youtube.com' in req_url or 'youtubei.googleapis.com' in req_url:
+        cmd = ['curl', '-4', '-s', '-L', '--connect-timeout', '10']
+        for k, v in headers.items():
+            cmd.extend(['-H', f'{k}: {v}'])
+        if data:
+            if isinstance(data, bytes) and len(data) > 0:
+                cmd.extend(['--data-binary', data.decode('utf-8', errors='ignore')])
+            elif isinstance(data, str) and len(data) > 0:
+                cmd.extend(['-d', str(data)])
+        cmd.append(req_url)
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+        return CurlResponse(res.stdout)
+    else:
+        return _orig_urlopen(url, data=data, timeout=timeout, **kwargs)
 
 urllib.request.urlopen = _curl_urlopen
 
