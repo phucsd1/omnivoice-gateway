@@ -87,9 +87,9 @@ class VideoDubbingService:
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Ultra-fast yt_dlp subprocess with early IPv4 socket monkeypatch & android player client
+        # Method 1: Ultra-fast yt_dlp subprocess with Safari Mobile & mweb,android client
         try:
-            _log("Attempting YouTube download via Ultra-fast yt_dlp (IPv4 socket patch + Android client)...")
+            _log("Attempting YouTube download via Ultra-fast yt_dlp (Safari Mobile + mweb/android)...")
             target_pattern = os.path.join(output_dir, "input_video.%(ext)s")
             py_runner = """import sys, os, socket
 _orig_gai = socket.getaddrinfo
@@ -103,10 +103,10 @@ args = [
     'yt_dlp',
     '--no-warnings',
     '--no-check-certificate',
-    '--impersonate', 'chrome',
+    '--impersonate', 'safari',
     '--force-ipv4',
-    '--user-agent', 'Mozilla/5.0 (SMART-TV; Linux; Tizen 5.0) AppleWebKit/538.1 (KHTML, like Gecko) Version/5.0 NativeClient-FreeBSD Dbg/0.2 SmartTV Chrome/56.0.2924.0 Safari/538.1',
-    '--extractor-args', 'youtube:player_client=tv_embedded',
+    '--user-agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
+    '--extractor-args', 'youtube:player_client=mweb,android,web',
     '--socket-timeout', '30',
     '-f', '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
     '--print', 'after_video:%(title)s',
@@ -132,9 +132,9 @@ yt_dlp.main()
             err_ytdlp = e
             _log(f"Ultra-fast yt_dlp runner failed: {e}")
 
-        # Method 2: CLI subprocess yt-dlp with android client
+        # Method 2: CLI subprocess yt-dlp with Smart TV client
         try:
-            _log("Attempting YouTube download via CLI subprocess yt-dlp with Android client...")
+            _log("Attempting YouTube download via CLI subprocess yt-dlp with Smart TV client...")
             cmd = [
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
@@ -142,7 +142,7 @@ yt_dlp.main()
                 "--impersonate", "chrome",
                 "--force-ipv4",
                 "--user-agent", "Mozilla/5.0 (SMART-TV; Linux; Tizen 5.0) AppleWebKit/538.1 (KHTML, like Gecko) Version/5.0 NativeClient-FreeBSD Dbg/0.2 SmartTV Chrome/56.0.2924.0 Safari/538.1",
-                "--extractor-args", "youtube:player_client=tv_embedded",
+                "--extractor-args", "youtube:player_client=tv,android",
                 "-f", "18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
@@ -175,18 +175,18 @@ yt_dlp.main()
                 'outtmpl': out_tmpl,
                 'format': '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
                 'merge_output_format': 'mp4',
-                'impersonate': 'chrome',
+                'impersonate': 'safari',
                 'quiet': True,
                 'no_warnings': True,
                 'nocheckcertificate': True,
                 'source_address': '0.0.0.0',
                 'socket_timeout': 30,
                 'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (SMART-TV; Linux; Tizen 5.0) AppleWebKit/538.1 (KHTML, like Gecko) Version/5.0 NativeClient-FreeBSD Dbg/0.2 SmartTV Chrome/56.0.2924.0 Safari/538.1'
+                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1'
                 },
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['tv_embedded']
+                        'player_client': ['mweb', 'android', 'web']
                     }
                 }
             }
