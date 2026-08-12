@@ -86,6 +86,23 @@ class VideoDubbingService:
         # Format spec: best video + best audio merged into MP4 format, with fallback to best single file
         format_spec = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/18/best"
 
+        cookie_file = os.path.join(output_dir, "yt_cookies.txt")
+        has_cookies = False
+        try:
+            from curl_cffi import requests as cffi_requests
+            s = cffi_requests.Session(impersonate="chrome120")
+            s.get("https://www.youtube.com", timeout=10)
+            c_dict = s.cookies.get_dict()
+            if c_dict:
+                with open(cookie_file, "w", encoding="utf-8") as cf:
+                    cf.write("# Netscape HTTP Cookie File\n\n")
+                    for name, val in c_dict.items():
+                        cf.write(f".youtube.com\tTRUE\t/\tFALSE\t2147483647\t{name}\t{val}\n")
+                has_cookies = True
+                _log(f"Generated fresh YouTube visitor cookies ({len(c_dict)} cookies)")
+        except Exception as e:
+            _log(f"Visitor cookie generation notice: {e}")
+
         err_ytdlp = None
         err_sub = None
         err_pytubefix = None
@@ -105,7 +122,6 @@ class VideoDubbingService:
                 'force_ipv4': True,
                 'nocheckcertificate': True,
                 'legacy_server_connect': True,
-                'impersonate': 'chrome',
                 'http_headers': {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                 },
@@ -113,11 +129,13 @@ class VideoDubbingService:
                 'remote_components': ['ejs:github'],
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_vr', 'android', 'ios'],
-                        'player_skip': ['webpage', 'configs']
+                        'player_client': ['android_vr', 'android', 'web']
                     }
                 }
             }
+            if has_cookies and os.path.exists(cookie_file):
+                ydl_opts['cookiefile'] = cookie_file
+
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 title = info.get('title', 'YouTube Video')
@@ -138,7 +156,6 @@ class VideoDubbingService:
                 "--no-warnings",
                 "--no-check-certificate",
                 "--legacy-server-connect",
-                "--impersonate", "chrome",
                 "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
                 "-f", format_spec,
                 "--merge-output-format", "mp4",
@@ -147,9 +164,11 @@ class VideoDubbingService:
                 "--js-runtimes", "node",
                 "--remote-components", "ejs:github",
                 "--print", "%(title)s",
-                "--extractor-args", "youtube:player_client=android_vr,android,ios;player_skip=webpage,configs",
-                url
+                "--extractor-args", "youtube:player_client=android_vr,android,web"
             ]
+            if has_cookies and os.path.exists(cookie_file):
+                cmd.extend(["--cookies", cookie_file])
+            cmd.append(url)
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
             if res.returncode == 0:
                 stdout_lines = [line.strip() for line in res.stdout.strip().splitlines() if line.strip()]
@@ -180,7 +199,6 @@ class VideoDubbingService:
                 'force_ipv4': True,
                 'nocheckcertificate': True,
                 'legacy_server_connect': True,
-                'impersonate': 'chrome',
                 'http_headers': {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                 },
@@ -188,11 +206,12 @@ class VideoDubbingService:
                 'remote_components': ['ejs:github'],
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_vr', 'android', 'ios'],
-                        'player_skip': ['webpage', 'configs']
+                        'player_client': ['android_vr', 'android', 'web']
                     }
                 }
             }
+            if has_cookies and os.path.exists(cookie_file):
+                ydl_opts_f18['cookiefile'] = cookie_file
             with yt_dlp.YoutubeDL(ydl_opts_f18) as ydl:
                 info = ydl.extract_info(url, download=True)
                 title = info.get('title', 'YouTube Video')
