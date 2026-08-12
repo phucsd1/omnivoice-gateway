@@ -128,7 +128,7 @@ class VideoDubbingService:
                 'remote_components': ['ejs:github'],
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android', 'ios', 'mweb', 'android_vr']
+                        'player_client': ['android']
                     }
                 }
             }
@@ -164,7 +164,7 @@ class VideoDubbingService:
                 "--js-runtimes", "node",
                 "--remote-components", "ejs:github",
                 "--print", "%(title)s",
-                "--extractor-args", "youtube:player_client=android,ios,mweb,android_vr"
+                "--extractor-args", "youtube:player_client=android"
             ]
             if has_cookies and os.path.exists(cookie_file):
                 cmd.extend(["--cookies", cookie_file])
@@ -206,7 +206,7 @@ class VideoDubbingService:
                 'remote_components': ['ejs:github'],
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android', 'ios', 'mweb', 'android_vr']
+                        'player_client': ['android']
                     }
                 }
             }
