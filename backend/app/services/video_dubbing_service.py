@@ -40,14 +40,14 @@ class VideoDubbingService:
     def ensure_dependencies():
         """Dynamically ensures yt-dlp and curl_cffi are installed and up-to-date."""
         try:
-            import yt_dlp
             import curl_cffi
+            import yt_dlp
         except ImportError:
-            print("[VideoDubbingService] Installing yt-dlp[impersonate] & curl_cffi dynamically...")
+            print("[VideoDubbingService] Installing curl_cffi & yt-dlp[curl-cffi] dynamically...")
             try:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "-U", "-q", "yt-dlp[impersonate]", "curl_cffi"])
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "-U", "curl_cffi", "yt-dlp[curl-cffi]"])
             except Exception:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "-U", "-q", "yt-dlp[impersonate]", "curl_cffi"])
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "-U", "curl_cffi", "yt-dlp[curl-cffi]"])
 
     @staticmethod
     def download_youtube_video(url: str, output_dir: str, log_file: Optional[str] = None) -> Tuple[str, str]:
@@ -56,6 +56,7 @@ class VideoDubbingService:
         Uses Python yt_dlp primary with bestvideo+bestaudio merged to MP4 via ffmpeg.
         Falls back to CLI subprocess yt_dlp and pytubefix.
         """
+        VideoDubbingService.ensure_dependencies()
         os.makedirs(output_dir, exist_ok=True)
         target_path = os.path.join(output_dir, "input_video.mp4")
 
