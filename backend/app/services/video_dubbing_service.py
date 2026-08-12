@@ -38,15 +38,16 @@ class VideoDubbingService:
 
     @staticmethod
     def ensure_dependencies():
-        """Dynamically ensures yt-dlp is installed and up-to-date for downloading YouTube videos."""
+        """Dynamically ensures yt-dlp and curl_cffi are installed and up-to-date."""
         try:
             import yt_dlp
+            import curl_cffi
         except ImportError:
-            print("[VideoDubbingService] Installing yt-dlp dynamically...")
+            print("[VideoDubbingService] Installing yt-dlp[impersonate] & curl_cffi dynamically...")
             try:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "-U", "-q", "yt-dlp"])
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "-U", "-q", "yt-dlp[impersonate]", "curl_cffi"])
             except Exception:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "-U", "-q", "yt-dlp"])
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "-U", "-q", "yt-dlp[impersonate]", "curl_cffi"])
 
     @staticmethod
     def download_youtube_video(url: str, output_dir: str, log_file: Optional[str] = None) -> Tuple[str, str]:
@@ -137,7 +138,7 @@ yt_dlp.main()
                         _log(f"Ultra-fast yt_dlp download success: '{title}' ({candidate}, size={os.path.getsize(candidate)} bytes)")
                         return candidate, title
             else:
-                _log(f"Ultra-fast yt_dlp runner non-zero code {res_r.returncode}: {res_r.stderr[:200]}")
+                _log(f"Ultra-fast yt_dlp runner non-zero code {res_r.returncode}: {res_r.stderr[-500:]}")
         except Exception as e:
             err_ytdlp = e
             _log(f"Ultra-fast yt_dlp runner failed: {e}")
@@ -168,7 +169,7 @@ yt_dlp.main()
                         _log(f"CLI yt-dlp download success: '{title}' ({candidate})")
                         return candidate, title
             else:
-                err_sub = res.stderr[:300]
+                err_sub = res.stderr[-500:]
                 _log(f"CLI yt-dlp failed (rc={res.returncode}): {err_sub}")
         except Exception as e:
             err_sub = e
