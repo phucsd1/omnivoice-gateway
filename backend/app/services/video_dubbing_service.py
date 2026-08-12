@@ -103,56 +103,11 @@ class VideoDubbingService:
         try:
             _log("Attempting YouTube download via Ultra-fast yt_dlp (IPv4 socket patch + curl downloader)...")
             target_pattern = os.path.join(output_dir, "input_video.%(ext)s")
-            py_runner = """import sys, os, socket, json, urllib.request, subprocess, io
+            py_runner = """import sys, os, socket
 _orig = socket.getaddrinfo
 def _force_ipv4(host, port, family=0, type=0, proto=0, flags=0):
     return _orig(host, port, socket.AF_INET, type, proto, flags)
 socket.getaddrinfo = _force_ipv4
-
-class CurlResponse:
-    def __init__(self, data_bytes, code=200):
-        self.data_bytes = data_bytes
-        self.status = code
-        self.code = code
-        self._io = io.BytesIO(data_bytes)
-    def read(self, amt=-1):
-        return self._io.read(amt)
-    def getcode(self):
-        return self.status
-    def info(self):
-        class Headers:
-            def get_content_type(self):
-                return 'application/json'
-        return Headers()
-
-_orig_urlopen = urllib.request.urlopen
-
-def _curl_urlopen(url, data=None, timeout=15, **kwargs):
-    if isinstance(url, urllib.request.Request):
-        req_url = url.full_url
-        headers = {k: v for k, v in url.headers.items()}
-        if url.data:
-            data = url.data
-    else:
-        req_url = str(url)
-        headers = {}
-
-    if 'youtube.com' in req_url or 'youtubei.googleapis.com' in req_url:
-        cmd = ['curl', '-4', '-s', '-L', '--connect-timeout', '10']
-        for k, v in headers.items():
-            cmd.extend(['-H', f'{k}: {v}'])
-        if data:
-            if isinstance(data, bytes) and len(data) > 0:
-                cmd.extend(['--data-binary', data.decode('utf-8', errors='ignore')])
-            elif isinstance(data, str) and len(data) > 0:
-                cmd.extend(['-d', str(data)])
-        cmd.append(req_url)
-        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
-        return CurlResponse(res.stdout)
-    else:
-        return _orig_urlopen(url, data=data, timeout=timeout, **kwargs)
-
-urllib.request.urlopen = _curl_urlopen
 
 import yt_dlp
 out_tmpl, video_url, c_file = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -162,8 +117,8 @@ args = [
     '--no-check-certificate',
     '--force-ipv4',
     '--socket-timeout', '15',
-    '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-    '--extractor-args', 'youtube:player_client=mweb,android',
+    '--user-agent', 'com.google.android.youtube/19.11.38 (Linux; U; Android 11)',
+    '--extractor-args', 'youtube:player_client=android,tv_embedded',
     '-f', '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
     '--print', '%(title)s',
     '-o', out_tmpl
