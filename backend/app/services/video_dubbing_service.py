@@ -134,7 +134,7 @@ class VideoDubbingService:
             }
             try:
                 from yt_dlp.networking.impersonate import ImpersonateTarget
-                ydl_opts['impersonate'] = ImpersonateTarget.from_str('chrome')
+                ydl_opts['impersonate'] = ImpersonateTarget.from_str('chrome-110:windows-10')
             except Exception as imp_err:
                 _log(f"Impersonate notice: {imp_err}")
 
@@ -171,7 +171,7 @@ class VideoDubbingService:
                 "--remote-components", "ejs:github",
                 "--print", "%(title)s",
                 "--extractor-args", "youtube:player_client=android",
-                "--impersonate", "chrome"
+                "--impersonate", "chrome-110:windows-10"
             ]
             if has_cookies and os.path.exists(cookie_file):
                 cmd.extend(["--cookies", cookie_file])
@@ -219,7 +219,7 @@ class VideoDubbingService:
             }
             try:
                 from yt_dlp.networking.impersonate import ImpersonateTarget
-                ydl_opts_f18['impersonate'] = ImpersonateTarget.from_str('chrome')
+                ydl_opts_f18['impersonate'] = ImpersonateTarget.from_str('chrome-110:windows-10')
             except Exception:
                 pass
 
