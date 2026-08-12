@@ -105,11 +105,11 @@ args = [
     '--no-check-certificate',
     '--impersonate', 'chrome',
     '--force-ipv4',
-    '--js-runtimes', 'nodejs',
-    '--socket-timeout', '20',
-    '--extractor-args', 'youtube:player_client=android_vr,android_pro,android_creator',
+    '--user-agent', 'Mozilla/5.0 (SMART-TV; Linux; Tizen 5.0) AppleWebKit/538.1 (KHTML, like Gecko) Version/5.0 NativeClient-FreeBSD Dbg/0.2 SmartTV Chrome/56.0.2924.0 Safari/538.1',
+    '--extractor-args', 'youtube:player_client=tv_embedded',
+    '--socket-timeout', '30',
     '-f', '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
-    '--print', '%(title)s',
+    '--print', 'after_video:%(title)s',
     '-o', out_tmpl,
     video_url
 ]
@@ -141,13 +141,13 @@ yt_dlp.main()
                 "--no-check-certificate",
                 "--impersonate", "chrome",
                 "--force-ipv4",
-                "--js-runtimes", "nodejs",
-                "--extractor-args", "youtube:player_client=android_vr,android_pro,android_creator",
+                "--user-agent", "Mozilla/5.0 (SMART-TV; Linux; Tizen 5.0) AppleWebKit/538.1 (KHTML, like Gecko) Version/5.0 NativeClient-FreeBSD Dbg/0.2 SmartTV Chrome/56.0.2924.0 Safari/538.1",
+                "--extractor-args", "youtube:player_client=tv_embedded",
                 "-f", "18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
                 "--socket-timeout", "30",
-                "--print", "%(title)s",
+                "--print", "after_video:%(title)s",
                 url
             ]
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
@@ -181,10 +181,12 @@ yt_dlp.main()
                 'nocheckcertificate': True,
                 'source_address': '0.0.0.0',
                 'socket_timeout': 30,
-                'js_runtimes': {'nodejs': {}},
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (SMART-TV; Linux; Tizen 5.0) AppleWebKit/538.1 (KHTML, like Gecko) Version/5.0 NativeClient-FreeBSD Dbg/0.2 SmartTV Chrome/56.0.2924.0 Safari/538.1'
+                },
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_vr', 'android_pro', 'android_creator']
+                        'player_client': ['tv_embedded']
                     }
                 }
             }
