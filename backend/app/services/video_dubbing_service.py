@@ -103,51 +103,30 @@ class VideoDubbingService:
         try:
             _log("Attempting YouTube download via Ultra-fast yt_dlp (IPv4 socket patch + curl downloader)...")
             target_pattern = os.path.join(output_dir, "input_video.%(ext)s")
-            py_runner = """import sys, os, socket, ssl
+            py_runner = """import sys, os, socket
 _orig_gai = socket.getaddrinfo
 def _force_ipv4(host, port, family=0, type=0, proto=0, flags=0):
     return _orig_gai(host, port, socket.AF_INET, type, proto, flags)
 socket.getaddrinfo = _force_ipv4
 
-_orig_ssl_ctx = ssl.create_default_context
-def _custom_ssl_ctx(*args, **kwargs):
-    ctx = _orig_ssl_ctx(*args, **kwargs)
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    try:
-        ctx.options |= ssl.OP_LEGACY_SERVER_CONNECT
-    except Exception:
-        pass
-    try:
-        ctx.set_ciphers('DEFAULT@SECLEVEL=1')
-    except Exception:
-        pass
-    return ctx
-ssl.create_default_context = _custom_ssl_ctx
-ssl._create_default_https_context = _custom_ssl_ctx
-
 import yt_dlp
-out_tmpl, video_url, c_file = sys.argv[1], sys.argv[2], sys.argv[3]
+out_tmpl, video_url = sys.argv[1], sys.argv[2]
 args = [
     'yt_dlp',
     '--no-warnings',
     '--no-check-certificate',
-    '--legacy-server-connect',
+    '--impersonate', 'chrome',
     '--force-ipv4',
     '--socket-timeout', '15',
-    '--user-agent', 'com.google.android.youtube/19.11.38 (Linux; U; Android 11)',
-    '--extractor-args', 'youtube:player_client=android,tv_embedded',
     '-f', '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
     '--print', '%(title)s',
-    '-o', out_tmpl
+    '-o', out_tmpl,
+    video_url
 ]
-if os.path.exists(c_file) and os.path.getsize(c_file) > 0:
-    args.extend(['--cookies', c_file])
-args.append(video_url)
 sys.argv = args
 yt_dlp.main()
 """
-            cmd_runner = [sys.executable, "-c", py_runner, target_pattern, url, cookie_file]
+            cmd_runner = [sys.executable, "-c", py_runner, target_pattern, url]
             res_r = subprocess.run(cmd_runner, capture_output=True, text=True, timeout=120)
             if res_r.returncode == 0:
                 stdout_lines = [line.strip() for line in res_r.stdout.strip().splitlines() if line.strip()]
@@ -163,26 +142,22 @@ yt_dlp.main()
             err_ytdlp = e
             _log(f"Ultra-fast yt_dlp runner failed: {e}")
 
-        # Method 2: CLI subprocess yt-dlp with --downloader curl
+        # Method 2: CLI subprocess yt-dlp with --impersonate chrome
         try:
-            _log("Attempting YouTube download via CLI subprocess yt-dlp with --downloader curl...")
+            _log("Attempting YouTube download via CLI subprocess yt-dlp with --impersonate chrome...")
             cmd = [
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
                 "--no-check-certificate",
-                "--downloader", "curl",
-                "--downloader-args", "curl:-4 --connect-timeout 5",
-                "-f", format_spec,
+                "--impersonate", "chrome",
+                "--force-ipv4",
+                "-f", "18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
                 "--socket-timeout", "30",
-                "--force-ipv4",
                 "--print", "%(title)s",
-                "--extractor-args", "youtube:player_client=android"
+                url
             ]
-            if os.path.exists(cookie_file) and os.path.getsize(cookie_file) > 0:
-                cmd.extend(["--cookies", cookie_file])
-            cmd.append(url)
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
             if res.returncode == 0:
                 stdout_lines = [line.strip() for line in res.stdout.strip().splitlines() if line.strip()]
