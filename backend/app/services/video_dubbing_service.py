@@ -132,9 +132,10 @@ class VideoDubbingService:
                 subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "-U", "curl_cffi", "yt-dlp[default,curl-cffi]", "bgutil-ytdlp-pot-provider"])
 
     @staticmethod
-    def _generate_visitor_cookies(cookie_file_path: str) -> bool:
+    def _generate_visitor_cookies(cookie_file_path: str, video_url: Optional[str] = None) -> bool:
         """
         Generates fresh Netscape format YouTube visitor cookies using curl_cffi.
+        Pre-fetches YouTube homepage and target video URL to warm up TLS session & cookies.
         Bypasses bot detection on datacenter IPs (AWS / Hugging Face Spaces).
         """
         try:
@@ -150,6 +151,11 @@ class VideoDubbingService:
                 })
             
             sess.get('https://www.youtube.com', timeout=10)
+            if video_url:
+                try:
+                    sess.get(video_url, timeout=10)
+                except Exception:
+                    pass
             
             os.makedirs(os.path.dirname(cookie_file_path), exist_ok=True)
             with open(cookie_file_path, 'w', encoding='utf-8') as f:
@@ -196,7 +202,7 @@ class VideoDubbingService:
 
         # Generate fresh visitor cookies to bypass bot checks on datacenter IPs
         _log("Generating fresh YouTube visitor cookies via curl_cffi...")
-        has_cookies = VideoDubbingService._generate_visitor_cookies(cookie_path)
+        has_cookies = VideoDubbingService._generate_visitor_cookies(cookie_path, url)
 
         # Format spec: best video + best audio merged into MP4 format, with fallback to best single file
         format_spec = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/18/best"
@@ -207,7 +213,7 @@ class VideoDubbingService:
 
         # Method 1: Direct native yt_dlp.YoutubeDL with non-bot-checked mobile/tv clients
         try:
-            _log("Attempting YouTube download via Direct yt_dlp.YoutubeDL (android, mweb)...")
+            _log("Attempting YouTube download via Direct yt_dlp.YoutubeDL (android)...")
             import yt_dlp
             out_tmpl = os.path.join(output_dir, "input_video.%(ext)s")
             
