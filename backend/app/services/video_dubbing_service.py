@@ -54,17 +54,16 @@ try:
 except Exception:
     pass
 
-# Register custom yt-dlp RequestHandler backed by curl_cffi Chrome TLS impersonation
+# Monkeypatch yt-dlp UrllibRH._send with curl_cffi Chrome TLS impersonation
 try:
     import io
-    from yt_dlp.networking.common import RequestHandler, Response, register_preference
+    from yt_dlp.networking._urllib import UrllibRH
+    from yt_dlp.networking.common import Response
     from curl_cffi import requests as curl_requests
 
-    class CustomCurlCffiRH(RequestHandler):
-        RH_NAME = 'custom_curl_cffi'
-        _SUPPORTED_URL_SCHEMES = ('http', 'https')
-
-        def _send(self, request):
+    _orig_urllib_send = UrllibRH._send
+    def _curl_cffi_urllib_send(self, request):
+        try:
             headers = dict(request.headers)
             method = request.method or ('POST' if request.data else 'GET')
             data = request.data
@@ -79,20 +78,19 @@ try:
                 headers=headers,
                 data=data,
                 impersonate='chrome',
-                timeout=30,
+                timeout=request.timeout or 30,
                 verify=False
             )
             body_stream = io.BytesIO(res.content)
             res_headers = dict(res.headers)
             return Response(body_stream, res.url, res.status_code, res.reason, res_headers)
+        except Exception:
+            return _orig_urllib_send(self, request)
 
-    @register_preference(CustomCurlCffiRH)
-    def _custom_rh_pref(handler, *args, **kwargs):
-        return 1000
-
-    print("[VideoDubbingService] CustomCurlCffiRH registered with priority 1000 for yt-dlp!", flush=True)
+    UrllibRH._send = _curl_cffi_urllib_send
+    print("[VideoDubbingService] UrllibRH._send monkeypatched with curl_cffi Chrome impersonation!", flush=True)
 except Exception as e:
-    print(f"[VideoDubbingService] Failed to register CustomCurlCffiRH: {e}", flush=True)
+    print(f"[VideoDubbingService] Failed to monkeypatch UrllibRH: {e}", flush=True)
 
 class VideoDubbingService:
     @staticmethod
