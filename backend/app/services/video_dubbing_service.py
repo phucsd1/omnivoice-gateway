@@ -10,13 +10,25 @@ import numpy as np
 from typing import List, Dict, Any, Tuple, Optional
 from sqlalchemy.orm import Session
 from app.config import settings
-# Force IPv4 socket resolution globally at module import time
+# Force IPv4 socket resolution & SSL context globally at module import time
 try:
     import socket
+    import ssl
     _orig_getaddrinfo = socket.getaddrinfo
     def _force_ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
         return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
     socket.getaddrinfo = _force_ipv4_getaddrinfo
+
+    _orig_create_default_context = ssl.create_default_context
+    def _custom_ssl_context(purpose=ssl.Purpose.SERVER_AUTH, cafile=None, capath=None, cadata=None):
+        ctx = _orig_create_default_context(purpose=purpose, cafile=cafile, capath=capath, cadata=cadata)
+        try:
+            ctx.set_ciphers('DEFAULT:@SECLEVEL=1')
+        except Exception:
+            pass
+        return ctx
+    ssl.create_default_context = _custom_ssl_context
+    ssl._create_default_https_context = _custom_ssl_context
 except Exception:
     pass
 
