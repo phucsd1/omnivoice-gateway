@@ -158,20 +158,14 @@ class VideoDubbingService:
                 'no_warnings': True,
                 'nocheckcertificate': True,
                 'force_ipv4': True,
-                'socket_timeout': 15,
-                'retries': 2,
+                'socket_timeout': 30,
                 'logger': YtDlpLogger(),
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android', 'android_creator', 'android_pro', 'tv_embedded', 'creator']
+                        'player_client': ['android', 'mweb']
                     }
                 }
             }
-            try:
-                from yt_dlp.networking.impersonate import ImpersonateTarget
-                ydl_opts['impersonate'] = ImpersonateTarget('chrome')
-            except Exception:
-                pass
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
@@ -198,19 +192,13 @@ class VideoDubbingService:
                 'no_warnings': True,
                 'nocheckcertificate': True,
                 'force_ipv4': True,
-                'socket_timeout': 15,
-                'retries': 2,
+                'socket_timeout': 30,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android', 'android_creator', 'android_pro', 'tv_embedded', 'creator']
+                        'player_client': ['android', 'mweb']
                     }
                 }
             }
-            try:
-                from yt_dlp.networking.impersonate import ImpersonateTarget
-                ydl_opts['impersonate'] = ImpersonateTarget('chrome')
-            except Exception:
-                pass
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 title = info.get('title', 'YouTube Video')
@@ -224,14 +212,13 @@ class VideoDubbingService:
 
         # Method 3: CLI subprocess yt-dlp with exclusive mobile/tv clients
         try:
-            _log("Attempting YouTube download via CLI subprocess yt-dlp with mobile/tv clients...")
+            _log("Attempting YouTube download via CLI subprocess yt-dlp with mobile/mweb clients...")
             cmd = [
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
                 "--no-check-certificate",
                 "--force-ipv4",
-                "--impersonate", "chrome",
-                "--extractor-args", "youtube:player_client=android,android_creator,android_pro,tv_embedded,creator",
+                "--extractor-args", "youtube:player_client=android,mweb",
                 "-f", "18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
