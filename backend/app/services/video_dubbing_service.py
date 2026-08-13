@@ -72,31 +72,39 @@ class VideoDubbingService:
     @staticmethod
     def _generate_visitor_cookies(cookie_file_path: str) -> bool:
         """
-        Generates fresh Netscape format YouTube visitor cookies using requests.
+        Generates fresh Netscape format YouTube visitor cookies using curl_cffi.
         Bypasses bot detection on datacenter IPs (AWS / Hugging Face Spaces).
         """
         try:
-            import requests, urllib3
-            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-            sess = requests.Session()
-            sess.headers.update({
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-                'Accept-Language': 'en-US,en;q=0.9'
-            })
-            sess.get('https://www.youtube.com', timeout=10, verify=False)
+            try:
+                from curl_cffi import requests as curl_requests
+                sess = curl_requests.Session(impersonate='chrome')
+            except Exception:
+                import requests
+                sess = requests.Session()
+                sess.headers.update({
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+                    'Accept-Language': 'en-US,en;q=0.9'
+                })
+            
+            sess.get('https://www.youtube.com', timeout=10)
             
             os.makedirs(os.path.dirname(cookie_file_path), exist_ok=True)
             with open(cookie_file_path, 'w', encoding='utf-8') as f:
                 f.write('# Netscape HTTP Cookie File\n')
-                for c in sess.cookies:
-                    domain = c.domain
-                    flag = 'TRUE' if domain.startswith('.') else 'FALSE'
-                    path = c.path
-                    secure = 'TRUE' if c.secure else 'FALSE'
-                    expiry = str(c.expires or 2147483647)
-                    name = c.name
-                    val = c.value
-                    f.write(f'{domain}\t{flag}\t{path}\t{secure}\t{expiry}\t{name}\t{val}\n')
+                if hasattr(sess.cookies, 'items'):
+                    for name, val in sess.cookies.items():
+                        f.write(f'.youtube.com\tTRUE\t/\tTRUE\t2147483647\t{name}\t{val}\n')
+                else:
+                    for c in sess.cookies:
+                        domain = getattr(c, 'domain', '.youtube.com')
+                        flag = 'TRUE' if domain.startswith('.') else 'FALSE'
+                        path = getattr(c, 'path', '/')
+                        secure = 'TRUE' if getattr(c, 'secure', False) else 'FALSE'
+                        expiry = str(getattr(c, 'expires', None) or 2147483647)
+                        name = c.name
+                        val = c.value
+                        f.write(f'{domain}\t{flag}\t{path}\t{secure}\t{expiry}\t{name}\t{val}\n')
             return True
         except Exception as e:
             print(f"[VideoDubbingService] Failed to generate visitor cookies: {e}", flush=True)
@@ -114,16 +122,6 @@ class VideoDubbingService:
         target_path = os.path.join(output_dir, "input_video.mp4")
         cookie_path = os.path.join(output_dir, "yt_visitor_cookies.txt")
 
-        # Force IPv4 at Python socket layer FIRST to prevent Docker IPv6 TCP timeouts & SSL EOF errors
-        try:
-            import socket
-            _orig_getaddrinfo = socket.getaddrinfo
-            def _force_ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
-                return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
-            socket.getaddrinfo = _force_ipv4_getaddrinfo
-        except Exception:
-            pass
-
         def _log(msg: str):
             print(f"[VideoDubbingService] {msg}", flush=True)
             if log_file:
@@ -134,9 +132,9 @@ class VideoDubbingService:
                 except Exception:
                     pass
 
-        # Generate fresh visitor cookies to bypass bot checks on datacenter IPs (optional)
-        _log("Generating fresh YouTube visitor cookies...")
-        VideoDubbingService._generate_visitor_cookies(cookie_path)
+        # Generate fresh visitor cookies to bypass bot checks on datacenter IPs
+        _log("Generating fresh YouTube visitor cookies via curl_cffi...")
+        has_cookies = VideoDubbingService._generate_visitor_cookies(cookie_path)
 
         # Format spec: best video + best audio merged into MP4 format, with fallback to best single file
         format_spec = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/18/best"
@@ -147,7 +145,7 @@ class VideoDubbingService:
 
         # Method 1: Direct native yt_dlp.YoutubeDL with non-bot-checked mobile/tv clients
         try:
-            _log("Attempting YouTube download via Direct yt_dlp.YoutubeDL (android,android_creator,tv_embedded)...")
+            _log("Attempting YouTube download via Direct yt_dlp.YoutubeDL (android, mweb)...")
             import yt_dlp
             out_tmpl = os.path.join(output_dir, "input_video.%(ext)s")
             
@@ -178,6 +176,8 @@ class VideoDubbingService:
                     }
                 }
             }
+            if has_cookies and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
+                ydl_opts['cookiefile'] = cookie_path
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
@@ -211,6 +211,8 @@ class VideoDubbingService:
                     }
                 }
             }
+            if has_cookies and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
+                ydl_opts['cookiefile'] = cookie_path
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 title = info.get('title', 'YouTube Video')
@@ -236,8 +238,10 @@ class VideoDubbingService:
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
                 "--socket-timeout", "30",
                 "--print", "after_video:%(title)s",
-                url
             ]
+            if has_cookies and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
+                cmd.extend(["--cookies", cookie_path])
+            cmd.append(url)
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL)
             if res.returncode == 0:
                 stdout_lines = [line.strip() for line in res.stdout.strip().splitlines() if line.strip()]
