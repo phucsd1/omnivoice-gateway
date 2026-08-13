@@ -173,7 +173,8 @@ class VideoDubbingService:
                 'logger': YtDlpLogger(),
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android', 'mweb']
+                        'player_client': ['android', 'mweb'],
+                        'skip': ['webpage']
                     }
                 }
             }
@@ -209,7 +210,8 @@ class VideoDubbingService:
                 'socket_timeout': 30,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android', 'mweb']
+                        'player_client': ['android', 'mweb'],
+                        'skip': ['webpage']
                     }
                 }
             }
@@ -235,7 +237,7 @@ class VideoDubbingService:
                 "--no-check-certificate",
                 "--legacy-server-connect",
                 "--force-ipv4",
-                "--extractor-args", "youtube:player_client=android,mweb",
+                "--extractor-args", "youtube:player_client=android,mweb;skip=webpage",
                 "-f", "18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
