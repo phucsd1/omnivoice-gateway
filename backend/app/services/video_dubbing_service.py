@@ -32,6 +32,41 @@ try:
 except Exception:
     pass
 
+# Register custom yt-dlp RequestHandler backed by curl_cffi Chrome TLS impersonation
+try:
+    import io
+    from yt_dlp.networking.common import RequestHandler, Response
+    from curl_cffi import requests as curl_requests
+
+    class CustomCurlCffiRH(RequestHandler):
+        RH_NAME = 'custom_curl_cffi'
+        _SUPPORTED_URL_SCHEMES = ('http', 'https')
+
+        def _send(self, request):
+            headers = dict(request.headers)
+            method = request.method or ('POST' if request.data else 'GET')
+            data = request.data
+            url = request.url
+            
+            for h in ['Host', 'Content-Length']:
+                headers.pop(h, None)
+                
+            res = curl_requests.request(
+                method=method,
+                url=url,
+                headers=headers,
+                data=data,
+                impersonate='chrome',
+                timeout=30,
+                verify=False
+            )
+            body_stream = io.BytesIO(res.content)
+            res_headers = dict(res.headers)
+            return Response(body_stream, res.url, res.status_code, res.reason, res_headers)
+    print("[VideoDubbingService] CustomCurlCffiRH registered for yt-dlp!", flush=True)
+except Exception as e:
+    print(f"[VideoDubbingService] Failed to register CustomCurlCffiRH: {e}", flush=True)
+
 class VideoDubbingService:
     @staticmethod
     def log_to_job(job_id: str, message: str):
