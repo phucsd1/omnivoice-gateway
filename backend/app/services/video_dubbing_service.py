@@ -167,6 +167,7 @@ class VideoDubbingService:
                 'quiet': False,
                 'no_warnings': True,
                 'nocheckcertificate': True,
+                'legacy_server_connect': True,
                 'force_ipv4': True,
                 'socket_timeout': 30,
                 'logger': YtDlpLogger(),
@@ -203,6 +204,7 @@ class VideoDubbingService:
                 'quiet': True,
                 'no_warnings': True,
                 'nocheckcertificate': True,
+                'legacy_server_connect': True,
                 'force_ipv4': True,
                 'socket_timeout': 30,
                 'extractor_args': {
@@ -231,6 +233,7 @@ class VideoDubbingService:
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
                 "--no-check-certificate",
+                "--legacy-server-connect",
                 "--force-ipv4",
                 "--extractor-args", "youtube:player_client=android,mweb",
                 "-f", "18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]",
