@@ -158,17 +158,21 @@ class VideoDubbingService:
                 'no_warnings': True,
                 'nocheckcertificate': True,
                 'force_ipv4': True,
-                'socket_timeout': 5,
-                'retries': 0,
-                'extractor_retries': 0,
+                'socket_timeout': 15,
+                'retries': 2,
                 'logger': YtDlpLogger(),
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android', 'android_creator', 'android_pro', 'tv_embedded', 'creator'],
-                        'skip': ['webpage']
+                        'player_client': ['android', 'android_creator', 'android_pro', 'tv_embedded', 'creator']
                     }
                 }
             }
+            try:
+                from yt_dlp.networking.impersonate import ImpersonateTarget
+                ydl_opts['impersonate'] = ImpersonateTarget('chrome')
+            except Exception:
+                pass
+
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 title = info.get('title', 'YouTube Video')
@@ -194,16 +198,19 @@ class VideoDubbingService:
                 'no_warnings': True,
                 'nocheckcertificate': True,
                 'force_ipv4': True,
-                'socket_timeout': 5,
-                'retries': 0,
-                'extractor_retries': 0,
+                'socket_timeout': 15,
+                'retries': 2,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android', 'android_creator', 'android_pro', 'tv_embedded', 'creator'],
-                        'skip': ['webpage']
+                        'player_client': ['android', 'android_creator', 'android_pro', 'tv_embedded', 'creator']
                     }
                 }
             }
+            try:
+                from yt_dlp.networking.impersonate import ImpersonateTarget
+                ydl_opts['impersonate'] = ImpersonateTarget('chrome')
+            except Exception:
+                pass
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 title = info.get('title', 'YouTube Video')
@@ -223,6 +230,7 @@ class VideoDubbingService:
                 "--no-warnings",
                 "--no-check-certificate",
                 "--force-ipv4",
+                "--impersonate", "chrome",
                 "--extractor-args", "youtube:player_client=android,android_creator,android_pro,tv_embedded,creator",
                 "-f", "18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]",
                 "--merge-output-format", "mp4",
