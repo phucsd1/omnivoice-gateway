@@ -14,6 +14,8 @@ from app.config import settings
 try:
     import socket
     import ssl
+    import http.client
+
     _orig_getaddrinfo = socket.getaddrinfo
     def _force_ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
         return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
@@ -29,6 +31,26 @@ try:
         return ctx
     ssl.create_default_context = _custom_ssl_context
     ssl._create_default_https_context = _custom_ssl_context
+
+    _orig_https_init = http.client.HTTPSConnection.__init__
+    def _patched_https_init(self, *args, **kwargs):
+        context = kwargs.get('context')
+        if context is None and len(args) >= 7:
+            context = args[6]
+        if context is None:
+            ctx = ssl.create_default_context()
+            try:
+                ctx.set_ciphers('DEFAULT:@SECLEVEL=1')
+            except Exception:
+                pass
+            kwargs['context'] = ctx
+        else:
+            try:
+                context.set_ciphers('DEFAULT:@SECLEVEL=1')
+            except Exception:
+                pass
+        _orig_https_init(self, *args, **kwargs)
+    http.client.HTTPSConnection.__init__ = _patched_https_init
 except Exception:
     pass
 
