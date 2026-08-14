@@ -109,6 +109,31 @@ class VideoDubbingService:
                 subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "-U", "curl_cffi", "yt-dlp[default,curl-cffi]", "bgutil-ytdlp-pot-provider"])
 
     @staticmethod
+    def _fetch_visitor_data() -> str:
+        """
+        Fetches fresh YouTube visitorData token using curl_cffi via /youtubei/v1/visitor_id.
+        Bypasses 'Sign in to confirm you are not a bot' error on datacenter IPs (AWS / HF Spaces).
+        """
+        try:
+            from curl_cffi import requests as curl_requests
+            payload = {
+                'context': {
+                    'client': {
+                        'clientName': 'WEB',
+                        'clientVersion': '2.20240201.00.00'
+                    }
+                }
+            }
+            r = curl_requests.post('https://www.youtube.com/youtubei/v1/visitor_id', json=payload, impersonate='chrome', timeout=5)
+            if r.status_code == 200:
+                vdata = r.json().get('responseContext', {}).get('visitorData', '')
+                if vdata:
+                    return vdata
+        except Exception as e:
+            print(f"[VideoDubbingService] Failed to fetch visitorData via curl_cffi: {e}", flush=True)
+        return ""
+
+    @staticmethod
     def _generate_visitor_cookies(cookie_file_path: str, video_url: Optional[str] = None) -> bool:
         """
         Generates fresh Netscape format YouTube visitor cookies using curl_cffi.
@@ -127,12 +152,7 @@ class VideoDubbingService:
                     'Accept-Language': 'en-US,en;q=0.9'
                 })
             
-            sess.get('https://www.youtube.com', timeout=10)
-            if video_url:
-                try:
-                    sess.get(video_url, timeout=10)
-                except Exception:
-                    pass
+            sess.get('https://www.youtube.com', timeout=5)
             
             os.makedirs(os.path.dirname(cookie_file_path), exist_ok=True)
             with open(cookie_file_path, 'w', encoding='utf-8') as f:
@@ -177,8 +197,9 @@ class VideoDubbingService:
                 except Exception:
                     pass
 
-        # Generate fresh visitor cookies to bypass bot checks on datacenter IPs
-        _log("Generating fresh YouTube visitor cookies via curl_cffi...")
+        # Generate fresh visitorData token & cookies via curl_cffi to bypass bot checks on datacenter IPs
+        _log("Fetching fresh YouTube visitorData & cookies via curl_cffi...")
+        visitor_data = VideoDubbingService._fetch_visitor_data()
         has_cookies = VideoDubbingService._generate_visitor_cookies(cookie_path, url)
 
         # Format spec: best video + best audio merged into MP4 format, with fallback to best single file
@@ -188,11 +209,15 @@ class VideoDubbingService:
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Fast Subprocess yt_dlp CLI with android,android_creator player clients (2s download time)
+        # Method 1: Fast Subprocess yt_dlp CLI with visitor_data & android,android_creator player clients (2s download time)
         try:
-            _log("Attempting YouTube download via Subprocess yt_dlp CLI (android,android_creator)...")
+            _log("Attempting YouTube download via Subprocess yt_dlp CLI (visitor_data + android,android_creator)...")
             out_tmpl = os.path.join(output_dir, "input_video.%(ext)s")
             
+            extractor_args = "youtube:player_client=android,android_creator"
+            if visitor_data:
+                extractor_args = f"youtube:visitor_data={visitor_data};player_client=android,android_creator"
+
             cmd = [
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
@@ -200,7 +225,7 @@ class VideoDubbingService:
                 "--legacy-server-connect",
                 "--force-ipv4",
                 "--impersonate", "chrome",
-                "--extractor-args", "youtube:player_client=android,android_creator",
+                "--extractor-args", extractor_args,
                 "--retries", "2",
                 "--fragment-retries", "2",
                 "-f", "18/best",
