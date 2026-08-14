@@ -49,8 +49,14 @@ try:
                 context.set_ciphers('DEFAULT:@SECLEVEL=1')
             except Exception:
                 pass
-        _orig_https_init(self, *args, **kwargs)
-    http.client.HTTPSConnection.__init__ = _patched_https_init
+    _orig_wrap_socket = ssl.SSLContext.wrap_socket
+    def _patched_wrap_socket(self, sock, *args, **kwargs):
+        try:
+            self.set_ciphers('DEFAULT:@SECLEVEL=1')
+        except Exception:
+            pass
+        return _orig_wrap_socket(self, sock, *args, **kwargs)
+    ssl.SSLContext.wrap_socket = _patched_wrap_socket
 except Exception:
     pass
 
