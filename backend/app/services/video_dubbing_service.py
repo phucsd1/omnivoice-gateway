@@ -116,6 +116,7 @@ class VideoDubbingService:
         """
         try:
             from curl_cffi import requests as curl_requests
+            from curl_cffi.curl import CurlOpt
             payload = {
                 'context': {
                     'client': {
@@ -124,7 +125,7 @@ class VideoDubbingService:
                     }
                 }
             }
-            r = curl_requests.post('https://www.youtube.com/youtubei/v1/visitor_id', json=payload, impersonate='chrome', timeout=5, verify=False, curl_options={113: 1})
+            r = curl_requests.post('https://www.youtube.com/youtubei/v1/visitor_id', json=payload, impersonate='chrome', timeout=5, verify=False, curl_options={CurlOpt.IPRESOLVE: 1})
             if r.status_code == 200:
                 vdata = r.json().get('responseContext', {}).get('visitorData', '')
                 if vdata:
@@ -143,7 +144,8 @@ class VideoDubbingService:
         try:
             try:
                 from curl_cffi import requests as curl_requests
-                sess = curl_requests.Session(impersonate='chrome', verify=False, curl_options={113: 1})
+                from curl_cffi.curl import CurlOpt
+                sess = curl_requests.Session(impersonate='chrome', verify=False, curl_options={CurlOpt.IPRESOLVE: 1})
             except Exception:
                 import requests
                 sess = requests.Session()
@@ -152,7 +154,7 @@ class VideoDubbingService:
                     'Accept-Language': 'en-US,en;q=0.9'
                 })
             
-            sess.get('https://m.youtube.com', timeout=5, verify=False, curl_options={113: 1})
+            sess.get('https://m.youtube.com', timeout=5, verify=False, curl_options={CurlOpt.IPRESOLVE: 1})
             
             os.makedirs(os.path.dirname(cookie_file_path), exist_ok=True)
             with open(cookie_file_path, 'w', encoding='utf-8') as f:
