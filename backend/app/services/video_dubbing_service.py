@@ -188,45 +188,9 @@ class VideoDubbingService:
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Fast Impersonate Chrome In-Process Stream (1.8s download time)
+        # Method 1: Subprocess yt_dlp CLI execution with android_vr,ios,mweb player clients (5s download)
         try:
-            _log("Attempting YouTube download via Fast Impersonate Chrome Stream (18/best)...")
-            import yt_dlp
-            from yt_dlp.networking.impersonate import ImpersonateTarget
-
-            out_tmpl = os.path.join(output_dir, "input_video.%(ext)s")
-            ydl_opts = {
-                'outtmpl': out_tmpl,
-                'format': '18/best',
-                'quiet': True,
-                'no_warnings': True,
-                'impersonate': ImpersonateTarget.from_str('chrome'),
-                'nocheckcertificate': True,
-                'force_ipv4': True,
-                'socket_timeout': 15,
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['android', 'mweb']
-                    }
-                }
-            }
-            if has_cookies and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
-                ydl_opts['cookiefile'] = cookie_path
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                title = info.get('title', 'YouTube Video')
-                for ext in ['.mp4', '.mkv', '.webm']:
-                    candidate = os.path.join(output_dir, f"input_video{ext}")
-                    if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
-                        _log(f"Fast Impersonate Chrome Stream download success: '{title}' ({candidate}, size={os.path.getsize(candidate)} bytes)")
-                        return candidate, title
-        except Exception as e:
-            err_ytdlp = e
-            _log(f"Fast Impersonate Chrome Stream failed: {e}")
-
-        # Method 2: Subprocess yt_dlp CLI execution with --impersonate chrome
-        try:
-            _log("Attempting YouTube download via Subprocess yt_dlp CLI (--impersonate chrome)...")
+            _log("Attempting YouTube download via Subprocess yt_dlp CLI (android_vr,ios,mweb)...")
             out_tmpl = os.path.join(output_dir, "input_video.%(ext)s")
             
             cmd = [
@@ -235,8 +199,7 @@ class VideoDubbingService:
                 "--no-check-certificate",
                 "--legacy-server-connect",
                 "--force-ipv4",
-                "--impersonate", "chrome",
-                "--extractor-args", "youtube:player_client=android,mweb",
+                "--extractor-args", "youtube:player_client=android_vr,ios,mweb",
                 "-f", "18/best",
                 "-o", out_tmpl,
                 "--socket-timeout", "15",
