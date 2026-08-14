@@ -124,7 +124,7 @@ class VideoDubbingService:
                     }
                 }
             }
-            r = curl_requests.post('https://www.youtube.com/youtubei/v1/visitor_id', json=payload, impersonate='chrome', timeout=5)
+            r = curl_requests.post('https://www.youtube.com/youtubei/v1/visitor_id', json=payload, impersonate='chrome', timeout=5, verify=False)
             if r.status_code == 200:
                 vdata = r.json().get('responseContext', {}).get('visitorData', '')
                 if vdata:
@@ -143,7 +143,7 @@ class VideoDubbingService:
         try:
             try:
                 from curl_cffi import requests as curl_requests
-                sess = curl_requests.Session(impersonate='chrome')
+                sess = curl_requests.Session(impersonate='chrome', verify=False)
             except Exception:
                 import requests
                 sess = requests.Session()
@@ -152,7 +152,7 @@ class VideoDubbingService:
                     'Accept-Language': 'en-US,en;q=0.9'
                 })
             
-            sess.get('https://www.youtube.com', timeout=5)
+            sess.get('https://www.youtube.com', timeout=5, verify=False)
             
             os.makedirs(os.path.dirname(cookie_file_path), exist_ok=True)
             with open(cookie_file_path, 'w', encoding='utf-8') as f:
@@ -200,6 +200,7 @@ class VideoDubbingService:
         # Generate fresh visitorData token & cookies via curl_cffi to bypass bot checks on datacenter IPs
         _log("Fetching fresh YouTube visitorData & cookies via curl_cffi...")
         visitor_data = VideoDubbingService._fetch_visitor_data()
+        _log(f"visitorData fetched: {'YES (' + visitor_data[:15] + '...)' if visitor_data else 'NO'}")
         has_cookies = VideoDubbingService._generate_visitor_cookies(cookie_path, url)
 
         # Format spec: best video + best audio merged into MP4 format, with fallback to best single file
@@ -226,11 +227,11 @@ class VideoDubbingService:
                 "--force-ipv4",
                 "--impersonate", "chrome",
                 "--extractor-args", extractor_args,
-                "--retries", "2",
-                "--fragment-retries", "2",
+                "--retries", "0",
+                "--fragment-retries", "0",
                 "-f", "18/best",
                 "-o", out_tmpl,
-                "--socket-timeout", "10",
+                "--socket-timeout", "5",
             ]
             if has_cookies and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
                 cmd.extend(["--cookies", cookie_path])
