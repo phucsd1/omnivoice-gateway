@@ -154,7 +154,7 @@ class VideoDubbingService:
                     'Accept-Language': 'en-US,en;q=0.9'
                 })
             
-            sess.get('https://m.youtube.com', timeout=5, verify=False, curl_options={CurlOpt.IPRESOLVE: 1})
+            sess.get('https://m.youtube.com', timeout=5, verify=False)
             
             os.makedirs(os.path.dirname(cookie_file_path), exist_ok=True)
             with open(cookie_file_path, 'w', encoding='utf-8') as f:
