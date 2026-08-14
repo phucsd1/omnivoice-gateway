@@ -177,8 +177,26 @@ class VideoDubbingService:
         try:
             _log("Attempting YouTube download via Subprocess yt_dlp CLI (TLS 1.2 patched)...")
             out_tmpl = os.path.join(output_dir, "input_video.%(ext)s")
+            
+            cli_args = [
+                'yt-dlp',
+                '--force-ipv4',
+                '--no-check-certificate',
+                '--legacy-server-connect',
+                '--no-warnings',
+                '--extractor-args', 'youtube:player_client=android,mweb',
+                '-f', '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
+                '--merge-output-format', 'mp4',
+                '--socket-timeout', '30',
+                '-o', out_tmpl,
+                url
+            ]
+            if has_cookies and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
+                cli_args.extend(['--cookies', cookie_path])
+
             code = (
-                "import ssl\n"
+                "import sys, ssl\n"
+                f"sys.argv = {json.dumps(cli_args)}\n"
                 "_orig = ssl.SSLContext.wrap_socket\n"
                 "def _patched(self, sock, *args, **kwargs):\n"
                 "    try:\n"
@@ -198,21 +216,7 @@ class VideoDubbingService:
                 "import yt_dlp\n"
                 "yt_dlp.main()\n"
             )
-            cmd = [
-                sys.executable, '-c', code,
-                '--force-ipv4',
-                '--no-check-certificate',
-                '--legacy-server-connect',
-                '--no-warnings',
-                '--extractor-args', 'youtube:player_client=android,mweb',
-                '-f', '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
-                '--merge-output-format', 'mp4',
-                '--socket-timeout', '30',
-                '-o', out_tmpl,
-                url
-            ]
-            if has_cookies and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
-                cmd.extend(['--cookies', cookie_path])
+            cmd = [sys.executable, '-c', code]
                 
             env = os.environ.copy()
             env['PYTHONUNBUFFERED'] = '1'
