@@ -233,18 +233,14 @@ class VideoDubbingService:
             env['PYTHONUNBUFFERED'] = '1'
             
             t0 = time.time()
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=90, env=env)
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, env=env)
+            for line in iter(proc.stdout.readline, ''):
+                if line.strip():
+                    _log(f"[yt_dlp_cli] {line.strip()}")
+            proc.stdout.close()
+            return_code = proc.wait()
             t1 = time.time()
             
-            _log(f"yt_dlp CLI finished in {t1-t0:.2f}s with return code {res.returncode}")
-            if res.stdout:
-                for line in res.stdout.splitlines():
-                    if line.strip() and ("Extracting" in line or "Downloading" in line or "Destination" in line or "%" in line):
-                        _log(f"[yt_dlp_cli] {line.strip()}")
-            if res.stderr:
-                for line in res.stderr.splitlines():
-                    if line.strip() and ("ERROR" in line or "WARNING" in line or "WARN" in line):
-                        _log(f"[yt_dlp_cli_err] {line.strip()}")
                         
             for ext in ['.mp4', '.m4a', '.webm', '.mkv']:
                 candidate = os.path.join(output_dir, f"input_video{ext}")
