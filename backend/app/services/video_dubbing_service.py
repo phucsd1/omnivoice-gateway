@@ -173,12 +173,33 @@ class VideoDubbingService:
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Subprocess yt_dlp CLI execution (clean, isolated process)
+        # Method 1: Subprocess yt_dlp CLI execution with inline TLS 1.2 wrap_socket patch
         try:
-            _log("Attempting YouTube download via Subprocess yt_dlp CLI (android, mweb)...")
+            _log("Attempting YouTube download via Subprocess yt_dlp CLI (TLS 1.2 patched)...")
             out_tmpl = os.path.join(output_dir, "input_video.%(ext)s")
+            code = (
+                "import ssl\n"
+                "_orig = ssl.SSLContext.wrap_socket\n"
+                "def _patched(self, sock, *args, **kwargs):\n"
+                "    try:\n"
+                "        self.set_ciphers('DEFAULT:@SECLEVEL=1')\n"
+                "    except Exception:\n"
+                "        pass\n"
+                "    try:\n"
+                "        if hasattr(ssl, 'TLSVersion'):\n"
+                "            self.minimum_version = ssl.TLSVersion.TLSv1_2\n"
+                "            self.maximum_version = ssl.TLSVersion.TLSv1_2\n"
+                "        if hasattr(ssl, 'OP_NO_TLSv1_3'):\n"
+                "            self.options |= ssl.OP_NO_TLSv1_3\n"
+                "    except Exception:\n"
+                "        pass\n"
+                "    return _orig(self, sock, *args, **kwargs)\n"
+                "ssl.SSLContext.wrap_socket = _patched\n"
+                "import yt_dlp\n"
+                "yt_dlp.main()\n"
+            )
             cmd = [
-                sys.executable, '-m', 'yt_dlp',
+                sys.executable, '-c', code,
                 '--force-ipv4',
                 '--no-check-certificate',
                 '--legacy-server-connect',
