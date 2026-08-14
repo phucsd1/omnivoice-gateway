@@ -188,46 +188,7 @@ class VideoDubbingService:
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Fast In-Process Progressive Stream (18/best with TLS 1.2 patched)
-        try:
-            _log("Attempting YouTube download via Fast In-Process Stream (18/best)...")
-            import yt_dlp
-            out_tmpl = os.path.join(output_dir, "input_video.%(ext)s")
-            ydl_opts = {
-                'outtmpl': out_tmpl,
-                'format': '18/best',
-                'quiet': True,
-                'no_warnings': True,
-                'nocheckcertificate': True,
-                'legacy_server_connect': True,
-                'force_ipv4': True,
-                'socket_timeout': 15,
-                'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                    'Referer': 'https://www.youtube.com/'
-                },
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['android', 'mweb']
-                    }
-                }
-            }
-            if has_cookies and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
-                ydl_opts['cookiefile'] = cookie_path
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                title = info.get('title', 'YouTube Video')
-                for ext in ['.mp4', '.mkv', '.webm']:
-                    candidate = os.path.join(output_dir, f"input_video{ext}")
-                    if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
-                        _log(f"Fast In-Process Stream download success: '{title}' ({candidate}, size={os.path.getsize(candidate)} bytes)")
-                        return candidate, title
-        except Exception as e:
-            err_ytdlp = e
-            _log(f"Fast In-Process Stream failed: {e}")
-
-        # Method 2: Subprocess yt_dlp CLI execution with inline TLS 1.2 wrap_socket patch
+        # Method 1: Subprocess yt_dlp CLI execution with inline TLS 1.2 C-constructor patch
         try:
             _log("Attempting YouTube download via Subprocess yt_dlp CLI (TLS 1.2 patched)...")
             out_tmpl = os.path.join(output_dir, "input_video.%(ext)s")
@@ -238,6 +199,9 @@ class VideoDubbingService:
                 '--no-check-certificate',
                 '--legacy-server-connect',
                 '--no-warnings',
+                '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                '--referer', 'https://www.youtube.com/',
+                '--add-header', 'Accept-Language:en-US,en;q=0.9',
                 '--extractor-args', 'youtube:player_client=android,mweb',
                 '-f', '18/best',
                 '--socket-timeout', '15',
