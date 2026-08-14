@@ -21,11 +21,31 @@ try:
         return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
     socket.getaddrinfo = _force_ipv4_getaddrinfo
 
+    _orig_wrap_socket = ssl.SSLContext.wrap_socket
+    def _tls12_wrap_socket(self, sock, *args, **kwargs):
+        try:
+            self.set_ciphers('DEFAULT:@SECLEVEL=1')
+        except Exception:
+            pass
+        try:
+            if hasattr(ssl, 'TLSVersion'):
+                self.minimum_version = ssl.TLSVersion.TLSv1_2
+                self.maximum_version = ssl.TLSVersion.TLSv1_2
+            if hasattr(ssl, 'OP_NO_TLSv1_3'):
+                self.options |= ssl.OP_NO_TLSv1_3
+        except Exception:
+            pass
+        return _orig_wrap_socket(self, sock, *args, **kwargs)
+    ssl.SSLContext.wrap_socket = _tls12_wrap_socket
+
     _orig_create_default_context = ssl.create_default_context
     def _custom_ssl_context(purpose=ssl.Purpose.SERVER_AUTH, cafile=None, capath=None, cadata=None):
         ctx = _orig_create_default_context(purpose=purpose, cafile=cafile, capath=capath, cadata=cadata)
         try:
             ctx.set_ciphers('DEFAULT:@SECLEVEL=1')
+            if hasattr(ssl, 'TLSVersion'):
+                ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+                ctx.maximum_version = ssl.TLSVersion.TLSv1_2
             if hasattr(ssl, 'OP_NO_TLSv1_3'):
                 ctx.options |= ssl.OP_NO_TLSv1_3
         except Exception:
@@ -33,32 +53,8 @@ try:
         return ctx
     ssl.create_default_context = _custom_ssl_context
     ssl._create_default_https_context = _custom_ssl_context
-
-    _orig_https_init = http.client.HTTPSConnection.__init__
-    def _patched_https_init(self, *args, **kwargs):
-        context = kwargs.get('context')
-        if context is None and len(args) >= 7:
-            context = args[6]
-        if context is None:
-            ctx = ssl.create_default_context()
-            try:
-                ctx.set_ciphers('DEFAULT:@SECLEVEL=1')
-                if hasattr(ssl, 'OP_NO_TLSv1_3'):
-                    ctx.options |= ssl.OP_NO_TLSv1_3
-            except Exception:
-                pass
-            kwargs['context'] = ctx
-        else:
-            try:
-                context.set_ciphers('DEFAULT:@SECLEVEL=1')
-                if hasattr(ssl, 'OP_NO_TLSv1_3'):
-                    context.options |= ssl.OP_NO_TLSv1_3
-            except Exception:
-                pass
-        _orig_https_init(self, *args, **kwargs)
-    http.client.HTTPSConnection.__init__ = _patched_https_init
 except Exception as e:
-    print(f"[VideoDubbingService] SSL patch note: {e}", flush=True)
+    print(f"[VideoDubbingService] Global SSL patch note: {e}", flush=True)
 
 class VideoDubbingService:
     @staticmethod
