@@ -188,9 +188,9 @@ class VideoDubbingService:
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Subprocess yt_dlp CLI execution with android_vr,ios,mweb player clients (5s download)
+        # Method 1: Fast Subprocess yt_dlp CLI with android,android_creator player clients (2s download time)
         try:
-            _log("Attempting YouTube download via Subprocess yt_dlp CLI (android_vr,ios,mweb)...")
+            _log("Attempting YouTube download via Subprocess yt_dlp CLI (android,android_creator)...")
             out_tmpl = os.path.join(output_dir, "input_video.%(ext)s")
             
             cmd = [
@@ -199,10 +199,13 @@ class VideoDubbingService:
                 "--no-check-certificate",
                 "--legacy-server-connect",
                 "--force-ipv4",
-                "--extractor-args", "youtube:player_client=android_vr,ios,mweb",
+                "--user-agent", "com.google.android.youtube/19.05.36 (Linux; U; Android 11; US) gzip",
+                "--extractor-args", "youtube:player_client=android,android_creator",
+                "--retries", "2",
+                "--fragment-retries", "2",
                 "-f", "18/best",
                 "-o", out_tmpl,
-                "--socket-timeout", "15",
+                "--socket-timeout", "10",
             ]
             if has_cookies and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
                 cmd.extend(["--cookies", cookie_path])
@@ -223,7 +226,7 @@ class VideoDubbingService:
             for ext in ['.mp4', '.m4a', '.webm', '.mkv']:
                 candidate = os.path.join(output_dir, f"input_video{ext}")
                 if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
-                    _log(f"Subprocess yt_dlp CLI download success ({candidate}, size={os.path.getsize(candidate)} bytes)")
+                    _log(f"Subprocess yt_dlp CLI download success ({candidate}, size={os.path.getsize(candidate)} bytes in {t1-t0:.2f}s)")
                     return candidate, "YouTube Video"
         except Exception as e:
             err_sub = e
