@@ -183,25 +183,45 @@ class VideoDubbingService:
             import yt_dlp
             try:
                 from yt_dlp.extractor.common import InfoExtractor
-                from curl_cffi import requests as curl_requests
+                import requests, ssl
+
+                class TLSv12Adapter(requests.adapters.HTTPAdapter):
+                    def init_poolmanager(self, *args, **kwargs):
+                        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                        ctx.check_hostname = False
+                        ctx.verify_mode = ssl.CERT_NONE
+                        ctx.set_ciphers('DEFAULT:@SECLEVEL=1')
+                        if hasattr(ssl, 'OP_NO_TLSv1_3'):
+                            ctx.options |= ssl.OP_NO_TLSv1_3
+                        try:
+                            if hasattr(ssl, 'TLSVersion'):
+                                ctx.maximum_version = ssl.TLSVersion.TLSv1_2
+                        except Exception:
+                            pass
+                        kwargs['ssl_context'] = ctx
+                        return super().init_poolmanager(*args, **kwargs)
+
+                _tls12_session = requests.Session()
+                _tls12_session.mount('https://', TLSv12Adapter())
 
                 _orig_download_webpage = getattr(InfoExtractor, '_orig_download_webpage', InfoExtractor._download_webpage)
 
-                def _curl_cffi_download_webpage(self, url_or_request, video_id, note=None, errnote=None, fatal=True, data=None, headers={}, query={}, expected_status=None):
+                def _requests_tls12_download_webpage(self, url_or_request, video_id, note=None, errnote=None, fatal=True, data=None, headers={}, query={}, expected_status=None):
                     try:
                         url_str = url_or_request.full_url if hasattr(url_or_request, 'full_url') else str(url_or_request)
-                        sess = curl_requests.Session(impersonate='chrome')
-                        res = sess.get(url_str, headers=headers, params=query, timeout=15)
+                        clean_headers = {str(k): str(v) for k, v in headers.items()} if headers else {}
+                        clean_headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                        res = _tls12_session.get(url_str, headers=clean_headers, params=query, timeout=15)
                         if res.status_code == 200:
-                            _log(f"[curl_cffi] Fetched webpage successfully for {video_id}")
+                            _log(f"[requests_tls12] Fetched webpage successfully for {video_id}")
                             return res.text
                     except Exception as ie_e:
-                        _log(f"[curl_cffi] Webpage fetch note: {ie_e}")
+                        _log(f"[requests_tls12] Webpage fetch note: {ie_e}")
                     return _orig_download_webpage(self, url_or_request, video_id, note=note, errnote=errnote, fatal=fatal, data=data, headers=headers, query=query, expected_status=expected_status)
 
                 InfoExtractor._orig_download_webpage = _orig_download_webpage
-                InfoExtractor._download_webpage = _curl_cffi_download_webpage
-                _log("InfoExtractor._download_webpage monkeypatched with curl_cffi Chrome impersonation.")
+                InfoExtractor._download_webpage = _requests_tls12_download_webpage
+                _log("InfoExtractor._download_webpage monkeypatched with requests TLSv12Adapter.")
             except Exception as patch_e:
                 _log(f"InfoExtractor patch note: {patch_e}")
 
