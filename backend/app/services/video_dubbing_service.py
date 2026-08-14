@@ -21,6 +21,21 @@ try:
         return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
     socket.getaddrinfo = _force_ipv4_getaddrinfo
 
+    _orig_ssl_new = ssl.SSLContext.__new__
+    def _patched_ssl_new(cls, protocol=ssl.PROTOCOL_TLS, *args, **kwargs):
+        ctx = _orig_ssl_new(cls, protocol, *args, **kwargs)
+        try:
+            if hasattr(ssl, 'TLSVersion'):
+                ctx.maximum_version = ssl.TLSVersion.TLSv1_2
+                ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+            if hasattr(ssl, 'OP_NO_TLSv1_3'):
+                ctx.options |= ssl.OP_NO_TLSv1_3
+            ctx.set_ciphers('DEFAULT:@SECLEVEL=1')
+        except Exception:
+            pass
+        return ctx
+    ssl.SSLContext.__new__ = _patched_ssl_new
+
     _orig_wrap_socket = ssl.SSLContext.wrap_socket
     def _tls12_wrap_socket(self, sock, *args, **kwargs):
         try:
@@ -230,6 +245,20 @@ class VideoDubbingService:
             code = (
                 "import sys, ssl\n"
                 f"sys.argv = {json.dumps(cli_args)}\n"
+                "_orig_ssl_new = ssl.SSLContext.__new__\n"
+                "def _patched_ssl_new(cls, protocol=ssl.PROTOCOL_TLS, *args, **kwargs):\n"
+                "    ctx = _orig_ssl_new(cls, protocol, *args, **kwargs)\n"
+                "    try:\n"
+                "        if hasattr(ssl, 'TLSVersion'):\n"
+                "            ctx.maximum_version = ssl.TLSVersion.TLSv1_2\n"
+                "            ctx.minimum_version = ssl.TLSVersion.TLSv1_2\n"
+                "        if hasattr(ssl, 'OP_NO_TLSv1_3'):\n"
+                "            ctx.options |= ssl.OP_NO_TLSv1_3\n"
+                "        ctx.set_ciphers('DEFAULT:@SECLEVEL=1')\n"
+                "    except Exception:\n"
+                "        pass\n"
+                "    return ctx\n"
+                "ssl.SSLContext.__new__ = _patched_ssl_new\n"
                 "_orig_ctx = ssl.create_default_context\n"
                 "def _patched_ctx(purpose=ssl.Purpose.SERVER_AUTH, cafile=None, capath=None, cadata=None):\n"
                 "    ctx = _orig_ctx(purpose=purpose, cafile=cafile, capath=capath, cadata=cadata)\n"
