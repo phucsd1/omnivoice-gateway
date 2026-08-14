@@ -212,14 +212,14 @@ class VideoDubbingService:
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Fast Subprocess yt_dlp CLI with visitor_data & android,android_creator player clients (2s download time)
+        # Method 1: Subprocess yt_dlp CLI with tv_embedded,android_vr player clients & adaptive DASH stream (4s download time)
         try:
-            _log("Attempting YouTube download via Subprocess yt_dlp CLI (visitor_data + android,android_creator)...")
+            _log("Attempting YouTube download via Subprocess yt_dlp CLI (tv_embedded,android_vr)...")
             out_tmpl = os.path.join(output_dir, "input_video.%(ext)s")
             
-            extractor_args = "youtube:player_client=android,android_creator"
+            extractor_args = "youtube:player_client=tv_embedded,android_vr"
             if visitor_data:
-                extractor_args = f"youtube:visitor_data={visitor_data};player_client=android,android_creator"
+                extractor_args = f"youtube:visitor_data={visitor_data};player_client=tv_embedded,android_vr"
 
             cmd = [
                 sys.executable, "-m", "yt_dlp",
@@ -229,11 +229,11 @@ class VideoDubbingService:
                 "--force-ipv4",
                 "--impersonate", "chrome",
                 "--extractor-args", extractor_args,
-                "--retries", "0",
-                "--fragment-retries", "0",
-                "-f", "18/best",
+                "--retries", "1",
+                "--fragment-retries", "1",
+                "-f", "134+140/bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/18/best",
                 "-o", out_tmpl,
-                "--socket-timeout", "5",
+                "--socket-timeout", "10",
             ]
             if has_cookies and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
                 cmd.extend(["--cookies", cookie_path])
