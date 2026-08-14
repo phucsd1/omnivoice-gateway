@@ -223,15 +223,9 @@ class VideoDubbingService:
         err_sub = None
         err_pytubefix = None
 
+        # Method 1: Direct native yt_dlp.YoutubeDL with android,mweb dual clients
         try:
-            from yt_dlp.networking.impersonate import ImpersonateTarget
-            chrome_target = ImpersonateTarget('chrome')
-        except Exception:
-            chrome_target = 'chrome'
-
-        # Method 1: Direct native yt_dlp.YoutubeDL with non-bot-checked mobile/tv clients
-        try:
-            _log("Attempting YouTube download via Direct yt_dlp.YoutubeDL (android + chrome impersonate)...")
+            _log("Attempting YouTube download via Direct yt_dlp.YoutubeDL (android, mweb)...")
             import yt_dlp
             out_tmpl = os.path.join(output_dir, "input_video.%(ext)s")
             
@@ -250,7 +244,6 @@ class VideoDubbingService:
                 'outtmpl': out_tmpl,
                 'format': '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
                 'merge_output_format': 'mp4',
-                'impersonate': chrome_target,
                 'quiet': False,
                 'no_warnings': True,
                 'nocheckcertificate': True,
@@ -260,7 +253,7 @@ class VideoDubbingService:
                 'logger': YtDlpLogger(),
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android']
+                        'player_client': ['android', 'mweb']
                     }
                 }
             }
@@ -288,7 +281,6 @@ class VideoDubbingService:
                 'outtmpl': out_tmpl,
                 'format': '18/best',
                 'merge_output_format': 'mp4',
-                'impersonate': chrome_target,
                 'quiet': True,
                 'no_warnings': True,
                 'nocheckcertificate': True,
@@ -297,7 +289,7 @@ class VideoDubbingService:
                 'socket_timeout': 30,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android']
+                        'player_client': ['android', 'mweb']
                     }
                 }
             }
@@ -319,12 +311,11 @@ class VideoDubbingService:
             _log("Attempting YouTube download via CLI subprocess yt-dlp with mobile/mweb clients...")
             cmd = [
                 sys.executable, "-m", "yt_dlp",
-                "--impersonate", "chrome",
                 "--no-warnings",
                 "--no-check-certificate",
                 "--legacy-server-connect",
                 "--force-ipv4",
-                "--extractor-args", "youtube:player_client=android",
+                "--extractor-args", "youtube:player_client=android,mweb",
                 "-f", "18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
