@@ -199,28 +199,19 @@ class VideoDubbingService:
                 except Exception:
                     pass
 
-        # Generate fresh visitorData token & cookies via curl_cffi to bypass bot checks on datacenter IPs
-        _log("Fetching fresh YouTube visitorData & cookies via curl_cffi...")
-        visitor_data = VideoDubbingService._fetch_visitor_data()
-        _log(f"visitorData fetched: {'YES (' + visitor_data[:15] + '...)' if visitor_data else 'NO'}")
+        # Generate fresh visitor cookies via curl_cffi to bypass bot checks on datacenter IPs
+        _log("Generating fresh YouTube visitor cookies via curl_cffi...")
         has_cookies = VideoDubbingService._generate_visitor_cookies(cookie_path, url)
-
-        # Format spec: best video + best audio merged into MP4 format, with fallback to best single file
-        format_spec = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/18/best"
 
         err_ytdlp = None
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Subprocess yt_dlp CLI with tv_embedded,android_vr player clients & adaptive DASH stream (4s download time)
+        # Method 1: Subprocess yt_dlp CLI with mweb,android_vr player clients & visitor cookies (5s download time)
         try:
-            _log("Attempting YouTube download via Subprocess yt_dlp CLI (tv_embedded,android_vr)...")
+            _log("Attempting YouTube download via Subprocess yt_dlp CLI (mweb,android_vr)...")
             out_tmpl = os.path.join(output_dir, "input_video.%(ext)s")
             
-            extractor_args = "youtube:player_client=tv_embedded,android_vr"
-            if visitor_data:
-                extractor_args = f"youtube:visitor_data={visitor_data};player_client=tv_embedded,android_vr"
-
             cmd = [
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
@@ -228,10 +219,10 @@ class VideoDubbingService:
                 "--legacy-server-connect",
                 "--force-ipv4",
                 "--impersonate", "chrome",
-                "--extractor-args", extractor_args,
+                "--extractor-args", "youtube:player_client=mweb,android_vr",
                 "--retries", "1",
                 "--fragment-retries", "1",
-                "-f", "134+140/bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/18/best",
+                "-f", "18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]",
                 "-o", out_tmpl,
                 "--socket-timeout", "10",
             ]
