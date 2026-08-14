@@ -26,6 +26,8 @@ try:
         ctx = _orig_create_default_context(purpose=purpose, cafile=cafile, capath=capath, cadata=cadata)
         try:
             ctx.set_ciphers('DEFAULT:@SECLEVEL=1')
+            if hasattr(ssl, 'OP_NO_TLSv1_3'):
+                ctx.options |= ssl.OP_NO_TLSv1_3
         except Exception:
             pass
         return ctx
@@ -41,70 +43,22 @@ try:
             ctx = ssl.create_default_context()
             try:
                 ctx.set_ciphers('DEFAULT:@SECLEVEL=1')
+                if hasattr(ssl, 'OP_NO_TLSv1_3'):
+                    ctx.options |= ssl.OP_NO_TLSv1_3
             except Exception:
                 pass
             kwargs['context'] = ctx
         else:
             try:
                 context.set_ciphers('DEFAULT:@SECLEVEL=1')
+                if hasattr(ssl, 'OP_NO_TLSv1_3'):
+                    context.options |= ssl.OP_NO_TLSv1_3
             except Exception:
                 pass
-    _orig_wrap_socket = ssl.SSLContext.wrap_socket
-    def _patched_wrap_socket(self, sock, *args, **kwargs):
-        try:
-            self.set_ciphers('DEFAULT:@SECLEVEL=1')
-        except Exception:
-            pass
-        try:
-            if hasattr(ssl, 'TLSVersion'):
-                self.maximum_version = ssl.TLSVersion.TLSv1_2
-        except Exception:
-            pass
-        return _orig_wrap_socket(self, sock, *args, **kwargs)
-    ssl.SSLContext.wrap_socket = _patched_wrap_socket
-except Exception:
-    pass
-
-# Monkeypatch urllib.request.urlopen to route all HTTP/HTTPS requests through curl_cffi Chrome impersonation
-try:
-    import urllib.request, io
-    from curl_cffi import requests as curl_requests
-
-    _orig_urlopen = urllib.request.urlopen
-
-    def _curl_cffi_urlopen(url, data=None, timeout=30, cafile=None, capath=None, cadefault=False, context=None):
-        try:
-            req_url = url.full_url if hasattr(url, 'full_url') else str(url)
-            headers = dict(url.headers) if hasattr(url, 'headers') else {}
-            clean_headers = {}
-            for k, v in headers.items():
-                if str(k).lower() not in ['host', 'content-length']:
-                    clean_headers[str(k)] = str(v)
-            req_data = data or (url.data if hasattr(url, 'data') else None)
-            method = (url.get_method() if hasattr(url, 'get_method') else None) or ('POST' if req_data else 'GET')
-            
-            res = curl_requests.request(
-                method=method,
-                url=req_url,
-                headers=clean_headers,
-                data=req_data,
-                impersonate='chrome',
-                timeout=timeout or 30,
-                verify=False
-            )
-            
-            fp = io.BytesIO(res.content)
-            resp = urllib.request.addinfourl(fp, res.headers, res.url, res.status_code)
-            resp.code = res.status_code
-            resp.msg = res.reason
-            return resp
-        except Exception:
-            return _orig_urlopen(url, data=data, timeout=timeout, cafile=cafile, capath=capath, cadefault=cadefault, context=context)
-
-    urllib.request.urlopen = _curl_cffi_urlopen
-    print("[VideoDubbingService] urllib.request.urlopen monkeypatched with curl_cffi Chrome impersonation!", flush=True)
+        _orig_https_init(self, *args, **kwargs)
+    http.client.HTTPSConnection.__init__ = _patched_https_init
 except Exception as e:
-    print(f"[VideoDubbingService] Failed to monkeypatch urlopen: {e}", flush=True)
+    print(f"[VideoDubbingService] SSL patch note: {e}", flush=True)
 
 class VideoDubbingService:
     @staticmethod
