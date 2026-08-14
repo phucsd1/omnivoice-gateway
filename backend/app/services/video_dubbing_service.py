@@ -54,57 +54,46 @@ try:
 except Exception:
     pass
 
-# Monkeypatch yt-dlp UrllibRH._send with curl_cffi Chrome TLS impersonation
+# Monkeypatch urllib.request.urlopen to route all HTTP/HTTPS requests through curl_cffi Chrome impersonation
 try:
-    import io
-    from yt_dlp.networking._urllib import UrllibRH
-    from yt_dlp.networking.common import Response
+    import urllib.request, io
     from curl_cffi import requests as curl_requests
 
-    _orig_urllib_send = UrllibRH._send
-    def _curl_cffi_urllib_send(self, request):
+    _orig_urlopen = urllib.request.urlopen
+
+    def _curl_cffi_urlopen(url, data=None, timeout=30, cafile=None, capath=None, cadefault=False, context=None):
         try:
+            req_url = url.full_url if hasattr(url, 'full_url') else str(url)
+            headers = dict(url.headers) if hasattr(url, 'headers') else {}
             clean_headers = {}
-            if hasattr(request, 'headers') and request.headers:
-                for k, v in dict(request.headers).items():
-                    if str(k).lower() in ['host', 'content-length']:
-                        continue
-                    if isinstance(v, bytes):
-                        v = v.decode('utf-8', 'ignore')
-                    elif isinstance(v, (list, tuple)):
-                        v = ', '.join(str(x) for x in v)
+            for k, v in headers.items():
+                if str(k).lower() not in ['host', 'content-length']:
                     clean_headers[str(k)] = str(v)
-                    
-            req_data = getattr(request, 'data', None)
-            if hasattr(req_data, 'read'):
-                req_data = req_data.read()
-                
-            method = getattr(request, 'method', None) or ('POST' if req_data else 'GET')
-            url = request.url
-            timeout = getattr(request, 'timeout', 30) or 30
+            req_data = data or (url.data if hasattr(url, 'data') else None)
+            method = (url.get_method() if hasattr(url, 'get_method') else None) or ('POST' if req_data else 'GET')
             
             res = curl_requests.request(
                 method=method,
-                url=url,
+                url=req_url,
                 headers=clean_headers,
                 data=req_data,
                 impersonate='chrome',
-                timeout=timeout,
+                timeout=timeout or 30,
                 verify=False
             )
-            body_stream = io.BytesIO(res.content)
-            res_headers = {}
-            for k, v in res.headers.items():
-                res_headers[str(k)] = str(v)
-            return Response(body_stream, res.url, res.status_code, res.reason, res_headers)
-        except Exception as e:
-            print(f"[URLLIB_SEND_ERR] {e}", flush=True)
-            return _orig_urllib_send(self, request)
+            
+            fp = io.BytesIO(res.content)
+            resp = urllib.request.addinfourl(fp, res.headers, res.url, res.status_code)
+            resp.code = res.status_code
+            resp.msg = res.reason
+            return resp
+        except Exception:
+            return _orig_urlopen(url, data=data, timeout=timeout, cafile=cafile, capath=capath, cadefault=cadefault, context=context)
 
-    UrllibRH._send = _curl_cffi_urllib_send
-    print("[VideoDubbingService] UrllibRH._send safely monkeypatched with curl_cffi Chrome impersonation!", flush=True)
+    urllib.request.urlopen = _curl_cffi_urlopen
+    print("[VideoDubbingService] urllib.request.urlopen monkeypatched with curl_cffi Chrome impersonation!", flush=True)
 except Exception as e:
-    print(f"[VideoDubbingService] Failed to monkeypatch UrllibRH: {e}", flush=True)
+    print(f"[VideoDubbingService] Failed to monkeypatch urlopen: {e}", flush=True)
 
 class VideoDubbingService:
     @staticmethod
