@@ -29,8 +29,8 @@ try:
             pass
         try:
             if hasattr(ssl, 'TLSVersion'):
-                self.minimum_version = ssl.TLSVersion.TLSv1_2
                 self.maximum_version = ssl.TLSVersion.TLSv1_2
+                self.minimum_version = ssl.TLSVersion.TLSv1_2
             if hasattr(ssl, 'OP_NO_TLSv1_3'):
                 self.options |= ssl.OP_NO_TLSv1_3
         except Exception:
@@ -44,8 +44,8 @@ try:
         try:
             ctx.set_ciphers('DEFAULT:@SECLEVEL=1')
             if hasattr(ssl, 'TLSVersion'):
-                ctx.minimum_version = ssl.TLSVersion.TLSv1_2
                 ctx.maximum_version = ssl.TLSVersion.TLSv1_2
+                ctx.minimum_version = ssl.TLSVersion.TLSv1_2
             if hasattr(ssl, 'OP_NO_TLSv1_3'):
                 ctx.options |= ssl.OP_NO_TLSv1_3
         except Exception:
@@ -205,8 +205,8 @@ class VideoDubbingService:
                 "        pass\n"
                 "    try:\n"
                 "        if hasattr(ssl, 'TLSVersion'):\n"
-                "            self.minimum_version = ssl.TLSVersion.TLSv1_2\n"
                 "            self.maximum_version = ssl.TLSVersion.TLSv1_2\n"
+                "            self.minimum_version = ssl.TLSVersion.TLSv1_2\n"
                 "        if hasattr(ssl, 'OP_NO_TLSv1_3'):\n"
                 "            self.options |= ssl.OP_NO_TLSv1_3\n"
                 "    except Exception:\n"
