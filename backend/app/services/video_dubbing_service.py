@@ -55,6 +55,11 @@ try:
             self.set_ciphers('DEFAULT:@SECLEVEL=1')
         except Exception:
             pass
+        try:
+            if hasattr(ssl, 'TLSVersion'):
+                self.maximum_version = ssl.TLSVersion.TLSv1_2
+        except Exception:
+            pass
         return _orig_wrap_socket(self, sock, *args, **kwargs)
     ssl.SSLContext.wrap_socket = _patched_wrap_socket
 except Exception:
