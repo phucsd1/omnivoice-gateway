@@ -185,8 +185,7 @@ class VideoDubbingService:
                 '--legacy-server-connect',
                 '--no-warnings',
                 '--extractor-args', 'youtube:player_client=android,mweb',
-                '-f', '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
-                '--merge-output-format', 'mp4',
+                '-f', '18/best',
                 '--socket-timeout', '30',
                 '-o', out_tmpl,
                 url
