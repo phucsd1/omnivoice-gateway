@@ -182,55 +182,28 @@ class VideoDubbingService:
             _log("Attempting YouTube download via Direct yt_dlp.YoutubeDL (android, mweb)...")
             import yt_dlp
             try:
-                import io
-                from yt_dlp.networking._urllib import UrllibRH
-                from yt_dlp.networking.common import Response
+                from yt_dlp.extractor.common import InfoExtractor
                 from curl_cffi import requests as curl_requests
 
-                _orig_urllib_send = getattr(UrllibRH, '_orig_send', UrllibRH._send)
+                _orig_download_webpage = getattr(InfoExtractor, '_orig_download_webpage', InfoExtractor._download_webpage)
 
-                def _curl_cffi_urllib_send(self, request):
+                def _curl_cffi_download_webpage(self, url_or_request, video_id, note=None, errnote=None, fatal=True, data=None, headers={}, query={}, expected_status=None):
                     try:
-                        clean_headers = {}
-                        if hasattr(request, 'headers') and request.headers:
-                            for k, v in dict(request.headers).items():
-                                if str(k).lower() in ['host', 'content-length']:
-                                    continue
-                                if isinstance(v, bytes):
-                                    v = v.decode('utf-8', 'ignore')
-                                elif isinstance(v, (list, tuple)):
-                                    v = ', '.join(str(x) for x in v)
-                                clean_headers[str(k)] = str(v)
-                                
-                        req_data = getattr(request, 'data', None)
-                        if hasattr(req_data, 'read'):
-                            req_data = req_data.read()
-                            
-                        method = getattr(request, 'method', None) or ('POST' if req_data else 'GET')
-                        url_str = request.url
-                        timeout = getattr(request, 'timeout', 30) or 30
-                        
-                        res = curl_requests.request(
-                            method=method,
-                            url=url_str,
-                            headers=clean_headers,
-                            data=req_data,
-                            impersonate='chrome',
-                            timeout=timeout,
-                            verify=False
-                        )
-                        body_stream = io.BytesIO(res.content)
-                        res_headers = {}
-                        for k, v in res.headers.items():
-                            res_headers[str(k)] = str(v)
-                        return Response(body_stream, res.url, res.status_code, res.reason, res_headers)
-                    except Exception:
-                        return _orig_urllib_send(self, request)
+                        url_str = url_or_request.full_url if hasattr(url_or_request, 'full_url') else str(url_or_request)
+                        sess = curl_requests.Session(impersonate='chrome')
+                        res = sess.get(url_str, headers=headers, params=query, timeout=15)
+                        if res.status_code == 200:
+                            _log(f"[curl_cffi] Fetched webpage successfully for {video_id}")
+                            return res.text
+                    except Exception as ie_e:
+                        _log(f"[curl_cffi] Webpage fetch note: {ie_e}")
+                    return _orig_download_webpage(self, url_or_request, video_id, note=note, errnote=errnote, fatal=fatal, data=data, headers=headers, query=query, expected_status=expected_status)
 
-                UrllibRH._orig_send = _orig_urllib_send
-                UrllibRH._send = _curl_cffi_urllib_send
+                InfoExtractor._orig_download_webpage = _orig_download_webpage
+                InfoExtractor._download_webpage = _curl_cffi_download_webpage
+                _log("InfoExtractor._download_webpage monkeypatched with curl_cffi Chrome impersonation.")
             except Exception as patch_e:
-                _log(f"UrllibRH patch note: {patch_e}")
+                _log(f"InfoExtractor patch note: {patch_e}")
 
             out_tmpl = os.path.join(output_dir, "input_video.%(ext)s")
             
