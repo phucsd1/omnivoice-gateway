@@ -173,98 +173,51 @@ class VideoDubbingService:
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Direct native yt_dlp.YoutubeDL with android,mweb dual clients
+        # Method 1: Subprocess yt_dlp CLI execution (clean, isolated process)
         try:
-            _log("Attempting YouTube download via Direct yt_dlp.YoutubeDL (android, mweb)...")
-            import yt_dlp
-            try:
-                from yt_dlp.extractor.common import InfoExtractor
-                import requests, ssl
-
-                class TLSv12Adapter(requests.adapters.HTTPAdapter):
-                    def init_poolmanager(self, *args, **kwargs):
-                        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-                        ctx.check_hostname = False
-                        ctx.verify_mode = ssl.CERT_NONE
-                        ctx.set_ciphers('DEFAULT:@SECLEVEL=1')
-                        if hasattr(ssl, 'OP_NO_TLSv1_3'):
-                            ctx.options |= ssl.OP_NO_TLSv1_3
-                        try:
-                            if hasattr(ssl, 'TLSVersion'):
-                                ctx.maximum_version = ssl.TLSVersion.TLSv1_2
-                        except Exception:
-                            pass
-                        kwargs['ssl_context'] = ctx
-                        return super().init_poolmanager(*args, **kwargs)
-
-                _tls12_session = requests.Session()
-                _tls12_session.mount('https://', TLSv12Adapter())
-
-                _orig_download_webpage = getattr(InfoExtractor, '_orig_download_webpage', InfoExtractor._download_webpage)
-
-                def _requests_tls12_download_webpage(self, url_or_request, video_id, note=None, errnote=None, fatal=True, data=None, headers={}, query={}, expected_status=None):
-                    try:
-                        url_str = url_or_request.full_url if hasattr(url_or_request, 'full_url') else str(url_or_request)
-                        clean_headers = {str(k): str(v) for k, v in headers.items()} if headers else {}
-                        clean_headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                        res = _tls12_session.get(url_str, headers=clean_headers, params=query, timeout=15)
-                        if res.status_code == 200:
-                            _log(f"[requests_tls12] Fetched webpage successfully for {video_id}")
-                            return res.text
-                    except Exception as ie_e:
-                        _log(f"[requests_tls12] Webpage fetch note: {ie_e}")
-                    return _orig_download_webpage(self, url_or_request, video_id, note=note, errnote=errnote, fatal=fatal, data=data, headers=headers, query=query, expected_status=expected_status)
-
-                InfoExtractor._orig_download_webpage = _orig_download_webpage
-                InfoExtractor._download_webpage = _requests_tls12_download_webpage
-                _log("InfoExtractor._download_webpage monkeypatched with requests TLSv12Adapter.")
-            except Exception as patch_e:
-                _log(f"InfoExtractor patch note: {patch_e}")
-
+            _log("Attempting YouTube download via Subprocess yt_dlp CLI (android, mweb)...")
             out_tmpl = os.path.join(output_dir, "input_video.%(ext)s")
-            
-            class YtDlpLogger:
-                def debug(self, msg):
-                    if "Downloading" in msg or "Extracting" in msg or "ERROR" in msg or "destination" in msg:
-                        _log(f"[yt_dlp] {msg}")
-                def info(self, msg):
-                    _log(f"[yt_dlp] {msg}")
-                def warning(self, msg):
-                    _log(f"[yt_dlp WARN] {msg}")
-                def error(self, msg):
-                    _log(f"[yt_dlp ERR] {msg}")
-
-            ydl_opts = {
-                'outtmpl': out_tmpl,
-                'format': '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
-                'merge_output_format': 'mp4',
-                'quiet': False,
-                'no_warnings': True,
-                'nocheckcertificate': True,
-                'legacy_server_connect': True,
-                'force_ipv4': True,
-                'socket_timeout': 30,
-                'logger': YtDlpLogger(),
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['android', 'mweb']
-                    }
-                }
-            }
+            cmd = [
+                sys.executable, '-m', 'yt_dlp',
+                '--force-ipv4',
+                '--no-check-certificate',
+                '--legacy-server-connect',
+                '--no-warnings',
+                '--extractor-args', 'youtube:player_client=android,mweb',
+                '-f', '18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]',
+                '--merge-output-format', 'mp4',
+                '--socket-timeout', '30',
+                '-o', out_tmpl,
+                url
+            ]
             if has_cookies and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
-                ydl_opts['cookiefile'] = cookie_path
-
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                title = info.get('title', 'YouTube Video')
-                for ext in ['.mp4', '.m4a', '.webm', '.mkv']:
-                    candidate = os.path.join(output_dir, f"input_video{ext}")
-                    if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
-                        _log(f"Direct yt_dlp.YoutubeDL download success: '{title}' ({candidate}, size={os.path.getsize(candidate)} bytes)")
-                        return candidate, title
+                cmd.extend(['--cookies', cookie_path])
+                
+            env = os.environ.copy()
+            env['PYTHONUNBUFFERED'] = '1'
+            
+            t0 = time.time()
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=90, env=env)
+            t1 = time.time()
+            
+            _log(f"yt_dlp CLI finished in {t1-t0:.2f}s with return code {res.returncode}")
+            if res.stdout:
+                for line in res.stdout.splitlines():
+                    if line.strip() and ("Extracting" in line or "Downloading" in line or "Destination" in line or "%" in line):
+                        _log(f"[yt_dlp_cli] {line.strip()}")
+            if res.stderr:
+                for line in res.stderr.splitlines():
+                    if line.strip() and ("ERROR" in line or "WARNING" in line or "WARN" in line):
+                        _log(f"[yt_dlp_cli_err] {line.strip()}")
+                        
+            for ext in ['.mp4', '.m4a', '.webm', '.mkv']:
+                candidate = os.path.join(output_dir, f"input_video{ext}")
+                if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
+                    _log(f"Subprocess yt_dlp CLI download success ({candidate}, size={os.path.getsize(candidate)} bytes)")
+                    return candidate, "YouTube Video"
         except Exception as e:
             err_ytdlp = e
-            _log(f"Direct yt_dlp.YoutubeDL failed: {e}")
+            _log(f"Subprocess yt_dlp CLI failed: {e}")
 
         # Method 2: Fast Progressive Stream (Format 18 / 360p fallback)
         try:
