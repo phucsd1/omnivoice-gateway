@@ -5,6 +5,50 @@ import signal
 import glob
 import shutil
 import sqlite3
+import ssl
+import socket
+
+# Force IPv4 socket resolution & TLS 1.2 on ALL SSLContext instances globally
+try:
+    _orig_getaddrinfo = socket.getaddrinfo
+    def _force_ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+        return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+    socket.getaddrinfo = _force_ipv4_getaddrinfo
+
+    _orig_ssl_new = ssl.SSLContext.__new__
+    def _patched_ssl_new(cls, protocol=ssl.PROTOCOL_TLS, *args, **kwargs):
+        ctx = _orig_ssl_new(cls, protocol, *args, **kwargs)
+        try:
+            if hasattr(ssl, 'TLSVersion'):
+                ctx.maximum_version = ssl.TLSVersion.TLSv1_2
+                ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+            if hasattr(ssl, 'OP_NO_TLSv1_3'):
+                ctx.options |= ssl.OP_NO_TLSv1_3
+            ctx.set_ciphers('DEFAULT:@SECLEVEL=1')
+        except Exception:
+            pass
+        return ctx
+    ssl.SSLContext.__new__ = _patched_ssl_new
+
+    _orig_wrap_socket = ssl.SSLContext.wrap_socket
+    def _tls12_wrap_socket(self, sock, *args, **kwargs):
+        try:
+            self.set_ciphers('DEFAULT:@SECLEVEL=1')
+        except Exception:
+            pass
+        try:
+            if hasattr(ssl, 'TLSVersion'):
+                self.maximum_version = ssl.TLSVersion.TLSv1_2
+                self.minimum_version = ssl.TLSVersion.TLSv1_2
+            if hasattr(ssl, 'OP_NO_TLSv1_3'):
+                self.options |= ssl.OP_NO_TLSv1_3
+        except Exception:
+            pass
+        return _orig_wrap_socket(self, sock, *args, **kwargs)
+    ssl.SSLContext.wrap_socket = _tls12_wrap_socket
+except Exception as e:
+    print(f"[Main] Global SSL patch error: {e}", flush=True)
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
