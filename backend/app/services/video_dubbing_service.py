@@ -207,9 +207,9 @@ class VideoDubbingService:
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Subprocess yt_dlp CLI with mweb,android_vr player clients & visitor cookies (5s download time)
+        # Method 1: Subprocess yt_dlp CLI with android_vr,tv_embedded player clients & DASH stream (4s download time)
         try:
-            _log("Attempting YouTube download via Subprocess yt_dlp CLI (mweb,android_vr)...")
+            _log("Attempting YouTube download via Subprocess yt_dlp CLI (android_vr,tv_embedded)...")
             out_tmpl = os.path.join(output_dir, "input_video.%(ext)s")
             
             cmd = [
@@ -219,12 +219,12 @@ class VideoDubbingService:
                 "--legacy-server-connect",
                 "--force-ipv4",
                 "--impersonate", "chrome",
-                "--extractor-args", "youtube:player_client=mweb,android_vr",
+                "--extractor-args", "youtube:player_client=android_vr,tv_embedded",
                 "--retries", "1",
                 "--fragment-retries", "1",
-                "-f", "18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]",
+                "-f", "134+140/bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/18/best",
                 "-o", out_tmpl,
-                "--socket-timeout", "10",
+                "--socket-timeout", "15",
             ]
             if has_cookies and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
                 cmd.extend(["--cookies", cookie_path])
