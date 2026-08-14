@@ -199,7 +199,7 @@ class VideoDubbingService:
                 "--no-check-certificate",
                 "--legacy-server-connect",
                 "--force-ipv4",
-                "--user-agent", "com.google.android.youtube/19.05.36 (Linux; U; Android 11; US) gzip",
+                "--impersonate", "chrome",
                 "--extractor-args", "youtube:player_client=android,android_creator",
                 "--retries", "2",
                 "--fragment-retries", "2",
