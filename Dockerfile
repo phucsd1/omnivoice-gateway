@@ -10,20 +10,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nodejs \
     npm \
     sqlite3 \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # Set up user with UID 1000 (Hugging Face Spaces requirement)
 RUN useradd -m -u 1000 user
 USER user
 ENV HOME=/home/user
-ENV PATH=/home/user/.local/bin:$PATH
+ENV DENO_INSTALL=$HOME/.deno
+ENV PATH=$HOME/.deno/bin:$HOME/.local/bin:$PATH
+
+# Install Deno for yt-dlp native JavaScript challenge solver
+RUN curl -fsSL https://deno.land/install.sh | sh
 
 # Set working directory inside home
 WORKDIR $HOME/app
 
 # Copy requirements and install dependencies
 COPY --chown=user backend/requirements.txt $HOME/app/requirements.txt
-RUN pip install --no-cache-dir --user -r $HOME/app/requirements.txt && pip install --no-cache-dir --user curl_cffi "yt-dlp[default,curl-cffi]" bgutil-ytdlp-pot-provider
+RUN pip install --no-cache-dir --user -r $HOME/app/requirements.txt && pip install --no-cache-dir --user curl_cffi "yt-dlp[default,curl-cffi]" bgutil-ytdlp-pot-provider && python3 -m yt_dlp --remote-components ejs:github --version || true
 
 # Copy all files and set ownership to user
 COPY --chown=user . $HOME/app
