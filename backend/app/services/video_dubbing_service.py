@@ -12,43 +12,46 @@ from typing import List, Dict, Any, Tuple, Optional
 from sqlalchemy.orm import Session
 from app.config import settings
 
-# High-Performance Chrome TLS Impersonation Bridge for yt-dlp to bypass datacenter IP and bot blocks
+# High-Performance Chrome TLS Impersonation Bridge for urllib & yt-dlp to bypass datacenter IP and bot blocks
 try:
     import io
-    import yt_dlp.networking._urllib
-    import yt_dlp.networking.common
+    import http.client
+    import urllib.request
     from curl_cffi import requests as curl_requests
 
-    _orig_urllib_send = yt_dlp.networking._urllib.UrllibRH._send
+    class _CffiHTTPResponse:
+        def __init__(self, res):
+            self._res = res
+            self.status = res.status_code
+            self.code = res.status_code
+            self.reason = res.reason
+            self.headers = http.client.HTTPMessage()
+            for k, v in res.headers.items():
+                self.headers.add_header(k, v)
+            self.fp = io.BytesIO(res.content)
+        def read(self, *a, **kw): return self.fp.read(*a, **kw)
+        def readline(self, *a, **kw): return self.fp.readline(*a, **kw)
+        def close(self): self.fp.close()
+        def info(self): return self.headers
+        def getcode(self): return self.code
+        def geturl(self): return self._res.url
 
-    def _chrome_tls_bridge_send(self, request):
+    _orig_opener_open = urllib.request.OpenerDirector.open
+
+    def _cffi_opener_open(self, fullurl, data=None, timeout=None):
         try:
-            m = request.method or 'GET'
-            h = dict(request.headers) if request.headers else {}
-            d = request.data
-            to = request.extensions.get('timeout', 60) or 60
-            r = curl_requests.request(
-                method=m,
-                url=request.url,
-                headers=h,
-                data=d,
-                timeout=to,
-                impersonate='chrome',
-                verify=False,
-                stream=True
-            )
-            return yt_dlp.networking.common.Response(
-                fp=io.BytesIO(r.content),
-                url=r.url,
-                headers=dict(r.headers),
-                status=r.status_code,
-                reason=r.reason
-            )
-        except Exception as e:
-            print(f"[UrllibChromeBridge] Failed on {request.url}: {e}", flush=True)
-            return _orig_urllib_send(self, request)
+            req = fullurl
+            u = req.full_url if hasattr(req, 'full_url') else str(req)
+            h = dict(req.headers) if hasattr(req, 'headers') else {}
+            d = req.data if hasattr(req, 'data') else data
+            m = req.get_method() if hasattr(req, 'get_method') else ('POST' if d else 'GET')
+            to = timeout or 60
+            r = curl_requests.request(method=m, url=u, headers=h, data=d, timeout=to, impersonate='chrome', verify=False)
+            return _CffiHTTPResponse(r)
+        except Exception:
+            return _orig_opener_open(self, fullurl, data=data, timeout=timeout)
 
-    yt_dlp.networking._urllib.UrllibRH._send = _chrome_tls_bridge_send
+    urllib.request.OpenerDirector.open = _cffi_opener_open
 except Exception as e:
     print(f"[VideoDubbingService] Chrome TLS bridge init note: {e}", flush=True)
 

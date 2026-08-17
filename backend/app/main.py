@@ -8,20 +8,48 @@ import sqlite3
 import ssl
 import socket
 
-# Configure standard browser TLS ciphers for OpenSSL to bypass datacenter IP TLS filtering (AWS / HF Spaces)
+# Configure global Chrome TLS impersonation bridge for urllib and requests
 try:
-    def _setup_browser_ssl_context():
-        ctx = ssl.create_default_context()
-        ctx.maximum_version = ssl.TLSVersion.TLSv1_2
-        ctx.set_ciphers('ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384')
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-        return ctx
+    import io
+    import http.client
+    import urllib.request
+    from curl_cffi import requests as curl_requests
 
-    ssl._create_default_https_context = _setup_browser_ssl_context
-    ssl._create_unverified_context = _setup_browser_ssl_context
+    class _GlobalCffiHTTPResponse:
+        def __init__(self, res):
+            self._res = res
+            self.status = res.status_code
+            self.code = res.status_code
+            self.reason = res.reason
+            self.headers = http.client.HTTPMessage()
+            for k, v in res.headers.items():
+                self.headers.add_header(k, v)
+            self.fp = io.BytesIO(res.content)
+        def read(self, *a, **kw): return self.fp.read(*a, **kw)
+        def readline(self, *a, **kw): return self.fp.readline(*a, **kw)
+        def close(self): self.fp.close()
+        def info(self): return self.headers
+        def getcode(self): return self.code
+        def geturl(self): return self._res.url
+
+    _orig_global_open = urllib.request.OpenerDirector.open
+
+    def _global_cffi_open(self, fullurl, data=None, timeout=None):
+        try:
+            req = fullurl
+            u = req.full_url if hasattr(req, 'full_url') else str(req)
+            h = dict(req.headers) if hasattr(req, 'headers') else {}
+            d = req.data if hasattr(req, 'data') else data
+            m = req.get_method() if hasattr(req, 'get_method') else ('POST' if d else 'GET')
+            to = timeout or 60
+            r = curl_requests.request(method=m, url=u, headers=h, data=d, timeout=to, impersonate='chrome', verify=False)
+            return _GlobalCffiHTTPResponse(r)
+        except Exception:
+            return _orig_global_open(self, fullurl, data=data, timeout=timeout)
+
+    urllib.request.OpenerDirector.open = _global_cffi_open
 except Exception as e:
-    print(f"[Main] Browser SSL context note: {e}", flush=True)
+    print(f"[Main] Global Chrome TLS bridge note: {e}", flush=True)
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
