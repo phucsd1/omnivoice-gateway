@@ -166,6 +166,7 @@ class VideoDubbingService:
         try:
             _log(f"Attempting in-process yt_dlp with Node.js/Deno JS solver & web_embedded client ({target_yt_url})...")
             import yt_dlp
+            from yt_dlp.networking.impersonate import ImpersonateTarget
 
             class YtDlpLogger:
                 def debug(self, msg):
@@ -184,8 +185,7 @@ class VideoDubbingService:
                 'outtmpl': os.path.join(output_dir, "input_video.%(ext)s"),
                 'logger': YtDlpLogger(),
                 'nocheckcertificate': True,
-                'source_address': '0.0.0.0',
-                'legacy_server_connect': True,
+                'impersonate': ImpersonateTarget.from_str('safari'),
                 'remote_components': ['ejs:github'],
                 'js_runtimes': {
                     'deno': {},
