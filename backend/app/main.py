@@ -8,46 +8,20 @@ import sqlite3
 import ssl
 import socket
 
-# Force IPv4 socket resolution & TLS 1.2 on ALL SSLContext instances globally
+# Configure standard browser TLS ciphers for OpenSSL to bypass datacenter IP TLS filtering (AWS / HF Spaces)
 try:
-    _orig_getaddrinfo = socket.getaddrinfo
-    def _force_ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
-        return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
-    socket.getaddrinfo = _force_ipv4_getaddrinfo
-
-    _orig_ssl_new = ssl.SSLContext.__new__
-    def _patched_ssl_new(cls, protocol=ssl.PROTOCOL_TLS, *args, **kwargs):
-        ctx = _orig_ssl_new(cls, protocol, *args, **kwargs)
-        try:
-            if hasattr(ssl, 'TLSVersion'):
-                ctx.maximum_version = ssl.TLSVersion.TLSv1_2
-                ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-            if hasattr(ssl, 'OP_NO_TLSv1_3'):
-                ctx.options |= ssl.OP_NO_TLSv1_3
-            ctx.set_ciphers('DEFAULT:@SECLEVEL=1')
-        except Exception:
-            pass
+    def _setup_browser_ssl_context():
+        ctx = ssl.create_default_context()
+        ctx.maximum_version = ssl.TLSVersion.TLSv1_2
+        ctx.set_ciphers('ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384')
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
         return ctx
-    ssl.SSLContext.__new__ = _patched_ssl_new
 
-    _orig_wrap_socket = ssl.SSLContext.wrap_socket
-    def _tls12_wrap_socket(self, sock, *args, **kwargs):
-        try:
-            self.set_ciphers('DEFAULT:@SECLEVEL=1')
-        except Exception:
-            pass
-        try:
-            if hasattr(ssl, 'TLSVersion'):
-                self.maximum_version = ssl.TLSVersion.TLSv1_2
-                self.minimum_version = ssl.TLSVersion.TLSv1_2
-            if hasattr(ssl, 'OP_NO_TLSv1_3'):
-                self.options |= ssl.OP_NO_TLSv1_3
-        except Exception:
-            pass
-        return _orig_wrap_socket(self, sock, *args, **kwargs)
-    ssl.SSLContext.wrap_socket = _tls12_wrap_socket
+    ssl._create_default_https_context = _setup_browser_ssl_context
+    ssl._create_unverified_context = _setup_browser_ssl_context
 except Exception as e:
-    print(f"[Main] Global SSL patch error: {e}", flush=True)
+    print(f"[Main] Browser SSL context note: {e}", flush=True)
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
