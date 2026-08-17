@@ -162,10 +162,36 @@ class VideoDubbingService:
         v_match = re.search(r'(?:v=|\/embed\/|\.be\/)([0-9A-Za-z_-]{11})', url)
         target_yt_url = f"https://www.youtube.com/embed/{v_match.group(1)}" if v_match else url
 
-        # Method 1: Direct in-process Python yt_dlp with Node.js/Deno JS solver & web_embedded
+        # Method 1: Direct in-process Python yt_dlp with Chrome TLS bridge & Node.js/Deno challenge solver
         try:
-            _log(f"Attempting in-process yt_dlp with Node.js/Deno JS solver & web_embedded client ({target_yt_url})...")
+            _log(f"Attempting in-process yt_dlp with Chrome TLS bridge & Node.js/Deno solver ({url})...")
+            import io
             import yt_dlp
+            import yt_dlp.networking._urllib
+            import yt_dlp.networking.common
+            from curl_cffi import requests as curl_requests
+
+            cffi_sess = curl_requests.Session(impersonate='chrome')
+            _orig_send = yt_dlp.networking._urllib.UrllibRH._send
+
+            def _chrome_tls_send(self, request):
+                try:
+                    u = request.url
+                    m = request.method or 'GET'
+                    h = dict(request.headers)
+                    d = request.data
+                    r = cffi_sess.request(method=m, url=u, headers=h, data=d, timeout=60, stream=True)
+                    return yt_dlp.networking.common.Response(
+                        fp=io.BytesIO(r.content),
+                        url=r.url,
+                        headers=dict(r.headers),
+                        status=r.status_code,
+                        reason=r.reason
+                    )
+                except Exception:
+                    return _orig_send(self, request)
+
+            yt_dlp.networking._urllib.UrllibRH._send = _chrome_tls_send
 
             class YtDlpLogger:
                 def debug(self, msg):
@@ -184,26 +210,17 @@ class VideoDubbingService:
                 'outtmpl': os.path.join(output_dir, "input_video.%(ext)s"),
                 'logger': YtDlpLogger(),
                 'nocheckcertificate': True,
-                'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                    'Sec-Fetch-Mode': 'navigate',
-                    'Sec-Fetch-Site': 'none',
-                    'Sec-Fetch-User': '?1',
-                    'Sec-Fetch-Dest': 'document',
-                },
+                'extractor_retries': 0,
+                'retries': 2,
+                'socket_timeout': 30,
                 'remote_components': ['ejs:github'],
                 'js_runtimes': {
                     'deno': {},
                     'node': {},
                 },
-                'extractor_retries': 0,
-                'retries': 2,
-                'socket_timeout': 20,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['mweb', 'web_embedded']
+                        'player_client': ['web_embedded', 'mweb']
                     }
                 },
             }
