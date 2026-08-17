@@ -200,7 +200,7 @@ class VideoDubbingService:
                 },
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['web_embedded', 'mweb']
+                        'player_client': ['android_vr', 'web_embedded']
                     }
                 },
                 'socket_timeout': 30,
@@ -210,7 +210,7 @@ class VideoDubbingService:
 
             t0 = time.time()
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(target_yt_url, download=True)
+                info = ydl.extract_info(url, download=True)
                 title = info.get('title', 'YouTube Video') if info else 'YouTube Video'
                 t1 = time.time()
                 
