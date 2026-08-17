@@ -12,32 +12,40 @@ from typing import List, Dict, Any, Tuple, Optional
 from sqlalchemy.orm import Session
 from app.config import settings
 
-import ssl
-
-# Configure real browser TLS ciphers for OpenSSL to bypass datacenter IP TLS filtering (AWS / HF Spaces)
-def _setup_browser_ssl_context():
-    ctx = ssl.create_default_context()
-    ctx.maximum_version = ssl.TLSVersion.TLSv1_2
-    ctx.set_ciphers('ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384')
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    return ctx
-
+# High-Performance Chrome TLS Impersonation Bridge for yt-dlp to bypass datacenter IP and bot blocks
 try:
-    ssl._create_default_https_context = _setup_browser_ssl_context
-    ssl._create_unverified_context = _setup_browser_ssl_context
-except Exception as e:
-    print(f"[VideoDubbingService] SSL context note: {e}", flush=True)
+    import io
+    import yt_dlp.networking._urllib
+    import yt_dlp.networking.common
+    from curl_cffi import requests as curl_requests
 
-# Patch yt_dlp native CurlCFFIRH to force verify=False (bypasses BoringSSL CA bundle lookup on Linux)
-try:
-    import yt_dlp.networking._curlcffi
-    import curl_cffi.requests
-    def _patched_curlcffi_create_instance(self, cookiejar=None):
-        return curl_cffi.requests.Session(cookies=cookiejar, verify=False)
-    yt_dlp.networking._curlcffi.CurlCFFIRH._create_instance = _patched_curlcffi_create_instance
+    _global_cffi_sess = curl_requests.Session(impersonate='chrome', verify=False)
+
+    def _chrome_tls_bridge_send(self, request):
+        try:
+            r = _global_cffi_sess.request(
+                method=request.method or 'GET',
+                url=request.url,
+                headers=dict(request.headers),
+                data=request.data,
+                timeout=request.extensions.get('timeout', 60) or 60,
+                verify=False,
+                stream=True
+            )
+            return yt_dlp.networking.common.Response(
+                fp=io.BytesIO(r.content),
+                url=r.url,
+                headers=dict(r.headers),
+                status=r.status_code,
+                reason=r.reason
+            )
+        except Exception:
+            return _orig_urllib_send(self, request)
+
+    _orig_urllib_send = yt_dlp.networking._urllib.UrllibRH._send
+    yt_dlp.networking._urllib.UrllibRH._send = _chrome_tls_bridge_send
 except Exception as e:
-    print(f"[VideoDubbingService] CurlCFFIRH patch note: {e}", flush=True)
+    print(f"[VideoDubbingService] Chrome TLS bridge init note: {e}", flush=True)
 
 class VideoDubbingService:
     @staticmethod
@@ -189,11 +197,10 @@ class VideoDubbingService:
         v_match = re.search(r'(?:v=|\/embed\/|\.be\/)([0-9A-Za-z_-]{11})', url)
         target_yt_url = f"https://www.youtube.com/embed/{v_match.group(1)}" if v_match else url
 
-        # Method 1: Direct in-process Python yt_dlp with Chrome TLS Impersonation & Node.js/Deno solver
+        # Method 1: Direct in-process Python yt_dlp with Chrome TLS Impersonation Bridge & Node.js solver
         try:
-            _log(f"Attempting in-process yt_dlp with Chrome TLS impersonation ({url})...")
+            _log(f"Attempting in-process yt_dlp with Chrome TLS bridge ({url})...")
             import yt_dlp
-            from yt_dlp.networking.impersonate import ImpersonateTarget
 
             class YtDlpLogger:
                 def debug(self, msg):
@@ -208,7 +215,6 @@ class VideoDubbingService:
                     _log(f"[yt-dlp ERR] {msg}")
             
             ydl_opts = {
-                'impersonate': ImpersonateTarget.from_str('chrome'),
                 'format': 'bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/18/best',
                 'outtmpl': os.path.join(output_dir, "input_video.%(ext)s"),
                 'logger': YtDlpLogger(),
