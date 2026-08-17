@@ -244,6 +244,8 @@ class VideoDubbingService:
                 'outtmpl': os.path.join(output_dir, "input_video.%(ext)s"),
                 'logger': YtDlpLogger(),
                 'nocheckcertificate': True,
+                'source_address': '0.0.0.0',
+                'legacy_server_connect': True,
                 'remote_components': ['ejs:github'],
                 'js_runtimes': {
                     'deno': {},
