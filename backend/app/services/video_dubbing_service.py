@@ -19,16 +19,21 @@ try:
     import yt_dlp.networking.common
     from curl_cffi import requests as curl_requests
 
-    _global_cffi_sess = curl_requests.Session(impersonate='chrome', verify=False)
+    _orig_urllib_send = yt_dlp.networking._urllib.UrllibRH._send
 
     def _chrome_tls_bridge_send(self, request):
         try:
-            r = _global_cffi_sess.request(
-                method=request.method or 'GET',
+            m = request.method or 'GET'
+            h = dict(request.headers) if request.headers else {}
+            d = request.data
+            to = request.extensions.get('timeout', 60) or 60
+            r = curl_requests.request(
+                method=m,
                 url=request.url,
-                headers=dict(request.headers),
-                data=request.data,
-                timeout=request.extensions.get('timeout', 60) or 60,
+                headers=h,
+                data=d,
+                timeout=to,
+                impersonate='chrome',
                 verify=False,
                 stream=True
             )
@@ -39,10 +44,10 @@ try:
                 status=r.status_code,
                 reason=r.reason
             )
-        except Exception:
+        except Exception as e:
+            print(f"[UrllibChromeBridge] Failed on {request.url}: {e}", flush=True)
             return _orig_urllib_send(self, request)
 
-    _orig_urllib_send = yt_dlp.networking._urllib.UrllibRH._send
     yt_dlp.networking._urllib.UrllibRH._send = _chrome_tls_bridge_send
 except Exception as e:
     print(f"[VideoDubbingService] Chrome TLS bridge init note: {e}", flush=True)
@@ -238,7 +243,7 @@ class VideoDubbingService:
 
             t0 = time.time()
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
+                info = ydl.extract_info(target_yt_url, download=True)
                 title = info.get('title', 'YouTube Video') if info else 'YouTube Video'
                 t1 = time.time()
                 
