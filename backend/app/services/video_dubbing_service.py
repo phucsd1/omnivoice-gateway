@@ -217,15 +217,14 @@ class VideoDubbingService:
                 except Exception:
                     pass
 
-        err_ytdlp = None
-        err_sub = None
-        err_pytubefix = None
+        # Standardize URL to embed endpoint to avoid main webpage SSL handshake drop on cloud datacenters
+        v_match = re.search(r'(?:v=|\/embed\/|\.be\/)([0-9A-Za-z_-]{11})', url)
+        target_yt_url = f"https://www.youtube.com/embed/{v_match.group(1)}" if v_match else url
 
-        # Method 1: Direct in-process Python yt_dlp with Chrome TLS impersonation, Node.js/Deno JS solver & web_embedded
+        # Method 1: Direct in-process Python yt_dlp with Node.js/Deno JS solver & web_embedded
         try:
-            _log("Attempting in-process yt_dlp with Chrome TLS impersonation, Node.js/Deno JS solver & web_embedded client...")
+            _log(f"Attempting in-process yt_dlp with Node.js/Deno JS solver & web_embedded client ({target_yt_url})...")
             import yt_dlp
-            from yt_dlp.networking.impersonate import ImpersonateTarget
 
             class YtDlpLogger:
                 def debug(self, msg):
@@ -263,7 +262,7 @@ class VideoDubbingService:
 
             t0 = time.time()
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
+                info = ydl.extract_info(target_yt_url, download=True)
                 title = info.get('title', 'YouTube Video') if info else 'YouTube Video'
                 t1 = time.time()
                 
