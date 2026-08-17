@@ -76,14 +76,52 @@ def debug_log():
             return {"log": f.read()}
     return {"log": "No log file found"}
 
-@router.get("/debug-targets")
-def debug_targets():
-    import subprocess, sys
-    try:
-        res = subprocess.run([sys.executable, "-m", "yt_dlp", "--list-impersonate-targets"], capture_output=True, text=True, timeout=10)
-        return {"stdout": res.stdout, "stderr": res.stderr}
-    except Exception as e:
-        return {"error": str(e)}
+@router.get("/cookie-status")
+def get_cookie_status():
+    bundled_cookies = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "cookies.txt"))
+    storage_cookies = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "storage", "cookies.txt"))
+    
+    for ck in [storage_cookies, bundled_cookies]:
+        if os.path.exists(ck) and os.path.getsize(ck) > 0:
+            return {
+                "has_cookies": True,
+                "path": ck,
+                "size_bytes": os.path.getsize(ck),
+                "modified_at": os.path.getmtime(ck)
+            }
+    return {"has_cookies": False, "size_bytes": 0}
+
+@router.post("/upload-cookies")
+async def upload_cookies(file: Optional[UploadFile] = File(None), cookie_text: Optional[str] = Form(None)):
+    storage_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "storage"))
+    os.makedirs(storage_dir, exist_ok=True)
+    target_path = os.path.join(storage_dir, "cookies.txt")
+    
+    content = ""
+    if file:
+        content_bytes = await file.read()
+        content = content_bytes.decode("utf-8", errors="ignore")
+    elif cookie_text:
+        content = cookie_text
+    else:
+        raise HTTPException(status_code=400, detail="Cần cung cấp file cookies.txt hoặc nội dung cookie.")
+        
+    with open(target_path, "w", encoding="utf-8") as f:
+        f.write(content)
+        
+    return {"status": "success", "message": f"Đã lưu cookies.txt thành công ({len(content)} ký tự)", "size_bytes": len(content)}
+
+@router.delete("/delete-cookies")
+def delete_cookies():
+    storage_cookies = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "storage", "cookies.txt"))
+    bundled_cookies = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "cookies.txt"))
+    for ck in [storage_cookies, bundled_cookies]:
+        if os.path.exists(ck):
+            try:
+                os.remove(ck)
+            except Exception:
+                pass
+    return {"status": "success", "message": "Đã xóa file cookies."}
 
 def run_dubbing_pipeline(job_id: str):
     """Background task to run the video dubbing stages (Download -> Extract Audio -> Separate -> Transcribe -> Translate)."""

@@ -752,6 +752,26 @@ export const api = {
     });
   },
 
+  getDubbingCookieStatus: async (): Promise<{ has_cookies: boolean; size_bytes?: number; path?: string; modified_at?: number }> => {
+    return request<{ has_cookies: boolean; size_bytes?: number; path?: string; modified_at?: number }>("/v1/video-dubbing/cookie-status");
+  },
+
+  uploadDubbingCookies: async (file?: File, cookieText?: string): Promise<{ status: string; message: string; size_bytes: number }> => {
+    const formData = new FormData();
+    if (file) formData.append("file", file);
+    if (cookieText) formData.append("cookie_text", cookieText);
+    return request<{ status: string; message: string; size_bytes: number }>("/v1/video-dubbing/upload-cookies", {
+      method: "POST",
+      body: formData,
+    });
+  },
+
+  deleteDubbingCookies: async (): Promise<{ status: string; message: string }> => {
+    return request<{ status: string; message: string }>("/v1/video-dubbing/delete-cookies", {
+      method: "DELETE",
+    });
+  },
+
   getDubbingJobLog: async (jobId: string): Promise<{ log: string }> => {
     return request<{ log: string }>(`/v1/video-dubbing/jobs/${jobId}/log?t=${Date.now()}`);
   },
