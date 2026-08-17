@@ -4,72 +4,23 @@ import time
 import subprocess
 import shutil
 import json
+import re
 import requests
 import soundfile as sf
 import numpy as np
 from typing import List, Dict, Any, Tuple, Optional
 from sqlalchemy.orm import Session
 from app.config import settings
-# Force IPv4 socket resolution & SSL context globally at module import time
+
+# Force IPv4 socket resolution globally
 try:
     import socket
-    import ssl
-    import http.client
-
     _orig_getaddrinfo = socket.getaddrinfo
     def _force_ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
         return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
     socket.getaddrinfo = _force_ipv4_getaddrinfo
-
-    _orig_ssl_new = ssl.SSLContext.__new__
-    def _patched_ssl_new(cls, protocol=ssl.PROTOCOL_TLS, *args, **kwargs):
-        ctx = _orig_ssl_new(cls, protocol, *args, **kwargs)
-        try:
-            if hasattr(ssl, 'TLSVersion'):
-                ctx.maximum_version = ssl.TLSVersion.TLSv1_2
-                ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-            if hasattr(ssl, 'OP_NO_TLSv1_3'):
-                ctx.options |= ssl.OP_NO_TLSv1_3
-            ctx.set_ciphers('DEFAULT:@SECLEVEL=1')
-        except Exception:
-            pass
-        return ctx
-    ssl.SSLContext.__new__ = _patched_ssl_new
-
-    _orig_wrap_socket = ssl.SSLContext.wrap_socket
-    def _tls12_wrap_socket(self, sock, *args, **kwargs):
-        try:
-            self.set_ciphers('DEFAULT:@SECLEVEL=1')
-        except Exception:
-            pass
-        try:
-            if hasattr(ssl, 'TLSVersion'):
-                self.maximum_version = ssl.TLSVersion.TLSv1_2
-                self.minimum_version = ssl.TLSVersion.TLSv1_2
-            if hasattr(ssl, 'OP_NO_TLSv1_3'):
-                self.options |= ssl.OP_NO_TLSv1_3
-        except Exception:
-            pass
-        return _orig_wrap_socket(self, sock, *args, **kwargs)
-    ssl.SSLContext.wrap_socket = _tls12_wrap_socket
-
-    _orig_create_default_context = ssl.create_default_context
-    def _custom_ssl_context(purpose=ssl.Purpose.SERVER_AUTH, cafile=None, capath=None, cadata=None):
-        ctx = _orig_create_default_context(purpose=purpose, cafile=cafile, capath=capath, cadata=cadata)
-        try:
-            ctx.set_ciphers('DEFAULT:@SECLEVEL=1')
-            if hasattr(ssl, 'TLSVersion'):
-                ctx.maximum_version = ssl.TLSVersion.TLSv1_2
-                ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-            if hasattr(ssl, 'OP_NO_TLSv1_3'):
-                ctx.options |= ssl.OP_NO_TLSv1_3
-        except Exception:
-            pass
-        return ctx
-    ssl.create_default_context = _custom_ssl_context
-    ssl._create_default_https_context = _custom_ssl_context
 except Exception as e:
-    print(f"[VideoDubbingService] Global SSL patch note: {e}", flush=True)
+    print(f"[VideoDubbingService] IPv4 patch note: {e}", flush=True)
 
 class VideoDubbingService:
     @staticmethod
