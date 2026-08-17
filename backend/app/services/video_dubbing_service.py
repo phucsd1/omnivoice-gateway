@@ -221,21 +221,35 @@ class VideoDubbingService:
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Direct in-process Python yt_dlp with Chrome TLS impersonation, Node.js JS solver & web_embedded
+        # Method 1: Direct in-process Python yt_dlp with Chrome TLS impersonation, Node.js/Deno JS solver & web_embedded
         try:
-            _log("Attempting in-process yt_dlp with Chrome TLS impersonation, Node.js JS solver & web_embedded client...")
+            _log("Attempting in-process yt_dlp with Chrome TLS impersonation, Node.js/Deno JS solver & web_embedded client...")
             import yt_dlp
             from yt_dlp.networking.impersonate import ImpersonateTarget
+
+            class YtDlpLogger:
+                def debug(self, msg):
+                    if msg.startswith('[download]') and '%' in msg:
+                        return
+                    _log(f"[yt-dlp] {msg}")
+                def info(self, msg):
+                    _log(f"[yt-dlp] {msg}")
+                def warning(self, msg):
+                    _log(f"[yt-dlp WARN] {msg}")
+                def error(self, msg):
+                    _log(f"[yt-dlp ERR] {msg}")
             
             ydl_opts = {
                 'format': 'bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/18/best',
                 'outtmpl': os.path.join(output_dir, "input_video.%(ext)s"),
-                'quiet': True,
-                'no_warnings': True,
+                'logger': YtDlpLogger(),
                 'nocheckcertificate': True,
                 'impersonate': ImpersonateTarget.from_str('chrome'),
                 'remote_components': ['ejs:github'],
-                'js_runtimes': {'node': {}},
+                'js_runtimes': {
+                    'deno': {},
+                    'node': {},
+                },
                 'extractor_args': {
                     'youtube': {
                         'player_client': ['web_embedded', 'mweb']
