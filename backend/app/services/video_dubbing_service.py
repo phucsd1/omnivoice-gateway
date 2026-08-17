@@ -198,12 +198,14 @@ class VideoDubbingService:
                     'deno': {},
                     'node': {},
                 },
+                'extractor_retries': 0,
+                'retries': 2,
+                'socket_timeout': 20,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_vr', 'web_embedded']
+                        'player_client': ['mweb', 'web_embedded']
                     }
                 },
-                'socket_timeout': 30,
             }
             if has_user_cookies and cookie_path:
                 ydl_opts['cookiefile'] = cookie_path
