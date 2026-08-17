@@ -126,16 +126,16 @@ class VideoDubbingService:
 
     @staticmethod
     def ensure_dependencies():
-        """Dynamically ensures yt-dlp, curl_cffi, and POT provider are installed."""
+        """Dynamically ensures pytubefix, yt-dlp, curl_cffi, and POT provider are installed."""
         try:
-            import curl_cffi
+            import pytubefix
             import yt_dlp
         except ImportError:
-            print("[VideoDubbingService] Installing yt-dlp dependencies...")
+            print("[VideoDubbingService] Installing youtube download dependencies...")
             try:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "-U", "curl_cffi", "yt-dlp[default,curl-cffi]", "bgutil-ytdlp-pot-provider"])
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "-U", "pytubefix", "curl_cffi", "yt-dlp[default,curl-cffi]", "bgutil-ytdlp-pot-provider"])
             except Exception:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "-U", "curl_cffi", "yt-dlp[default,curl-cffi]", "bgutil-ytdlp-pot-provider"])
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "-U", "pytubefix", "curl_cffi", "yt-dlp[default,curl-cffi]", "bgutil-ytdlp-pot-provider"])
 
     @staticmethod
     def _fetch_visitor_data() -> str:
@@ -250,9 +250,51 @@ class VideoDubbingService:
         v_match = re.search(r'(?:v=|\/embed\/|\.be\/)([0-9A-Za-z_-]{11})', url)
         target_yt_url = f"https://www.youtube.com/embed/{v_match.group(1)}" if v_match else url
 
-        # Method 1: Direct in-process Python yt_dlp with Chrome TLS bridge & Node.js/Deno challenge solver
+        # Method 1: High-Speed HD pytubefix with ANDROID_VR & WEB_EMBEDDED clients (bypasses datacenter TLS blocks)
+        for client_name in ['ANDROID_VR', 'WEB_EMBEDDED', 'ANDROID']:
+            try:
+                _log(f"Attempting YouTube download via pytubefix with {client_name} client...")
+                from pytubefix import YouTube
+                yt = YouTube(url, client=client_name)
+                title = yt.title or "YouTube Video"
+                
+                # Fetch video stream (ordered by resolution: 1440p, 1080p, 720p, etc.)
+                v_stream = yt.streams.filter(only_video=True, file_extension='mp4').order_by('resolution').desc().first()
+                a_stream = yt.streams.filter(only_audio=True, file_extension='mp4').order_by('abr').desc().first()
+                
+                if v_stream and a_stream:
+                    _log(f"Pytubefix ({client_name}) downloading HD stream: {v_stream.resolution} ({v_stream.fps}fps) + audio {a_stream.abr}...")
+                    v_temp = os.path.join(output_dir, "ptf_v.mp4")
+                    a_temp = os.path.join(output_dir, "ptf_a.mp4")
+                    v_stream.download(output_path=output_dir, filename="ptf_v.mp4")
+                    a_stream.download(output_path=output_dir, filename="ptf_a.mp4")
+                    
+                    cmd_merge = ["ffmpeg", "-y", "-i", v_temp, "-i", a_temp, "-c", "copy", target_path]
+                    subprocess.run(cmd_merge, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    
+                    for f_tmp in [v_temp, a_temp]:
+                        if os.path.exists(f_tmp):
+                            try: os.remove(f_tmp)
+                            except Exception: pass
+                    
+                    if os.path.exists(target_path) and os.path.getsize(target_path) > 0:
+                        _log(f"Pytubefix HD download & merge success: '{title}' ({target_path}, size={os.path.getsize(target_path)} bytes)")
+                        return target_path, title
+                else:
+                    prog_stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
+                    if prog_stream:
+                        _log(f"Pytubefix ({client_name}) downloading progressive stream: {prog_stream.resolution}...")
+                        prog_stream.download(output_path=output_dir, filename="input_video.mp4")
+                        if os.path.exists(target_path) and os.path.getsize(target_path) > 0:
+                            _log(f"Pytubefix progressive download success: '{title}' ({target_path}, size={os.path.getsize(target_path)} bytes)")
+                            return target_path, title
+            except Exception as e:
+                err_pytubefix = e
+                _log(f"Pytubefix ({client_name}) failed: {e}")
+
+        # Method 2: Direct in-process Python yt_dlp fallback
         try:
-            _log(f"Attempting in-process yt_dlp with Chrome TLS bridge & Node.js/Deno solver ({url})...")
+            _log(f"Attempting fallback in-process yt_dlp ({url})...")
             import yt_dlp
 
             class YtDlpLogger:
@@ -286,12 +328,6 @@ class VideoDubbingService:
                     }
                 },
             }
-            try:
-                from yt_dlp.networking.impersonate import ImpersonateTarget
-                ydl_opts['impersonate'] = ImpersonateTarget.from_str('chrome')
-            except Exception:
-                pass
-
             if has_user_cookies and cookie_path:
                 ydl_opts['cookiefile'] = cookie_path
 
@@ -310,7 +346,7 @@ class VideoDubbingService:
             err_ytdlp = e
             _log(f"In-process yt_dlp failed: {e}")
 
-        # Method 2: CLI subprocess yt-dlp with exclusive mobile/mweb clients
+        # Method 3: CLI subprocess yt-dlp with mobile/mweb clients
         try:
             _log("Attempting YouTube download via CLI subprocess yt-dlp with mobile/mweb clients...")
             cmd = [
@@ -319,7 +355,6 @@ class VideoDubbingService:
                 "--no-check-certificate",
                 "--legacy-server-connect",
                 "--force-ipv4",
-                "--impersonate", "chrome",
                 "--extractor-args", "youtube:player_client=android_vr,mweb",
                 "-f", "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4]/18/best",
                 "--merge-output-format", "mp4",
@@ -345,46 +380,6 @@ class VideoDubbingService:
         except Exception as e:
             err_sub = e
             _log(f"CLI yt-dlp exception: {e}")
-
-        # Method 3: pytubefix fallback with high quality ANDROID_VR client and ffmpeg audio merge
-        try:
-            _log("Attempting YouTube download via pytubefix HD with ANDROID_VR client...")
-            from pytubefix import YouTube
-            yt = YouTube(url, client='ANDROID_VR')
-            title = yt.title or "YouTube Video"
-            
-            target_p = os.path.join(output_dir, "input_video.mp4")
-            v_stream = yt.streams.filter(only_video=True, file_extension='mp4').order_by('resolution').desc().first()
-            a_stream = yt.streams.filter(only_audio=True, file_extension='mp4').order_by('abr').desc().first()
-            
-            if v_stream and a_stream:
-                _log(f"Pytubefix downloading HD video ({v_stream.resolution}) + audio ({a_stream.abr})...")
-                v_temp = os.path.join(output_dir, "pytube_v.mp4")
-                a_temp = os.path.join(output_dir, "pytube_a.mp4")
-                v_stream.download(output_path=output_dir, filename="pytube_v.mp4")
-                a_stream.download(output_path=output_dir, filename="pytube_a.mp4")
-                
-                cmd_merge = ["ffmpeg", "-y", "-i", v_temp, "-i", a_temp, "-c", "copy", target_p]
-                subprocess.run(cmd_merge, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                
-                for f_tmp in [v_temp, a_temp]:
-                    if os.path.exists(f_tmp):
-                        try: os.remove(f_tmp)
-                        except Exception: pass
-                
-                if os.path.exists(target_p) and os.path.getsize(target_p) > 0:
-                    _log(f"Pytubefix HD download & merge success: '{title}' ({target_p}, size={os.path.getsize(target_p)} bytes)")
-                    return target_p, title
-            else:
-                prog_stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
-                if prog_stream:
-                    prog_stream.download(output_path=output_dir, filename="input_video.mp4")
-                    if os.path.exists(target_p) and os.path.getsize(target_p) > 0:
-                        _log(f"Pytubefix progressive download success: '{title}' ({target_p}, size={os.path.getsize(target_p)} bytes)")
-                        return target_p, title
-        except Exception as e:
-            err_pytubefix = e
-            _log(f"Pytubefix failed: {e}")
 
         raise Exception(f"Không thể tải video từ YouTube: (yt-dlp: {err_ytdlp}) | (CLI: {err_sub}) | (pytubefix: {err_pytubefix})")
 
