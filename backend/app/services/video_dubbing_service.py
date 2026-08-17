@@ -12,93 +12,20 @@ from typing import List, Dict, Any, Tuple, Optional
 from sqlalchemy.orm import Session
 from app.config import settings
 
-# Enable global Chrome TLS impersonation bridge for yt-dlp and urllib to bypass datacenter IP & bot blocks
+import ssl
+
+# Configure real browser TLS ciphers for OpenSSL to bypass datacenter IP TLS filtering (AWS / HF Spaces)
+def _setup_browser_ssl_context():
+    ctx = ssl.create_default_context()
+    ctx.set_ciphers('ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384')
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
 try:
-    import io
-    import http.client
-    import urllib.request
-    import yt_dlp.networking._urllib
-    import yt_dlp.networking.common
-    from curl_cffi import requests as curl_requests
-
-    _global_cffi_sess = curl_requests.Session(impersonate='chrome', verify=False)
-    
-    # 1. yt-dlp networking bridge
-    _orig_urllib_send = yt_dlp.networking._urllib.UrllibRH._send
-    def _chrome_tls_bridge_send(self, request):
-        try:
-            r = _global_cffi_sess.request(
-                method=request.method or 'GET',
-                url=request.url,
-                headers=dict(request.headers),
-                data=request.data,
-                timeout=request.extensions.get('timeout', 30) or 30,
-                verify=False,
-                stream=True
-            )
-            return yt_dlp.networking.common.Response(
-                fp=io.BytesIO(r.content),
-                url=r.url,
-                headers=dict(r.headers),
-                status=r.status_code,
-                reason=r.reason
-            )
-        except Exception:
-            return _orig_urllib_send(self, request)
-    yt_dlp.networking._urllib.UrllibRH._send = _chrome_tls_bridge_send
-
-    # 2. standard library urllib OpenerDirector bridge
-    _orig_urllib_open = urllib.request.OpenerDirector.open
-    class HTTPResponseWrapper:
-        def __init__(self, cffi_resp):
-            self._resp = cffi_resp
-            self.status = cffi_resp.status_code
-            self.code = cffi_resp.status_code
-            self.reason = cffi_resp.reason
-            self.url = cffi_resp.url
-            self.headers = http.client.HTTPMessage()
-            for k, v in cffi_resp.headers.items():
-                self.headers.add_header(k, v)
-            self.fp = io.BytesIO(cffi_resp.content)
-        def read(self, *a, **kw):
-            return self.fp.read(*a, **kw)
-        def readline(self, *a, **kw):
-            return self.fp.readline(*a, **kw)
-        def close(self):
-            self.fp.close()
-        def info(self):
-            return self.headers
-        def geturl(self):
-            return self.url
-        def getcode(self):
-            return self.code
-
-    def _chrome_tls_opener_open(self, fullurl, data=None, timeout=None):
-        try:
-            req = fullurl
-            u = req.full_url if hasattr(req, 'full_url') else str(req)
-            h = dict(req.headers) if hasattr(req, 'headers') else {}
-            d = req.data if hasattr(req, 'data') else data
-            m = req.get_method() if hasattr(req, 'get_method') else ('POST' if d else 'GET')
-            r = _global_cffi_sess.request(method=m, url=u, headers=h, data=d, timeout=timeout or 60, verify=False)
-            return HTTPResponseWrapper(r)
-        except Exception:
-            return _orig_urllib_open(self, fullurl, data=data, timeout=timeout)
-    urllib.request.OpenerDirector.open = _chrome_tls_opener_open
-
-    # 3. yt-dlp native CurlCFFIRH bridge (force verify=False to bypass BoringSSL certificate issues on Linux)
-    try:
-        import yt_dlp.networking._curlcffi
-        _orig_curlcffi_send = yt_dlp.networking._curlcffi.CurlCFFIRH._send
-        def _curlcffi_patch_send(self, request):
-            self.verify = False
-            return _orig_curlcffi_send(self, request)
-        yt_dlp.networking._curlcffi.CurlCFFIRH._send = _curlcffi_patch_send
-    except Exception:
-        pass
-
+    ssl._create_default_https_context = _setup_browser_ssl_context
 except Exception as e:
-    print(f"[VideoDubbingService] TLS bridge init note: {e}", flush=True)
+    print(f"[VideoDubbingService] SSL context note: {e}", flush=True)
 
 class VideoDubbingService:
     @staticmethod
@@ -250,51 +177,9 @@ class VideoDubbingService:
         v_match = re.search(r'(?:v=|\/embed\/|\.be\/)([0-9A-Za-z_-]{11})', url)
         target_yt_url = f"https://www.youtube.com/embed/{v_match.group(1)}" if v_match else url
 
-        # Method 1: High-Speed HD pytubefix with ANDROID_VR & WEB_EMBEDDED clients (bypasses datacenter TLS blocks)
-        for client_name in ['ANDROID_VR', 'WEB_EMBEDDED', 'ANDROID']:
-            try:
-                _log(f"Attempting YouTube download via pytubefix with {client_name} client...")
-                from pytubefix import YouTube
-                yt = YouTube(url, client=client_name)
-                title = yt.title or "YouTube Video"
-                
-                # Fetch video stream (ordered by resolution: 1440p, 1080p, 720p, etc.)
-                v_stream = yt.streams.filter(only_video=True, file_extension='mp4').order_by('resolution').desc().first()
-                a_stream = yt.streams.filter(only_audio=True, file_extension='mp4').order_by('abr').desc().first()
-                
-                if v_stream and a_stream:
-                    _log(f"Pytubefix ({client_name}) downloading HD stream: {v_stream.resolution} ({v_stream.fps}fps) + audio {a_stream.abr}...")
-                    v_temp = os.path.join(output_dir, "ptf_v.mp4")
-                    a_temp = os.path.join(output_dir, "ptf_a.mp4")
-                    v_stream.download(output_path=output_dir, filename="ptf_v.mp4")
-                    a_stream.download(output_path=output_dir, filename="ptf_a.mp4")
-                    
-                    cmd_merge = ["ffmpeg", "-y", "-i", v_temp, "-i", a_temp, "-c", "copy", target_path]
-                    subprocess.run(cmd_merge, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    
-                    for f_tmp in [v_temp, a_temp]:
-                        if os.path.exists(f_tmp):
-                            try: os.remove(f_tmp)
-                            except Exception: pass
-                    
-                    if os.path.exists(target_path) and os.path.getsize(target_path) > 0:
-                        _log(f"Pytubefix HD download & merge success: '{title}' ({target_path}, size={os.path.getsize(target_path)} bytes)")
-                        return target_path, title
-                else:
-                    prog_stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
-                    if prog_stream:
-                        _log(f"Pytubefix ({client_name}) downloading progressive stream: {prog_stream.resolution}...")
-                        prog_stream.download(output_path=output_dir, filename="input_video.mp4")
-                        if os.path.exists(target_path) and os.path.getsize(target_path) > 0:
-                            _log(f"Pytubefix progressive download success: '{title}' ({target_path}, size={os.path.getsize(target_path)} bytes)")
-                            return target_path, title
-            except Exception as e:
-                err_pytubefix = e
-                _log(f"Pytubefix ({client_name}) failed: {e}")
-
-        # Method 2: Direct in-process Python yt_dlp fallback
+        # Method 1: Direct in-process Python yt_dlp with browser SSL context & Node.js/Deno solver
         try:
-            _log(f"Attempting fallback in-process yt_dlp ({url})...")
+            _log(f"Attempting in-process yt_dlp with browser SSL context ({url})...")
             import yt_dlp
 
             class YtDlpLogger:
@@ -345,6 +230,41 @@ class VideoDubbingService:
         except Exception as e:
             err_ytdlp = e
             _log(f"In-process yt_dlp failed: {e}")
+
+        # Method 2: High-Speed HD pytubefix fallback with ANDROID_VR client
+        for client_name in ['ANDROID_VR', 'ANDROID']:
+            try:
+                _log(f"Attempting YouTube download via pytubefix with {client_name} client...")
+                from pytubefix import YouTube
+                yt = YouTube(url, client=client_name)
+                title = yt.title or "YouTube Video"
+                
+                v_candidates = yt.streams.filter(only_video=True, file_extension='mp4')
+                v_1080 = [s for s in v_candidates if s.resolution in ['1080p', '720p', '1440p']]
+                v_stream = v_1080[0] if v_1080 else v_candidates.order_by('resolution').desc().first()
+                a_stream = yt.streams.filter(only_audio=True, file_extension='mp4').order_by('abr').desc().first()
+                
+                if v_stream and a_stream:
+                    _log(f"Pytubefix ({client_name}) downloading stream: {v_stream.resolution} + audio {a_stream.abr}...")
+                    v_temp = os.path.join(output_dir, "ptf_v.mp4")
+                    a_temp = os.path.join(output_dir, "ptf_a.mp4")
+                    v_stream.download(output_path=output_dir, filename="ptf_v.mp4", timeout=180)
+                    a_stream.download(output_path=output_dir, filename="ptf_a.mp4", timeout=180)
+                    
+                    cmd_merge = ["ffmpeg", "-y", "-i", v_temp, "-i", a_temp, "-c", "copy", target_path]
+                    subprocess.run(cmd_merge, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    
+                    for f_tmp in [v_temp, a_temp]:
+                        if os.path.exists(f_tmp):
+                            try: os.remove(f_tmp)
+                            except Exception: pass
+                    
+                    if os.path.exists(target_path) and os.path.getsize(target_path) > 0:
+                        _log(f"Pytubefix HD download & merge success: '{title}' ({target_path}, size={os.path.getsize(target_path)} bytes)")
+                        return target_path, title
+            except Exception as e:
+                err_pytubefix = e
+                _log(f"Pytubefix ({client_name}) failed: {e}")
 
         # Method 3: CLI subprocess yt-dlp with mobile/mweb clients
         try:
