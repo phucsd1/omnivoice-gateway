@@ -57,41 +57,15 @@ except Exception as e:
 
 try:
     import yt_dlp
-    from yt_dlp.networking._curlcffi import CurlCFFIRH, CurlCFFIResponseAdapter
-    from curl_cffi import requests as curl_requests
-    from curl_cffi import CurlOpt
+    import yt_dlp.networking._curlcffi as cffi_mod
 
-    _orig_curlcffi_send = CurlCFFIRH._send
+    _orig_cffi_send = cffi_mod.CurlCFFIRH._send
 
     def _safe_curlcffi_send(self, request):
-        if '127.0.0.1' in request.url or 'localhost' in request.url:
-            return _orig_curlcffi_send(self, request)
-        try:
-            m = request.method or ('POST' if request.data else 'GET')
-            h = dict(request.headers) if request.headers else {}
-            h.pop('Content-Length', None)
-            h.pop('content-length', None)
-            h.pop('Host', None)
-            h.pop('host', None)
-            d = request.data
-            to = 30
-            r = curl_requests.request(
-                method=m,
-                url=request.url,
-                headers=h,
-                data=d,
-                verify=False,
-                timeout=to,
-                impersonate='chrome',
-                stream=True
-            )
-            return CurlCFFIResponseAdapter(r)
-        except Exception as e:
-            import traceback
-            print(f"[SafeCurlCFFI ERROR] {request.url}: {e}\n{traceback.format_exc()}", flush=True)
-            return _orig_curlcffi_send(self, request)
+        self.verify = False
+        return _orig_cffi_send(self, request)
 
-    CurlCFFIRH._send = _safe_curlcffi_send
+    cffi_mod.CurlCFFIRH._send = _safe_curlcffi_send
 except Exception as e:
     print(f"[VideoDubbingService] CurlCFFIRH bridge note: {e}", flush=True)
 
