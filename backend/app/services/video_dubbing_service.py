@@ -12,6 +12,82 @@ from typing import List, Dict, Any, Tuple, Optional
 from sqlalchemy.orm import Session
 from app.config import settings
 
+# Enable global Chrome TLS impersonation bridge for yt-dlp and urllib to bypass datacenter IP & bot blocks
+try:
+    import io
+    import http.client
+    import urllib.request
+    import yt_dlp.networking._urllib
+    import yt_dlp.networking.common
+    from curl_cffi import requests as curl_requests
+
+    _global_cffi_sess = curl_requests.Session(impersonate='chrome')
+    
+    # 1. yt-dlp networking bridge
+    _orig_urllib_send = yt_dlp.networking._urllib.UrllibRH._send
+    def _chrome_tls_bridge_send(self, request):
+        try:
+            r = _global_cffi_sess.request(
+                method=request.method or 'GET',
+                url=request.url,
+                headers=dict(request.headers),
+                data=request.data,
+                timeout=request.extensions.get('timeout', 30) or 30,
+                stream=True
+            )
+            return yt_dlp.networking.common.Response(
+                fp=io.BytesIO(r.content),
+                url=r.url,
+                headers=dict(r.headers),
+                status=r.status_code,
+                reason=r.reason
+            )
+        except Exception:
+            return _orig_urllib_send(self, request)
+    yt_dlp.networking._urllib.UrllibRH._send = _chrome_tls_bridge_send
+
+    # 2. standard library urllib OpenerDirector bridge
+    _orig_urllib_open = urllib.request.OpenerDirector.open
+    class HTTPResponseWrapper:
+        def __init__(self, cffi_resp):
+            self._resp = cffi_resp
+            self.status = cffi_resp.status_code
+            self.code = cffi_resp.status_code
+            self.reason = cffi_resp.reason
+            self.url = cffi_resp.url
+            self.headers = http.client.HTTPMessage()
+            for k, v in cffi_resp.headers.items():
+                self.headers.add_header(k, v)
+            self.fp = io.BytesIO(cffi_resp.content)
+        def read(self, *a, **kw):
+            return self.fp.read(*a, **kw)
+        def readline(self, *a, **kw):
+            return self.fp.readline(*a, **kw)
+        def close(self):
+            self.fp.close()
+        def info(self):
+            return self.headers
+        def geturl(self):
+            return self.url
+        def getcode(self):
+            return self.code
+
+    def _chrome_tls_opener_open(self, fullurl, data=None, timeout=None):
+        try:
+            req = fullurl
+            u = req.full_url if hasattr(req, 'full_url') else str(req)
+            h = dict(req.headers) if hasattr(req, 'headers') else {}
+            d = req.data if hasattr(req, 'data') else data
+            m = req.get_method() if hasattr(req, 'get_method') else ('POST' if d else 'GET')
+            r = _global_cffi_sess.request(method=m, url=u, headers=h, data=d, timeout=timeout or 60)
+            return HTTPResponseWrapper(r)
+        except Exception:
+            return _orig_urllib_open(self, fullurl, data=data, timeout=timeout)
+    urllib.request.OpenerDirector.open = _chrome_tls_opener_open
+
+except Exception as e:
+    print(f"[VideoDubbingService] TLS bridge init note: {e}", flush=True)
+
 class VideoDubbingService:
     @staticmethod
     def log_to_job(job_id: str, message: str):
@@ -165,52 +241,7 @@ class VideoDubbingService:
         # Method 1: Direct in-process Python yt_dlp with Chrome TLS bridge & Node.js/Deno challenge solver
         try:
             _log(f"Attempting in-process yt_dlp with Chrome TLS bridge & Node.js/Deno solver ({url})...")
-            import io
-            import http.client
-            import urllib.request
             import yt_dlp
-            from curl_cffi import requests as curl_requests
-
-            cffi_sess = curl_requests.Session(impersonate='chrome')
-            _orig_open = urllib.request.OpenerDirector.open
-
-            class HTTPResponseWrapper:
-                def __init__(self, cffi_resp):
-                    self._resp = cffi_resp
-                    self.status = cffi_resp.status_code
-                    self.code = cffi_resp.status_code
-                    self.reason = cffi_resp.reason
-                    self.url = cffi_resp.url
-                    self.headers = http.client.HTTPMessage()
-                    for k, v in cffi_resp.headers.items():
-                        self.headers.add_header(k, v)
-                    self.fp = io.BytesIO(cffi_resp.content)
-                def read(self, *a, **kw):
-                    return self.fp.read(*a, **kw)
-                def readline(self, *a, **kw):
-                    return self.fp.readline(*a, **kw)
-                def close(self):
-                    self.fp.close()
-                def info(self):
-                    return self.headers
-                def geturl(self):
-                    return self.url
-                def getcode(self):
-                    return self.code
-
-            def _patched_open(self, fullurl, data=None, timeout=None):
-                try:
-                    req = fullurl
-                    u = req.full_url if hasattr(req, 'full_url') else str(req)
-                    h = dict(req.headers) if hasattr(req, 'headers') else {}
-                    d = req.data if hasattr(req, 'data') else data
-                    m = req.get_method() if hasattr(req, 'get_method') else ('POST' if d else 'GET')
-                    r = cffi_sess.request(method=m, url=u, headers=h, data=d, timeout=timeout or 60)
-                    return HTTPResponseWrapper(r)
-                except Exception:
-                    return _orig_open(self, fullurl, data=data, timeout=timeout)
-
-            urllib.request.OpenerDirector.open = _patched_open
 
             class YtDlpLogger:
                 def debug(self, msg):
