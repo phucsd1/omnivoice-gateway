@@ -166,7 +166,6 @@ class VideoDubbingService:
         try:
             _log(f"Attempting in-process yt_dlp with Node.js/Deno JS solver & web_embedded client ({target_yt_url})...")
             import yt_dlp
-            from yt_dlp.networking.impersonate import ImpersonateTarget
 
             class YtDlpLogger:
                 def debug(self, msg):
@@ -185,7 +184,15 @@ class VideoDubbingService:
                 'outtmpl': os.path.join(output_dir, "input_video.%(ext)s"),
                 'logger': YtDlpLogger(),
                 'nocheckcertificate': True,
-                'impersonate': ImpersonateTarget.from_str('safari'),
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'none',
+                    'Sec-Fetch-User': '?1',
+                    'Sec-Fetch-Dest': 'document',
+                },
                 'remote_components': ['ejs:github'],
                 'js_runtimes': {
                     'deno': {},
@@ -196,7 +203,7 @@ class VideoDubbingService:
                         'player_client': ['web_embedded', 'mweb']
                     }
                 },
-                'socket_timeout': 25,
+                'socket_timeout': 30,
             }
             if has_user_cookies and cookie_path:
                 ydl_opts['cookiefile'] = cookie_path
