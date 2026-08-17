@@ -207,49 +207,43 @@ class VideoDubbingService:
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Subprocess yt_dlp CLI with android_vr,tv_embedded player clients & DASH stream (4s download time)
+        # Method 1: Direct in-process Python yt_dlp with ImpersonateTarget('chrome') & android_vr (3-5s HD download)
         try:
-            _log("Attempting YouTube download via Subprocess yt_dlp CLI (android_vr,tv_embedded)...")
-            out_tmpl = os.path.join(output_dir, "input_video.%(ext)s")
+            _log("Attempting in-process yt_dlp with Chrome TLS impersonation & android_vr client...")
+            import yt_dlp
+            from yt_dlp.networking.impersonate import ImpersonateTarget
             
-            cmd = [
-                sys.executable, "-m", "yt_dlp",
-                "--no-warnings",
-                "--no-check-certificate",
-                "--legacy-server-connect",
-                "--force-ipv4",
-                "--impersonate", "chrome",
-                "--extractor-args", "youtube:player_client=android_vr,tv_embedded",
-                "--retries", "1",
-                "--fragment-retries", "1",
-                "-f", "134+140/bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/18/best",
-                "-o", out_tmpl,
-                "--socket-timeout", "15",
-            ]
+            ydl_opts = {
+                'format': '136+140/135+140/134+140/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/18/best',
+                'outtmpl': os.path.join(output_dir, "input_video.%(ext)s"),
+                'quiet': True,
+                'no_warnings': True,
+                'nocheckcertificate': True,
+                'impersonate': ImpersonateTarget.from_str('chrome'),
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['android_vr']
+                    }
+                },
+                'socket_timeout': 15,
+            }
             if has_cookies and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
-                cmd.extend(["--cookies", cookie_path])
-            cmd.append(url)
+                ydl_opts['cookiefile'] = cookie_path
 
-            env = os.environ.copy()
-            env['PYTHONUNBUFFERED'] = '1'
-            
             t0 = time.time()
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, env=env)
-            for line in iter(proc.stdout.readline, ''):
-                if line.strip():
-                    _log(f"[yt_dlp_cli] {line.strip()}")
-            proc.stdout.close()
-            return_code = proc.wait()
-            t1 = time.time()
-            
-            for ext in ['.mp4', '.m4a', '.webm', '.mkv']:
-                candidate = os.path.join(output_dir, f"input_video{ext}")
-                if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
-                    _log(f"Subprocess yt_dlp CLI download success ({candidate}, size={os.path.getsize(candidate)} bytes in {t1-t0:.2f}s)")
-                    return candidate, "YouTube Video"
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                title = info.get('title', 'YouTube Video') if info else 'YouTube Video'
+                t1 = time.time()
+                
+                for ext in ['.mp4', '.m4a', '.webm', '.mkv']:
+                    candidate = os.path.join(output_dir, f"input_video{ext}")
+                    if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
+                        _log(f"In-process yt_dlp download success: '{title}' ({candidate}, size={os.path.getsize(candidate)} bytes in {t1-t0:.2f}s)")
+                        return candidate, title
         except Exception as e:
-            err_sub = e
-            _log(f"Subprocess yt_dlp CLI failed: {e}")
+            err_ytdlp = e
+            _log(f"In-process yt_dlp failed: {e}")
 
         # Method 3: CLI subprocess yt-dlp with exclusive mobile/tv clients
         try:
