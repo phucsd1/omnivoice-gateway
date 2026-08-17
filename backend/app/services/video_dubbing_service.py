@@ -29,6 +29,16 @@ try:
 except Exception as e:
     print(f"[VideoDubbingService] SSL context note: {e}", flush=True)
 
+# Patch yt_dlp native CurlCFFIRH to force verify=False (bypasses BoringSSL CA bundle lookup on Linux)
+try:
+    import yt_dlp.networking._curlcffi
+    import curl_cffi.requests
+    def _patched_curlcffi_create_instance(self, cookiejar=None):
+        return curl_cffi.requests.Session(cookies=cookiejar, verify=False)
+    yt_dlp.networking._curlcffi.CurlCFFIRH._create_instance = _patched_curlcffi_create_instance
+except Exception as e:
+    print(f"[VideoDubbingService] CurlCFFIRH patch note: {e}", flush=True)
+
 class VideoDubbingService:
     @staticmethod
     def log_to_job(job_id: str, message: str):
