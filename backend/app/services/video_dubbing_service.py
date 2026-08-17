@@ -63,9 +63,15 @@ try:
     _orig_curlcffi_send = CurlCFFIRH._send
 
     def _safe_curlcffi_send(self, request):
+        if '127.0.0.1' in request.url or 'localhost' in request.url:
+            return _orig_curlcffi_send(self, request)
         try:
-            m = request.method or 'GET'
+            m = request.method or ('POST' if request.data else 'GET')
             h = dict(request.headers) if request.headers else {}
+            h.pop('Content-Length', None)
+            h.pop('content-length', None)
+            h.pop('Host', None)
+            h.pop('host', None)
             d = request.data
             to = 30
             if hasattr(self, '_calculate_timeout'):
