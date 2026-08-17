@@ -244,7 +244,6 @@ class VideoDubbingService:
                 'outtmpl': os.path.join(output_dir, "input_video.%(ext)s"),
                 'logger': YtDlpLogger(),
                 'nocheckcertificate': True,
-                'impersonate': ImpersonateTarget.from_str('chrome'),
                 'remote_components': ['ejs:github'],
                 'js_runtimes': {
                     'deno': {},
