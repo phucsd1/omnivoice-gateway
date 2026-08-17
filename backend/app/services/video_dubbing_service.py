@@ -278,7 +278,7 @@ class VideoDubbingService:
                 },
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['web_embedded', 'mweb']
+                        'player_client': ['web_embedded']
                     }
                 },
                 'nocheckcertificate': True,
