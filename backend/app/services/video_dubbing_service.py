@@ -166,32 +166,51 @@ class VideoDubbingService:
         try:
             _log(f"Attempting in-process yt_dlp with Chrome TLS bridge & Node.js/Deno solver ({url})...")
             import io
+            import http.client
+            import urllib.request
             import yt_dlp
-            import yt_dlp.networking._urllib
-            import yt_dlp.networking.common
             from curl_cffi import requests as curl_requests
 
             cffi_sess = curl_requests.Session(impersonate='chrome')
-            _orig_send = yt_dlp.networking._urllib.UrllibRH._send
+            _orig_open = urllib.request.OpenerDirector.open
 
-            def _chrome_tls_send(self, request):
+            class HTTPResponseWrapper:
+                def __init__(self, cffi_resp):
+                    self._resp = cffi_resp
+                    self.status = cffi_resp.status_code
+                    self.code = cffi_resp.status_code
+                    self.reason = cffi_resp.reason
+                    self.url = cffi_resp.url
+                    self.headers = http.client.HTTPMessage()
+                    for k, v in cffi_resp.headers.items():
+                        self.headers.add_header(k, v)
+                    self.fp = io.BytesIO(cffi_resp.content)
+                def read(self, *a, **kw):
+                    return self.fp.read(*a, **kw)
+                def readline(self, *a, **kw):
+                    return self.fp.readline(*a, **kw)
+                def close(self):
+                    self.fp.close()
+                def info(self):
+                    return self.headers
+                def geturl(self):
+                    return self.url
+                def getcode(self):
+                    return self.code
+
+            def _patched_open(self, fullurl, data=None, timeout=None):
                 try:
-                    u = request.url
-                    m = request.method or 'GET'
-                    h = dict(request.headers)
-                    d = request.data
-                    r = cffi_sess.request(method=m, url=u, headers=h, data=d, timeout=60, stream=True)
-                    return yt_dlp.networking.common.Response(
-                        fp=io.BytesIO(r.content),
-                        url=r.url,
-                        headers=dict(r.headers),
-                        status=r.status_code,
-                        reason=r.reason
-                    )
+                    req = fullurl
+                    u = req.full_url if hasattr(req, 'full_url') else str(req)
+                    h = dict(req.headers) if hasattr(req, 'headers') else {}
+                    d = req.data if hasattr(req, 'data') else data
+                    m = req.get_method() if hasattr(req, 'get_method') else ('POST' if d else 'GET')
+                    r = cffi_sess.request(method=m, url=u, headers=h, data=d, timeout=timeout or 60)
+                    return HTTPResponseWrapper(r)
                 except Exception:
-                    return _orig_send(self, request)
+                    return _orig_open(self, fullurl, data=data, timeout=timeout)
 
-            yt_dlp.networking._urllib.UrllibRH._send = _chrome_tls_send
+            urllib.request.OpenerDirector.open = _patched_open
 
             class YtDlpLogger:
                 def debug(self, msg):
