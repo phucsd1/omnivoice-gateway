@@ -187,7 +187,6 @@ class VideoDubbingService:
         VideoDubbingService.ensure_dependencies()
         os.makedirs(output_dir, exist_ok=True)
         target_path = os.path.join(output_dir, "input_video.mp4")
-        cookie_path = os.path.join(output_dir, "yt_visitor_cookies.txt")
 
         def _log(msg: str):
             print(f"[VideoDubbingService] {msg}", flush=True)
@@ -199,9 +198,22 @@ class VideoDubbingService:
                 except Exception:
                     pass
 
-        # Generate fresh visitor cookies via curl_cffi to bypass bot checks on datacenter IPs
-        _log("Generating fresh YouTube visitor cookies via curl_cffi...")
-        has_cookies = VideoDubbingService._generate_visitor_cookies(cookie_path, url)
+        # Check for persistent cookies in backend/app or backend/storage, or generate visitor cookies
+        bundled_cookies = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "cookies.txt"))
+        storage_cookies = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "storage", "cookies.txt"))
+        
+        if os.path.exists(bundled_cookies) and os.path.getsize(bundled_cookies) > 0:
+            cookie_path = bundled_cookies
+            has_cookies = True
+            _log(f"Using bundled YouTube cookies ({os.path.getsize(bundled_cookies)} bytes)")
+        elif os.path.exists(storage_cookies) and os.path.getsize(storage_cookies) > 0:
+            cookie_path = storage_cookies
+            has_cookies = True
+            _log(f"Using storage YouTube cookies ({os.path.getsize(storage_cookies)} bytes)")
+        else:
+            cookie_path = os.path.join(output_dir, "yt_visitor_cookies.txt")
+            _log("Generating fresh YouTube visitor cookies via curl_cffi...")
+            has_cookies = VideoDubbingService._generate_visitor_cookies(cookie_path, url)
 
         err_ytdlp = None
         err_sub = None
