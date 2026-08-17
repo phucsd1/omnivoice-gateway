@@ -202,26 +202,28 @@ class VideoDubbingService:
         bundled_cookies = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "cookies.txt"))
         storage_cookies = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "storage", "cookies.txt"))
         
-        if os.path.exists(bundled_cookies) and os.path.getsize(bundled_cookies) > 0:
-            cookie_path = bundled_cookies
-            has_cookies = True
-            _log(f"Using bundled YouTube cookies ({os.path.getsize(bundled_cookies)} bytes)")
-        elif os.path.exists(storage_cookies) and os.path.getsize(storage_cookies) > 0:
-            cookie_path = storage_cookies
-            has_cookies = True
-            _log(f"Using storage YouTube cookies ({os.path.getsize(storage_cookies)} bytes)")
-        else:
-            cookie_path = os.path.join(output_dir, "yt_visitor_cookies.txt")
-            _log("Generating fresh YouTube visitor cookies via curl_cffi...")
-            has_cookies = VideoDubbingService._generate_visitor_cookies(cookie_path, url)
+        has_user_cookies = False
+        cookie_path = None
+        for ck in [storage_cookies, bundled_cookies]:
+            if os.path.exists(ck) and os.path.getsize(ck) > 0:
+                try:
+                    with open(ck, 'r', encoding='utf-8') as cf:
+                        content = cf.read()
+                        if ('\tSID\t' in content or '\t__Secure-1PSID\t' in content or '\tLOGIN_INFO\t' in content):
+                            cookie_path = ck
+                            has_user_cookies = True
+                            _log(f"Using authenticated user cookies ({os.path.getsize(ck)} bytes)")
+                            break
+                except Exception:
+                    pass
 
         err_ytdlp = None
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Direct in-process Python yt_dlp with Chrome TLS impersonation, Node.js JS solver & web_embedded/android_vr
+        # Method 1: Direct in-process Python yt_dlp with Chrome TLS impersonation, Node.js JS solver & web_embedded
         try:
-            _log("Attempting in-process yt_dlp with Chrome TLS impersonation, Node.js JS solver & web_embedded/android_vr client...")
+            _log("Attempting in-process yt_dlp with Chrome TLS impersonation, Node.js JS solver & web_embedded client...")
             import yt_dlp
             from yt_dlp.networking.impersonate import ImpersonateTarget
             
@@ -236,20 +238,13 @@ class VideoDubbingService:
                 'js_runtimes': {'node': {}},
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['web_embedded', 'android_vr', 'mweb']
+                        'player_client': ['web_embedded', 'mweb']
                     }
                 },
-                'socket_timeout': 15,
+                'socket_timeout': 25,
             }
-            # Note: web_embedded works best without guest visitor cookies on datacenter IPs
-            if has_cookies and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
-                try:
-                    with open(cookie_path, 'r', encoding='utf-8') as cf:
-                        content = cf.read()
-                        if 'SID' in content or 'SSID' in content or 'LOGIN_INFO' in content:
-                            ydl_opts['cookiefile'] = cookie_path
-                except Exception:
-                    pass
+            if has_user_cookies and cookie_path:
+                ydl_opts['cookiefile'] = cookie_path
 
             t0 = time.time()
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
