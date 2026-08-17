@@ -233,16 +233,10 @@ class VideoDubbingService:
         cookie_path = None
         for ck in [storage_cookies, bundled_cookies]:
             if os.path.exists(ck) and os.path.getsize(ck) > 0:
-                try:
-                    with open(ck, 'r', encoding='utf-8') as cf:
-                        content = cf.read()
-                        if ('\tSID\t' in content or '\t__Secure-1PSID\t' in content or '\tLOGIN_INFO\t' in content):
-                            cookie_path = ck
-                            has_user_cookies = True
-                            _log(f"Using authenticated user cookies ({os.path.getsize(ck)} bytes)")
-                            break
-                except Exception:
-                    pass
+                cookie_path = ck
+                has_user_cookies = True
+                _log(f"Using saved cookies ({os.path.getsize(ck)} bytes from {os.path.basename(ck)})")
+                break
 
         # Standardize URL to embed endpoint to avoid main webpage SSL handshake drop on cloud datacenters
         v_match = re.search(r'(?:v=|\/embed\/|\.be\/)([0-9A-Za-z_-]{11})', url)
