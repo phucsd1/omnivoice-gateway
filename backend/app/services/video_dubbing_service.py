@@ -59,8 +59,15 @@ try:
     import yt_dlp
     import yt_dlp.networking._curlcffi as cffi_mod
 
-    _orig_cffi_send = cffi_mod.CurlCFFIRH._send
+    _orig_create_instance = cffi_mod.CurlCFFIRH._create_instance
+    def _patched_create_instance(self, cookiejar=None):
+        sess = _orig_create_instance(self, cookiejar)
+        sess.verify = False
+        return sess
 
+    cffi_mod.CurlCFFIRH._create_instance = _patched_create_instance
+
+    _orig_cffi_send = cffi_mod.CurlCFFIRH._send
     def _safe_curlcffi_send(self, request):
         self.verify = False
         return _orig_cffi_send(self, request)
