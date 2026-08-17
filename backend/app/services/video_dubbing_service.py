@@ -53,7 +53,43 @@ try:
 
     urllib.request.OpenerDirector.open = _cffi_opener_open
 except Exception as e:
-    print(f"[VideoDubbingService] Chrome TLS bridge init note: {e}", flush=True)
+    print(f"[VideoDubbingService] Urllib bridge note: {e}", flush=True)
+
+try:
+    import yt_dlp
+    from yt_dlp.networking._curlcffi import CurlCFFIRH, CurlCFFIResponseAdapter
+    from curl_cffi import requests as curl_requests
+
+    _orig_curlcffi_send = CurlCFFIRH._send
+
+    def _safe_curlcffi_send(self, request):
+        try:
+            m = request.method or 'GET'
+            h = dict(request.headers) if request.headers else {}
+            d = request.data
+            to = 30
+            if hasattr(self, '_calculate_timeout'):
+                try:
+                    to = self._calculate_timeout(request) or 30
+                except Exception:
+                    to = 30
+            r = curl_requests.request(
+                method=m,
+                url=request.url,
+                headers=h,
+                data=d,
+                verify=False,
+                timeout=to,
+                impersonate='chrome',
+                stream=True
+            )
+            return CurlCFFIResponseAdapter(r)
+        except Exception:
+            return _orig_curlcffi_send(self, request)
+
+    CurlCFFIRH._send = _safe_curlcffi_send
+except Exception as e:
+    print(f"[VideoDubbingService] CurlCFFIRH bridge note: {e}", flush=True)
 
 class VideoDubbingService:
     @staticmethod
