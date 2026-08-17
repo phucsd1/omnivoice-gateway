@@ -274,6 +274,12 @@ class VideoDubbingService:
                     }
                 },
             }
+            try:
+                from yt_dlp.networking.impersonate import ImpersonateTarget
+                ydl_opts['impersonate'] = ImpersonateTarget.from_str('chrome')
+            except Exception:
+                pass
+
             if has_user_cookies and cookie_path:
                 ydl_opts['cookiefile'] = cookie_path
 
@@ -301,6 +307,7 @@ class VideoDubbingService:
                 "--no-check-certificate",
                 "--legacy-server-connect",
                 "--force-ipv4",
+                "--impersonate", "chrome",
                 "--extractor-args", "youtube:player_client=android_vr,mweb",
                 "-f", "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4]/18/best",
                 "--merge-output-format", "mp4",
