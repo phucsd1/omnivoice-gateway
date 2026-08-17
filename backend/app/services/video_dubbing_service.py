@@ -86,6 +86,17 @@ try:
             return _orig_urllib_open(self, fullurl, data=data, timeout=timeout)
     urllib.request.OpenerDirector.open = _chrome_tls_opener_open
 
+    # 3. yt-dlp native CurlCFFIRH bridge (force verify=False to bypass BoringSSL certificate issues on Linux)
+    try:
+        import yt_dlp.networking._curlcffi
+        _orig_curlcffi_send = yt_dlp.networking._curlcffi.CurlCFFIRH._send
+        def _curlcffi_patch_send(self, request):
+            self.verify = False
+            return _orig_curlcffi_send(self, request)
+        yt_dlp.networking._curlcffi.CurlCFFIRH._send = _curlcffi_patch_send
+    except Exception:
+        pass
+
 except Exception as e:
     print(f"[VideoDubbingService] TLS bridge init note: {e}", flush=True)
 
