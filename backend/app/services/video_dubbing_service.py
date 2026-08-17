@@ -75,23 +75,20 @@ try:
             h.pop('host', None)
             d = request.data
             to = 30
-            sess = curl_requests.Session(impersonate='chrome', verify=False)
-            try:
-                sess.curl.setopt(CurlOpt.SSL_VERIFYPEER, 0)
-                sess.curl.setopt(CurlOpt.SSL_VERIFYHOST, 0)
-            except Exception:
-                pass
-            r = sess.request(
+            r = curl_requests.request(
                 method=m,
                 url=request.url,
                 headers=h,
                 data=d,
                 verify=False,
                 timeout=to,
+                impersonate='chrome',
                 stream=True
             )
             return CurlCFFIResponseAdapter(r)
-        except Exception:
+        except Exception as e:
+            import traceback
+            print(f"[SafeCurlCFFI ERROR] {request.url}: {e}\n{traceback.format_exc()}", flush=True)
             return _orig_curlcffi_send(self, request)
 
     CurlCFFIRH._send = _safe_curlcffi_send
