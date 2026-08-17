@@ -59,6 +59,7 @@ try:
     import yt_dlp
     from yt_dlp.networking._curlcffi import CurlCFFIRH, CurlCFFIResponseAdapter
     from curl_cffi import requests as curl_requests
+    from curl_cffi import CurlOpt
 
     _orig_curlcffi_send = CurlCFFIRH._send
 
@@ -74,19 +75,19 @@ try:
             h.pop('host', None)
             d = request.data
             to = 30
-            if hasattr(self, '_calculate_timeout'):
-                try:
-                    to = self._calculate_timeout(request) or 30
-                except Exception:
-                    to = 30
-            r = curl_requests.request(
+            sess = curl_requests.Session(impersonate='chrome', verify=False)
+            try:
+                sess.curl.setopt(CurlOpt.SSL_VERIFYPEER, 0)
+                sess.curl.setopt(CurlOpt.SSL_VERIFYHOST, 0)
+            except Exception:
+                pass
+            r = sess.request(
                 method=m,
                 url=request.url,
                 headers=h,
                 data=d,
                 verify=False,
                 timeout=to,
-                impersonate='chrome',
                 stream=True
             )
             return CurlCFFIResponseAdapter(r)
