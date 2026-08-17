@@ -210,9 +210,11 @@ class VideoDubbingService:
             _log(f"Starting Ultra-Fast Parallel Stream Downloader ({target_yt_url})...")
             import concurrent.futures
             import yt_dlp
+            from yt_dlp.networking.impersonate import ImpersonateTarget
             from curl_cffi import requests as curl_requests
 
             ydl_opts = {
+                'impersonate': ImpersonateTarget.from_str('chrome'),
                 'remote_components': ['ejs:github'],
                 'js_runtimes': {
                     'deno': {},
