@@ -4,6 +4,7 @@ FROM python:3.11-slim
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    ca-certificates \
     curl \
     git \
     ffmpeg \
@@ -11,6 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     npm \
     sqlite3 \
     unzip \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Set up user with UID 1000 (Hugging Face Spaces requirement)
@@ -19,6 +21,8 @@ USER user
 ENV HOME=/home/user
 ENV DENO_INSTALL=$HOME/.deno
 ENV PATH=$HOME/.deno/bin:$HOME/.local/bin:$PATH
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+ENV CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
 # Install Deno for yt-dlp native JavaScript challenge solver
 RUN curl -fsSL https://deno.land/install.sh | sh
