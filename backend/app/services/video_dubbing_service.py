@@ -213,8 +213,22 @@ class VideoDubbingService:
             from yt_dlp.networking.impersonate import ImpersonateTarget
             from curl_cffi import requests as curl_requests
 
+            class YtDlpLogger:
+                def debug(self, msg):
+                    if not msg.startswith('[download]'):
+                        _log(f"[yt-dlp] {msg}")
+                def info(self, msg):
+                    _log(f"[yt-dlp] {msg}")
+                def warning(self, msg):
+                    _log(f"[yt-dlp WARN] {msg}")
+                def error(self, msg):
+                    _log(f"[yt-dlp ERR] {msg}")
+
             ydl_opts = {
                 'impersonate': ImpersonateTarget.from_str('chrome'),
+                'logger': YtDlpLogger(),
+                'socket_timeout': 30,
+                'extractor_retries': 1,
                 'remote_components': ['ejs:github'],
                 'js_runtimes': {
                     'deno': {},
@@ -226,7 +240,7 @@ class VideoDubbingService:
                     }
                 },
                 'nocheckcertificate': True,
-                'quiet': True
+                'quiet': False
             }
             if has_user_cookies and cookie_path:
                 ydl_opts['cookiefile'] = cookie_path
