@@ -261,7 +261,7 @@ class VideoDubbingService:
             err_ytdlp = e
             _log(f"In-process yt_dlp failed: {e}")
 
-        # Method 3: CLI subprocess yt-dlp with exclusive mobile/tv clients
+        # Method 2: CLI subprocess yt-dlp with exclusive mobile/mweb clients
         try:
             _log("Attempting YouTube download via CLI subprocess yt-dlp with mobile/mweb clients...")
             cmd = [
@@ -270,14 +270,14 @@ class VideoDubbingService:
                 "--no-check-certificate",
                 "--legacy-server-connect",
                 "--force-ipv4",
-                "--extractor-args", "youtube:player_client=android,mweb",
-                "-f", "18/best/bestvideo[ext=mp4]+bestaudio[ext=m4a]",
+                "--extractor-args", "youtube:player_client=android_vr,mweb",
+                "-f", "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4]/18/best",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
                 "--socket-timeout", "30",
                 "--print", "after_video:%(title)s",
             ]
-            if has_cookies and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
+            if has_user_cookies and cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
                 cmd.extend(["--cookies", cookie_path])
             cmd.append(url)
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL)
@@ -296,62 +296,45 @@ class VideoDubbingService:
             err_sub = e
             _log(f"CLI yt-dlp exception: {e}")
 
-        # Method 4: pytubefix fallback with requests session patch
+        # Method 3: pytubefix fallback with high quality ANDROID_VR client and ffmpeg audio merge
         try:
-            _log("Attempting YouTube download via pytubefix fallback (requests patched)...")
-            try:
-                import pytubefix.request
-                import requests, urllib3
-                urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-                
-                req_sess = requests.Session()
-                req_sess.headers.update({
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-                })
-
-                def _patched_req_get(url_p=None, extra_headers=None, timeout=None, **kwargs):
-                    if not url_p and 'url' in kwargs: url_p = kwargs['url']
-                    h = dict(req_sess.headers)
-                    if extra_headers: h.update(extra_headers)
-                    res = req_sess.get(url_p, headers=h, timeout=timeout or 15, verify=False)
-                    return res.text
-
-                def _patched_req_post(url_p=None, extra_headers=None, data=None, timeout=None, **kwargs):
-                    if not url_p and 'url' in kwargs: url_p = kwargs['url']
-                    h = dict(req_sess.headers)
-                    if extra_headers: h.update(extra_headers)
-                    res = req_sess.post(url_p, headers=h, data=data, timeout=timeout or 15, verify=False)
-                    return res.text
-
-                def _patched_req_stream(url_p=None, timeout=None, max_retries=3, **kwargs):
-                    if not url_p and 'url' in kwargs: url_p = kwargs['url']
-                    h = dict(req_sess.headers)
-                    h.update({'Origin': 'https://www.youtube.com', 'Referer': 'https://www.youtube.com/'})
-                    res = req_sess.get(url_p, headers=h, timeout=timeout or 30, stream=True, verify=False)
-                    for chunk in res.iter_content(chunk_size=1024*1024):
-                        if chunk: yield chunk
-
-                pytubefix.request.get = _patched_req_get
-                pytubefix.request.post = _patched_req_post
-                pytubefix.request.stream = _patched_req_stream
-            except Exception as patch_e:
-                _log(f"pytubefix patch warning: {patch_e}")
-
+            _log("Attempting YouTube download via pytubefix HD with ANDROID_VR client...")
             from pytubefix import YouTube
-            yt = YouTube(url, client='MWEB')
+            yt = YouTube(url, client='ANDROID_VR')
             title = yt.title or "YouTube Video"
-            stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
-            if not stream:
-                stream = yt.streams.filter(file_extension='mp4').order_by('resolution').desc().first()
-            if stream:
-                target_p = os.path.join(output_dir, "input_video.mp4")
-                stream.download(output_path=output_dir, filename="input_video.mp4")
+            
+            target_p = os.path.join(output_dir, "input_video.mp4")
+            v_stream = yt.streams.filter(only_video=True, file_extension='mp4').order_by('resolution').desc().first()
+            a_stream = yt.streams.filter(only_audio=True, file_extension='mp4').order_by('abr').desc().first()
+            
+            if v_stream and a_stream:
+                _log(f"Pytubefix downloading HD video ({v_stream.resolution}) + audio ({a_stream.abr})...")
+                v_temp = os.path.join(output_dir, "pytube_v.mp4")
+                a_temp = os.path.join(output_dir, "pytube_a.mp4")
+                v_stream.download(output_path=output_dir, filename="pytube_v.mp4")
+                a_stream.download(output_path=output_dir, filename="pytube_a.mp4")
+                
+                cmd_merge = ["ffmpeg", "-y", "-i", v_temp, "-i", a_temp, "-c", "copy", target_p]
+                subprocess.run(cmd_merge, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                
+                for f_tmp in [v_temp, a_temp]:
+                    if os.path.exists(f_tmp):
+                        try: os.remove(f_tmp)
+                        except Exception: pass
+                
                 if os.path.exists(target_p) and os.path.getsize(target_p) > 0:
-                    _log(f"pytubefix download success: '{title}' ({target_p}, size={os.path.getsize(target_p)} bytes)")
+                    _log(f"Pytubefix HD download & merge success: '{title}' ({target_p}, size={os.path.getsize(target_p)} bytes)")
                     return target_p, title
+            else:
+                prog_stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
+                if prog_stream:
+                    prog_stream.download(output_path=output_dir, filename="input_video.mp4")
+                    if os.path.exists(target_p) and os.path.getsize(target_p) > 0:
+                        _log(f"Pytubefix progressive download success: '{title}' ({target_p}, size={os.path.getsize(target_p)} bytes)")
+                        return target_p, title
         except Exception as e:
             err_pytubefix = e
-            _log(f"pytubefix failed: {e}")
+            _log(f"Pytubefix failed: {e}")
 
         raise Exception(f"Không thể tải video từ YouTube: (yt-dlp: {err_ytdlp}) | (CLI: {err_sub}) | (pytubefix: {err_pytubefix})")
 
