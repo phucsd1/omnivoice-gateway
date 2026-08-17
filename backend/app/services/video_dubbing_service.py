@@ -21,7 +21,7 @@ try:
     import yt_dlp.networking.common
     from curl_cffi import requests as curl_requests
 
-    _global_cffi_sess = curl_requests.Session(impersonate='chrome')
+    _global_cffi_sess = curl_requests.Session(impersonate='chrome', verify=False)
     
     # 1. yt-dlp networking bridge
     _orig_urllib_send = yt_dlp.networking._urllib.UrllibRH._send
@@ -33,6 +33,7 @@ try:
                 headers=dict(request.headers),
                 data=request.data,
                 timeout=request.extensions.get('timeout', 30) or 30,
+                verify=False,
                 stream=True
             )
             return yt_dlp.networking.common.Response(
@@ -79,7 +80,7 @@ try:
             h = dict(req.headers) if hasattr(req, 'headers') else {}
             d = req.data if hasattr(req, 'data') else data
             m = req.get_method() if hasattr(req, 'get_method') else ('POST' if d else 'GET')
-            r = _global_cffi_sess.request(method=m, url=u, headers=h, data=d, timeout=timeout or 60)
+            r = _global_cffi_sess.request(method=m, url=u, headers=h, data=d, timeout=timeout or 60, verify=False)
             return HTTPResponseWrapper(r)
         except Exception:
             return _orig_urllib_open(self, fullurl, data=data, timeout=timeout)

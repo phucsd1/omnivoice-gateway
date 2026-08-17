@@ -21,8 +21,6 @@ USER user
 ENV HOME=/home/user
 ENV DENO_INSTALL=$HOME/.deno
 ENV PATH=$HOME/.deno/bin:$HOME/.local/bin:$PATH
-ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
-ENV CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
 # Install Deno for yt-dlp native JavaScript challenge solver
 RUN curl -fsSL https://deno.land/install.sh | sh
