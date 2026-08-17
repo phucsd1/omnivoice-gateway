@@ -17,6 +17,7 @@ import ssl
 # Configure real browser TLS ciphers for OpenSSL to bypass datacenter IP TLS filtering (AWS / HF Spaces)
 def _setup_browser_ssl_context():
     ctx = ssl.create_default_context()
+    ctx.maximum_version = ssl.TLSVersion.TLSv1_2
     ctx.set_ciphers('ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384')
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
@@ -24,6 +25,7 @@ def _setup_browser_ssl_context():
 
 try:
     ssl._create_default_https_context = _setup_browser_ssl_context
+    ssl._create_unverified_context = _setup_browser_ssl_context
 except Exception as e:
     print(f"[VideoDubbingService] SSL context note: {e}", flush=True)
 
