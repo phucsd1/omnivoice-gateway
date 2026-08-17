@@ -241,8 +241,15 @@ class VideoDubbingService:
                 },
                 'socket_timeout': 15,
             }
+            # Note: web_embedded works best without guest visitor cookies on datacenter IPs
             if has_cookies and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
-                ydl_opts['cookiefile'] = cookie_path
+                try:
+                    with open(cookie_path, 'r', encoding='utf-8') as cf:
+                        content = cf.read()
+                        if 'SID' in content or 'SSID' in content or 'LOGIN_INFO' in content:
+                            ydl_opts['cookiefile'] = cookie_path
+                except Exception:
+                    pass
 
             t0 = time.time()
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
