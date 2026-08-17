@@ -219,22 +219,24 @@ class VideoDubbingService:
         err_sub = None
         err_pytubefix = None
 
-        # Method 1: Direct in-process Python yt_dlp with ImpersonateTarget('chrome') & android_vr (3-5s HD download)
+        # Method 1: Direct in-process Python yt_dlp with Chrome TLS impersonation, Node.js JS solver & web_embedded/android_vr
         try:
-            _log("Attempting in-process yt_dlp with Chrome TLS impersonation & android_vr client...")
+            _log("Attempting in-process yt_dlp with Chrome TLS impersonation, Node.js JS solver & web_embedded/android_vr client...")
             import yt_dlp
             from yt_dlp.networking.impersonate import ImpersonateTarget
             
             ydl_opts = {
-                'format': '136+140/135+140/134+140/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/18/best',
+                'format': 'bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/18/best',
                 'outtmpl': os.path.join(output_dir, "input_video.%(ext)s"),
                 'quiet': True,
                 'no_warnings': True,
                 'nocheckcertificate': True,
                 'impersonate': ImpersonateTarget.from_str('chrome'),
+                'remote_components': ['ejs:github'],
+                'js_runtimes': {'node': {}},
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_vr']
+                        'player_client': ['web_embedded', 'android_vr', 'mweb']
                     }
                 },
                 'socket_timeout': 15,
