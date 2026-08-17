@@ -12,16 +12,6 @@ from typing import List, Dict, Any, Tuple, Optional
 from sqlalchemy.orm import Session
 from app.config import settings
 
-# Force IPv4 socket resolution globally
-try:
-    import socket
-    _orig_getaddrinfo = socket.getaddrinfo
-    def _force_ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
-        return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
-    socket.getaddrinfo = _force_ipv4_getaddrinfo
-except Exception as e:
-    print(f"[VideoDubbingService] IPv4 patch note: {e}", flush=True)
-
 class VideoDubbingService:
     @staticmethod
     def log_to_job(job_id: str, message: str):
