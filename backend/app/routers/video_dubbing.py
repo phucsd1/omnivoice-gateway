@@ -20,6 +20,25 @@ from app.database import get_db, SessionLocal
 
 router = APIRouter(prefix="/v1/video-dubbing", tags=["Video Dubbing"])
 
+@router.get("/test-cffi")
+def test_cffi(url: str = "https://www.youtube.com/embed/uWr3SXVIROA"):
+    import traceback
+    results = {}
+    try:
+        from curl_cffi import requests as curl_requests
+        r = curl_requests.get(url, impersonate="chrome", verify=False, timeout=10)
+        results["cffi_embed"] = {"status": r.status_code, "len": len(r.content)}
+    except Exception as e:
+        results["cffi_embed"] = {"error": str(e), "trace": traceback.format_exc()}
+    try:
+        import urllib.request
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        r = urllib.request.urlopen(req, timeout=10)
+        results["urllib_embed"] = {"status": r.status, "len": len(r.read())}
+    except Exception as e:
+        results["urllib_embed"] = {"error": str(e), "trace": traceback.format_exc()}
+    return results
+
 @router.get("/debug-yt")
 def debug_yt(url: str = "https://www.youtube.com/watch?v=_HA6-A8itVY"):
     import threading, time, traceback
