@@ -179,10 +179,11 @@ class VideoDubbingService:
         v_match = re.search(r'(?:v=|\/embed\/|\.be\/)([0-9A-Za-z_-]{11})', url)
         target_yt_url = f"https://www.youtube.com/embed/{v_match.group(1)}" if v_match else url
 
-        # Method 1: Direct in-process Python yt_dlp with browser SSL context & Node.js/Deno solver
+        # Method 1: Direct in-process Python yt_dlp with Chrome TLS Impersonation & Node.js/Deno solver
         try:
-            _log(f"Attempting in-process yt_dlp with browser SSL context ({url})...")
+            _log(f"Attempting in-process yt_dlp with Chrome TLS impersonation ({url})...")
             import yt_dlp
+            from yt_dlp.networking.impersonate import ImpersonateTarget
 
             class YtDlpLogger:
                 def debug(self, msg):
@@ -197,13 +198,14 @@ class VideoDubbingService:
                     _log(f"[yt-dlp ERR] {msg}")
             
             ydl_opts = {
+                'impersonate': ImpersonateTarget.from_str('chrome'),
                 'format': 'bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/18/best',
                 'outtmpl': os.path.join(output_dir, "input_video.%(ext)s"),
                 'logger': YtDlpLogger(),
                 'nocheckcertificate': True,
-                'extractor_retries': 0,
-                'retries': 2,
-                'socket_timeout': 30,
+                'extractor_retries': 1,
+                'retries': 3,
+                'socket_timeout': 60,
                 'remote_components': ['ejs:github'],
                 'js_runtimes': {
                     'deno': {},
@@ -268,20 +270,21 @@ class VideoDubbingService:
                 err_pytubefix = e
                 _log(f"Pytubefix ({client_name}) failed: {e}")
 
-        # Method 3: CLI subprocess yt-dlp with mobile/mweb clients
+        # Method 3: CLI subprocess yt-dlp with Chrome impersonation
         try:
-            _log("Attempting YouTube download via CLI subprocess yt-dlp with mobile/mweb clients...")
+            _log("Attempting YouTube download via CLI subprocess yt-dlp with Chrome impersonation...")
             cmd = [
                 sys.executable, "-m", "yt_dlp",
+                "--impersonate", "chrome",
                 "--no-warnings",
                 "--no-check-certificate",
-                "--legacy-server-connect",
-                "--force-ipv4",
-                "--extractor-args", "youtube:player_client=android_vr,mweb",
+                "--remote-components", "ejs:github",
+                "--js-runtimes", "node",
+                "--extractor-args", "youtube:player_client=web_embedded,mweb",
                 "-f", "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4]/18/best",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
-                "--socket-timeout", "30",
+                "--socket-timeout", "60",
                 "--print", "after_video:%(title)s",
             ]
             if has_user_cookies and cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
