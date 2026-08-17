@@ -224,7 +224,7 @@ class VideoDubbingService:
                 except Exception:
                     pass
 
-        # Check for persistent cookies in backend/app or backend/storage, or generate visitor cookies
+        # Check for persistent cookies in backend/app or backend/storage, or generate fresh visitor cookies
         bundled_cookies = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "cookies.txt"))
         storage_cookies = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "storage", "cookies.txt"))
         
@@ -243,9 +243,31 @@ class VideoDubbingService:
                 except Exception:
                     pass
 
+        if not has_user_cookies:
+            try:
+                from curl_cffi import requests as curl_requests
+                _log("Generating fresh browser visitor cookies via Chrome TLS...")
+                s_visitor = curl_requests.Session(impersonate='chrome', verify=False)
+                r_vis = s_visitor.get('https://www.youtube.com/', timeout=10)
+                visitor_ck_file = os.path.join(output_dir, "visitor_cookies.txt")
+                with open(visitor_ck_file, 'w', encoding='utf-8') as f:
+                    f.write('# Netscape HTTP Cookie File\n')
+                    for c in s_visitor.cookies.jar:
+                        domain = c.domain
+                        flag = 'TRUE' if domain.startswith('.') else 'FALSE'
+                        path = c.path
+                        secure = 'TRUE' if c.secure else 'FALSE'
+                        expires = str(int(c.expires)) if c.expires else '2147483647'
+                        f.write(f'{domain}\t{flag}\t{path}\t{secure}\t{expires}\t{c.name}\t{c.value}\n')
+                if os.path.exists(visitor_ck_file) and os.path.getsize(visitor_ck_file) > 0:
+                    cookie_path = visitor_ck_file
+                    _log(f"Generated visitor cookies ({os.path.getsize(visitor_ck_file)} bytes)")
+            except Exception as e_vis:
+                _log(f"Visitor cookie generation note: {e_vis}")
+
         # Standardize URL to embed endpoint to avoid main webpage SSL handshake drop on cloud datacenters
         v_match = re.search(r'(?:v=|\/embed\/|\.be\/)([0-9A-Za-z_-]{11})', url)
-        target_yt_url = f"https://www.youtube.com/embed/{v_match.group(1)}" if v_match else url
+        target_yt_url = f"https://www.youtube.com/watch?v={v_match.group(1)}" if v_match else url
 
         # Method 1: Ultra-Fast Parallel Chunk Stream Downloader with curl_cffi Chrome Impersonation
         try:
@@ -278,13 +300,13 @@ class VideoDubbingService:
                 },
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['web_embedded']
+                        'player_client': ['web', 'web_embedded']
                     }
                 },
                 'nocheckcertificate': True,
                 'quiet': False
             }
-            if has_user_cookies and cookie_path:
+            if cookie_path:
                 ydl_opts['cookiefile'] = cookie_path
 
             t0 = time.time()
