@@ -56,6 +56,17 @@ except Exception as e:
     print(f"[VideoDubbingService] Urllib bridge note: {e}", flush=True)
 
 try:
+    from curl_cffi.curl import Curl, CurlOpt
+    import curl_cffi.requests.session as s_mod
+
+    _orig_set_opts = s_mod.set_curl_options
+    def _patched_set_opts(curl, *args, **kwargs):
+        res = _orig_set_opts(curl, *args, **kwargs)
+        curl.setopt(CurlOpt.SSL_VERIFYPEER, 0)
+        curl.setopt(CurlOpt.SSL_VERIFYHOST, 0)
+        return res
+    s_mod.set_curl_options = _patched_set_opts
+
     import curl_cffi.requests as curl_requests
     _orig_session_request = curl_requests.Session.request
     def _patched_session_request(self, *args, **kwargs):
