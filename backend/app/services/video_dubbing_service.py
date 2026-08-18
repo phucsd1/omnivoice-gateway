@@ -216,43 +216,18 @@ class VideoDubbingService:
                 _log(f"Using saved cookies ({os.path.getsize(ck)} bytes from {os.path.basename(ck)})")
                 break
 
-        # Standardize URL to embed endpoint to avoid main webpage SSL handshake drop on cloud datacenters
+        # Standardize URL
         v_match = re.search(r'(?:v=|\/embed\/|\.be\/)([0-9A-Za-z_-]{11})', url)
-        target_yt_url = f"https://www.youtube.com/embed/{v_match.group(1)}" if v_match else url
+        standard_url = f"https://www.youtube.com/watch?v={v_match.group(1)}" if v_match else url
 
-        if not has_user_cookies:
-            try:
-                from curl_cffi import requests as curl_requests
-                _log("Generating fresh browser visitor cookies via Chrome TLS...")
-                s_visitor = curl_requests.Session(impersonate='chrome', verify=False)
-                r_vis = s_visitor.get(target_yt_url, timeout=10)
-                visitor_ck_file = os.path.join(output_dir, "visitor_cookies.txt")
-                with open(visitor_ck_file, 'w', encoding='utf-8') as f:
-                    f.write('# Netscape HTTP Cookie File\n')
-                    for c in s_visitor.cookies.jar:
-                        domain = c.domain
-                        flag = 'TRUE' if domain.startswith('.') else 'FALSE'
-                        path = c.path
-                        secure = 'TRUE' if c.secure else 'FALSE'
-                        expires = str(int(c.expires)) if c.expires else '2147483647'
-                        f.write(f'{domain}\t{flag}\t{path}\t{secure}\t{expires}\t{c.name}\t{c.value}\n')
-                if os.path.exists(visitor_ck_file) and os.path.getsize(visitor_ck_file) > 0:
-                    cookie_path = visitor_ck_file
-                    _log(f"Generated visitor cookies ({os.path.getsize(visitor_ck_file)} bytes)")
-            except Exception as e_vis:
-                _log(f"Visitor cookie generation note: {e_vis}")
-
-        # Method 1: Ultra-Fast Parallel Chunk Stream Downloader with curl_cffi Chrome Impersonation
+        # Method 1: Ultra-Fast High Definition 1080p Downloader with web_embedded client & JS solver
         try:
-            _log(f"Starting Ultra-Fast Parallel Stream Downloader ({target_yt_url})...")
-            import concurrent.futures
+            _log(f"Starting Ultra-Fast YouTube 1080p Downloader ({url})...")
             import yt_dlp
-            from yt_dlp.networking.impersonate import ImpersonateTarget
-            from curl_cffi import requests as curl_requests
 
             class YtDlpLogger:
                 def debug(self, msg):
-                    if not msg.startswith('[download]'):
+                    if not msg.startswith('[download]') or 'ETA' in msg:
                         _log(f"[yt-dlp] {msg}")
                 def info(self, msg):
                     _log(f"[yt-dlp] {msg}")
@@ -262,10 +237,9 @@ class VideoDubbingService:
                     _log(f"[yt-dlp ERR] {msg}")
 
             ydl_opts = {
-                'impersonate': ImpersonateTarget.from_str('chrome'),
                 'logger': YtDlpLogger(),
-                'socket_timeout': 30,
-                'extractor_retries': 1,
+                'socket_timeout': 45,
+                'extractor_retries': 2,
                 'remote_components': ['ejs:github'],
                 'js_runtimes': {
                     'deno': {},
@@ -273,109 +247,39 @@ class VideoDubbingService:
                 },
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['web_embedded']
+                        'player_client': ['web_embedded', 'android', 'mweb']
                     }
                 },
+                'format': 'bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/bestvideo+bestaudio/best',
+                'merge_output_format': 'mp4',
+                'outtmpl': os.path.join(output_dir, "input_video.%(ext)s"),
                 'nocheckcertificate': True,
                 'quiet': False
             }
-            if cookie_path:
+            if cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
                 ydl_opts['cookiefile'] = cookie_path
+                _log(f"Passing cookiefile to yt-dlp: {cookie_path}")
 
             t0 = time.time()
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(target_yt_url, download=False)
+                info = ydl.extract_info(url, download=True)
                 title = info.get('title', 'YouTube Video') if info else 'YouTube Video'
-                formats = info.get('formats', []) if info else []
 
-            # Find best 1080p MP4 video stream
-            v_formats = [f for f in formats if f.get('vcodec') != 'none' and f.get('acodec') == 'none' and f.get('ext') == 'mp4' and 'url' in f]
-            v_formats.sort(key=lambda x: x.get('height', 0) or 0, reverse=True)
-            best_v = None
-            for f in v_formats:
-                if (f.get('height') or 0) <= 1080:
-                    best_v = f
-                    break
-            if not best_v and v_formats:
-                best_v = v_formats[0]
-
-            # Find best AAC audio stream
-            a_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('vcodec') == 'none' and f.get('ext') == 'm4a' and 'url' in f]
-            a_formats.sort(key=lambda x: x.get('abr', 0) or 0, reverse=True)
-            best_a = a_formats[0] if a_formats else None
-
-            if best_v and best_a:
-                _log(f"Selected streams: Video {best_v.get('resolution')} ({best_v.get('fps')}fps, {best_v.get('filesize')} bytes), Audio {best_a.get('abr')}kbps ({best_a.get('filesize')} bytes)")
-
-                def _dl_fast_chunks(stream_info, out_file, chunk_mb=10, max_workers=8):
-                    s_url = stream_info['url']
-                    s_headers = dict(stream_info.get('http_headers', {}))
-                    fsize = stream_info.get('filesize') or stream_info.get('filesize_approx') or 0
-                    chunk_bytes = chunk_mb * 1024 * 1024
-
-                    if fsize <= 0:
-                        h = dict(s_headers)
-                        h['Range'] = 'bytes=0-'
-                        r = curl_requests.get(s_url, headers=h, impersonate='chrome', verify=False, timeout=60)
-                        with open(out_file, 'wb') as f:
-                            f.write(r.content)
-                        return
-
-                    num_chunks = (fsize + chunk_bytes - 1) // chunk_bytes
-                    chunk_items = []
-                    for i in range(num_chunks):
-                        c_start = i * chunk_bytes
-                        c_end = min(c_start + chunk_bytes - 1, fsize - 1)
-                        p_path = f"{out_file}.part{i}"
-                        chunk_items.append((i, c_start, c_end, p_path))
-
-                    def _dl_part(item):
-                        idx, start, end, p_path = item
-                        h = dict(s_headers)
-                        h['Range'] = f"bytes={start}-{end}"
-                        r = curl_requests.get(s_url, headers=h, impersonate='chrome', verify=False, timeout=60)
-                        with open(p_path, 'wb') as pf:
-                            pf.write(r.content)
-
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as ex:
-                        list(ex.map(_dl_part, chunk_items))
-
-                    with open(out_file, 'wb') as outfile:
-                        for _, _, _, p_path in chunk_items:
-                            with open(p_path, 'rb') as pf:
-                                shutil.copyfileobj(pf, outfile)
-                            try: os.remove(p_path)
-                            except Exception: pass
-
-                v_temp = os.path.join(output_dir, "v_stream.mp4")
-                a_temp = os.path.join(output_dir, "a_stream.m4a")
-
-                _log("Downloading video stream chunks in parallel...")
-                t_v0 = time.time()
-                _dl_fast_chunks(best_v, v_temp, chunk_mb=10, max_workers=8)
-                _log(f"Video stream downloaded: {os.path.getsize(v_temp)} bytes in {time.time()-t_v0:.2f}s")
-
-                _log("Downloading audio stream chunks in parallel...")
-                t_a0 = time.time()
-                _dl_fast_chunks(best_a, a_temp, chunk_mb=2, max_workers=4)
-                _log(f"Audio stream downloaded: {os.path.getsize(a_temp)} bytes in {time.time()-t_a0:.2f}s")
-
-                _log("Merging video and audio lossless with FFmpeg...")
-                cmd_merge = ["ffmpeg", "-y", "-i", v_temp, "-i", a_temp, "-c", "copy", target_path]
-                subprocess.run(cmd_merge, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-                for f_tmp in [v_temp, a_temp]:
-                    if os.path.exists(f_tmp):
-                        try: os.remove(f_tmp)
+            # Look for downloaded file
+            for ext in ['.mp4', '.mkv', '.webm', '.m4a']:
+                candidate = os.path.join(output_dir, f"input_video{ext}")
+                if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
+                    if not candidate.endswith('.mp4'):
+                        mp4_path = os.path.join(output_dir, "input_video.mp4")
+                        subprocess.run(["ffmpeg", "-y", "-i", candidate, "-c", "copy", mp4_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        try: os.remove(candidate)
                         except Exception: pass
-
-                if os.path.exists(target_path) and os.path.getsize(target_path) > 0:
-                    t1 = time.time()
-                    _log(f"Ultra-Fast parallel download success: '{title}' ({target_path}, size={os.path.getsize(target_path)} bytes in {t1-t0:.2f}s)")
-                    return target_path, title
+                        candidate = mp4_path
+                    _log(f"Ultra-Fast download success: '{title}' ({candidate}, size={os.path.getsize(candidate)} bytes in {time.time()-t0:.2f}s)")
+                    return candidate, title
         except Exception as e:
             err_ytdlp = e
-            _log(f"Ultra-Fast stream download failed: {e}")
+            _log(f"Ultra-Fast download failed: {e}")
 
         # Method 2: High-Speed HD pytubefix fallback with ANDROID_VR client
         for client_name in ['ANDROID_VR', 'ANDROID']:
@@ -412,18 +316,17 @@ class VideoDubbingService:
                 err_pytubefix = e
                 _log(f"Pytubefix ({client_name}) failed: {e}")
 
-        # Method 3: CLI subprocess yt-dlp with Chrome impersonation
+        # Method 3: CLI subprocess yt-dlp with Node JS challenge solver
         try:
-            _log("Attempting YouTube download via CLI subprocess yt-dlp with Chrome impersonation...")
+            _log("Attempting YouTube download via CLI subprocess yt-dlp...")
             cmd = [
                 sys.executable, "-m", "yt_dlp",
-                "--impersonate", "chrome",
                 "--no-warnings",
                 "--no-check-certificate",
                 "--remote-components", "ejs:github",
                 "--js-runtimes", "node",
-                "--extractor-args", "youtube:player_client=web_embedded,mweb",
-                "-f", "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4]/18/best",
+                "--extractor-args", "youtube:player_client=web_embedded,android,mweb",
+                "-f", "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/bestvideo+bestaudio/best",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
                 "--socket-timeout", "60",
