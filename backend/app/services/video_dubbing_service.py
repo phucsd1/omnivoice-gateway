@@ -56,6 +56,13 @@ except Exception as e:
     print(f"[VideoDubbingService] Urllib bridge note: {e}", flush=True)
 
 try:
+    import curl_cffi.requests as curl_requests
+    _orig_session_request = curl_requests.Session.request
+    def _patched_session_request(self, *args, **kwargs):
+        kwargs['verify'] = False
+        return _orig_session_request(self, *args, **kwargs)
+    curl_requests.Session.request = _patched_session_request
+
     import yt_dlp
     import yt_dlp.networking._curlcffi as cffi_mod
 
@@ -236,7 +243,10 @@ class VideoDubbingService:
                 def error(self, msg):
                     _log(f"[yt-dlp ERR] {msg}")
 
+            from yt_dlp.networking.impersonate import ImpersonateTarget
+
             ydl_opts = {
+                'impersonate': ImpersonateTarget.from_str('chrome'),
                 'logger': YtDlpLogger(),
                 'socket_timeout': 45,
                 'extractor_retries': 2,
