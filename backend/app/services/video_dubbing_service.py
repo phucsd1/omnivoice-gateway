@@ -24,7 +24,6 @@ try:
         sess = _orig_create_instance(self, cookiejar)
         sess.verify = False
         try:
-            sess.curl.setopt(CurlOpt.IPRESOLVE, 1)
             sess.curl.setopt(CurlOpt.CAINFO, b'')
             sess.curl.setopt(CurlOpt.CAPATH, b'')
             sess.curl.setopt(CurlOpt.SSL_VERIFYPEER, 0)
@@ -41,7 +40,6 @@ try:
         try:
             session = self._get_instance(
                 cookiejar=self._get_cookiejar(request) if 'cookie' not in request.headers else None)
-            session.curl.setopt(CurlOpt.IPRESOLVE, 1)
             session.curl.setopt(CurlOpt.CAINFO, b'')
             session.curl.setopt(CurlOpt.CAPATH, b'')
             session.curl.setopt(CurlOpt.SSL_VERIFYPEER, 0)
@@ -425,6 +423,7 @@ class VideoDubbingService:
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
                 "--no-check-certificate",
+                "--impersonate", "chrome",
                 "--remote-components", "ejs:github",
                 "--js-runtimes", "node",
                 "--extractor-args", "youtube:player_client=web_embedded,android,mweb",

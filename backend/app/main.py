@@ -8,19 +8,28 @@ import sqlite3
 import ssl
 import socket
 
-# Configure global Chrome TLS impersonation bridge for urllib and requests
+# Configure global Chrome TLS impersonation bridge for requests and yt-dlp
 try:
-    import io
-    import http.client
-    import urllib.request
     from curl_cffi.curl import Curl, CurlOpt
     import curl_cffi.requests as curl_requests
     import curl_cffi.requests.session as s_mod
 
+    _orig_impersonate = Curl.impersonate
+    def _safe_impersonate(self, target, default_headers=True):
+        ret = _orig_impersonate(self, target, default_headers=default_headers)
+        try:
+            self.setopt(CurlOpt.CAINFO, b'')
+            self.setopt(CurlOpt.CAPATH, b'')
+            self.setopt(CurlOpt.SSL_VERIFYPEER, 0)
+            self.setopt(CurlOpt.SSL_VERIFYHOST, 0)
+        except Exception:
+            pass
+        return ret
+    Curl.impersonate = _safe_impersonate
+
     _orig_curl_perform = Curl.perform
     def _safe_curl_perform(self):
         try:
-            self.setopt(CurlOpt.IPRESOLVE, 1)
             self.setopt(CurlOpt.CAINFO, b'')
             self.setopt(CurlOpt.CAPATH, b'')
             self.setopt(CurlOpt.SSL_VERIFYPEER, 0)
@@ -30,11 +39,21 @@ try:
         return _orig_curl_perform(self)
     Curl.perform = _safe_curl_perform
 
+    _orig_set_opts = s_mod.set_curl_options
+    def _patched_set_opts(curl, *args, **kwargs):
+        res = _orig_set_opts(curl, *args, **kwargs)
+        try:
+            curl.setopt(CurlOpt.CAINFO, b'')
+            curl.setopt(CurlOpt.CAPATH, b'')
+            curl.setopt(CurlOpt.SSL_VERIFYPEER, 0)
+            curl.setopt(CurlOpt.SSL_VERIFYHOST, 0)
+        except Exception:
+            pass
+        return res
+    s_mod.set_curl_options = _patched_set_opts
+
     _orig_session_init = curl_requests.Session.__init__
     def _patched_session_init(self, *args, **kwargs):
-        opts = dict(kwargs.get('curl_options') or {})
-        opts[CurlOpt.IPRESOLVE] = 1
-        kwargs['curl_options'] = opts
         kwargs['verify'] = False
         _orig_session_init(self, *args, **kwargs)
     curl_requests.Session.__init__ = _patched_session_init
