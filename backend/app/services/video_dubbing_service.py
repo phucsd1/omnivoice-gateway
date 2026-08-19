@@ -94,6 +94,10 @@ try:
 except Exception as e:
     print(f"[VideoDubbingService] CurlCFFIRH bridge note: {e}", flush=True)
 
+_GOOGLE_CLIENT_ID = '861556708454-d6dlm3lh05idd8npek18k6be8ba3oc68.apps.googleusercontent.com'
+_GOOGLE_CLIENT_SECRET = 'SboVhoG9s0rNafixCSGGKXAT'
+_GOOGLE_SCOPES = 'https://gdata.youtube.com https://www.googleapis.com/auth/youtube'
+
 class VideoDubbingService:
     @staticmethod
     def log_to_job(job_id: str, message: str):
