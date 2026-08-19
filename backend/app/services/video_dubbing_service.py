@@ -263,7 +263,7 @@ class VideoDubbingService:
             return None
         try:
             import requests as py_requests
-            r = py_requests.post('https://www.youtube.com/o/oauth2/token', json={
+            r = py_requests.post('https://oauth2.googleapis.com/token', data={
                 'client_id': _GOOGLE_CLIENT_ID,
                 'client_secret': _GOOGLE_CLIENT_SECRET,
                 'refresh_token': refresh_token,
@@ -283,20 +283,17 @@ class VideoDubbingService:
 
     @staticmethod
     def start_oauth_device_flow() -> dict:
-        import uuid
         import requests as py_requests
-        r = py_requests.post('https://www.youtube.com/o/oauth2/device/code', json={
+        r = py_requests.post('https://oauth2.googleapis.com/device/code', data={
             'client_id': _GOOGLE_CLIENT_ID,
-            'scope': _GOOGLE_SCOPES,
-            'device_id': uuid.uuid4().hex,
-            'device_model': 'ytlr::'
+            'scope': _GOOGLE_SCOPES
         }, timeout=10)
         return r.json()
 
     @staticmethod
     def poll_oauth_device_flow(device_code: str) -> dict:
         import requests as py_requests
-        r = py_requests.post('https://www.youtube.com/o/oauth2/token', json={
+        r = py_requests.post('https://oauth2.googleapis.com/token', data={
             'client_id': _GOOGLE_CLIENT_ID,
             'client_secret': _GOOGLE_CLIENT_SECRET,
             'device_code': device_code,
@@ -312,7 +309,7 @@ class VideoDubbingService:
             }
             VideoDubbingService.save_oauth_token(token_data)
             return {'status': 'success', 'message': 'Đã kết nối tài khoản YouTube thành công!'}
-        elif res.get('error') in ('authorization_pending', 'slow_down'):
+        elif res.get('error') in ('authorization_pending', 'slow_down') or r.status_code == 428:
             return {'status': 'pending'}
         else:
             return {'status': 'error', 'error': res.get('error_description') or res.get('error', 'Lỗi xác thực')}
