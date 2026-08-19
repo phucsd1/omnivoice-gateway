@@ -46,7 +46,8 @@ try:
             d = req.data if hasattr(req, 'data') else data
             m = req.get_method() if hasattr(req, 'get_method') else ('POST' if d else 'GET')
             to = timeout or 60
-            r = curl_requests.request(method=m, url=u, headers=h, data=d, timeout=to, impersonate='chrome', verify=False)
+            from curl_cffi.curl import CurlOpt
+            r = curl_requests.request(method=m, url=u, headers=h, data=d, timeout=to, impersonate='chrome', verify=False, curl_options={CurlOpt.IPRESOLVE: 1})
             return _CffiHTTPResponse(r)
         except Exception:
             return _orig_opener_open(self, fullurl, data=data, timeout=timeout)
@@ -62,6 +63,7 @@ try:
     _orig_curl_perform = Curl.perform
     def _safe_curl_perform(self):
         try:
+            self.setopt(CurlOpt.IPRESOLVE, 1)
             self.setopt(CurlOpt.CAINFO, b'')
             self.setopt(CurlOpt.CAPATH, b'')
             self.setopt(CurlOpt.SSL_VERIFYPEER, 0)
@@ -75,6 +77,7 @@ try:
     def _patched_set_opts(curl, *args, **kwargs):
         res = _orig_set_opts(curl, *args, **kwargs)
         try:
+            curl.setopt(CurlOpt.IPRESOLVE, 1)
             curl.setopt(CurlOpt.CAINFO, b'')
             curl.setopt(CurlOpt.CAPATH, b'')
             curl.setopt(CurlOpt.SSL_VERIFYPEER, 0)
@@ -99,6 +102,7 @@ try:
         sess = _orig_create_instance(self, cookiejar)
         sess.verify = False
         try:
+            sess.curl.setopt(CurlOpt.IPRESOLVE, 1)
             sess.curl.setopt(CurlOpt.CAINFO, b'')
             sess.curl.setopt(CurlOpt.CAPATH, b'')
             sess.curl.setopt(CurlOpt.SSL_VERIFYPEER, 0)
@@ -115,6 +119,7 @@ try:
         try:
             session: curl_cffi.requests.Session = self._get_instance(
                 cookiejar=self._get_cookiejar(request) if 'cookie' not in request.headers else None)
+            session.curl.setopt(CurlOpt.IPRESOLVE, 1)
             session.curl.setopt(CurlOpt.CAINFO, b'')
             session.curl.setopt(CurlOpt.CAPATH, b'')
             session.curl.setopt(CurlOpt.SSL_VERIFYPEER, 0)

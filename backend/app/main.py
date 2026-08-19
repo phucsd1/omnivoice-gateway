@@ -42,7 +42,8 @@ try:
             d = req.data if hasattr(req, 'data') else data
             m = req.get_method() if hasattr(req, 'get_method') else ('POST' if d else 'GET')
             to = timeout or 60
-            r = curl_requests.request(method=m, url=u, headers=h, data=d, timeout=to, impersonate='chrome', verify=False)
+            from curl_cffi.curl import CurlOpt
+            r = curl_requests.request(method=m, url=u, headers=h, data=d, timeout=to, impersonate='chrome', verify=False, curl_options={CurlOpt.IPRESOLVE: 1})
             return _GlobalCffiHTTPResponse(r)
         except Exception:
             return _orig_global_open(self, fullurl, data=data, timeout=timeout)
