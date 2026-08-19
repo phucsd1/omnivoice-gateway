@@ -412,7 +412,10 @@ class VideoDubbingService:
             err_sub = e
             _log(f"CLI yt-dlp exception: {e}")
 
-        raise Exception(f"Không thể tải video từ YouTube: (yt-dlp: {err_ytdlp}) | (CLI: {err_sub}) | (pytubefix: {err_pytubefix})")
+        err_msg = f"Không thể tải video từ YouTube: (yt-dlp: {err_ytdlp}) | (CLI: {err_sub}) | (pytubefix: {err_pytubefix})"
+        if not has_oauth and not has_user_cookies:
+            err_msg += "\n💡 HƯỚNG DẪN: YouTube yêu cầu xác thực để tải video trên máy chủ Cloud. Bạn chỉ cần bấm nút '🔑 Kết nối YouTube (1-Click)' (ngay phía trên ô nhập link) để liên kết tài khoản Google chỉ trong 3 giây mà không cần dán cookie!"
+        raise Exception(err_msg)
 
     @staticmethod
     def extract_audio_ffmpeg(video_path: str, output_audio_path: str) -> float:
