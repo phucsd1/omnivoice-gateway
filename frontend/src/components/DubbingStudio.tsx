@@ -21,8 +21,11 @@ import {
   Cookie,
   ShieldCheck,
   Trash2,
-  HelpCircle,
-  X
+  X,
+  ExternalLink,
+  Copy,
+  Check,
+  LogOut
 } from "lucide-react";
 import { api, type VideoDubbingJobResponse, type SubtitleSegment, type LLMProfile } from "../api/client";
 import { PageHeader } from "./ui/PageHeader";
@@ -85,22 +88,98 @@ export default function DubbingStudio() {
   const [vocalsVolume, setVocalsVolume] = useState(1.0);
   const [bgmVolume, setBgmVolume] = useState(0.4);
 
-  // YouTube Cookie States
+  // YouTube Authentication States (OAuth & Cookie)
+  const [activeModalTab, setActiveModalTab] = useState<"oauth" | "cookies">("oauth");
+  const [oauthStatus, setOauthStatus] = useState<{ connected: boolean; expires_at?: number } | null>(null);
+  const [oauthFlowData, setOauthFlowData] = useState<{ user_code: string; device_code: string; verification_url: string; interval: number } | null>(null);
+  const [oauthStarting, setOauthStarting] = useState(false);
+  const [oauthPolling, setOauthPolling] = useState(false);
+  const [oauthCopied, setOauthCopied] = useState(false);
+  const [oauthError, setOauthError] = useState<string | null>(null);
+  const [oauthSuccessMsg, setOauthSuccessMsg] = useState<string | null>(null);
+  const pollTimerRef = useRef<any>(null);
+
   const [cookieStatus, setCookieStatus] = useState<{ has_cookies: boolean; size_bytes?: number } | null>(null);
   const [showCookieModal, setShowCookieModal] = useState(false);
   const [cookieText, setCookieText] = useState("");
   const [cookieUploading, setCookieUploading] = useState(false);
   const [cookieMsg, setCookieMsg] = useState<string | null>(null);
 
-  // Restore active job from localStorage on mount & fetch LLM settings & Cookie status
+  // Restore active job from localStorage on mount & fetch settings & auth statuses
   useEffect(() => {
     fetchSystemLlmSettings();
     fetchLlmProfiles();
     fetchCookieStatus();
+    fetchOAuthStatus();
     if (jobId) {
       fetchJobDetails(jobId);
     }
+    return () => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    };
   }, []);
+
+  const fetchOAuthStatus = async () => {
+    try {
+      const res = await api.getYouTubeOAuthStatus();
+      setOauthStatus(res);
+    } catch {}
+  };
+
+  const handleStartOAuth = async () => {
+    setOauthStarting(true);
+    setOauthError(null);
+    setOauthSuccessMsg(null);
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    try {
+      const data = await api.startYouTubeOAuth();
+      setOauthFlowData(data);
+      setOauthPolling(true);
+
+      // Start polling
+      const pollInterval = (data.interval || 5) * 1000;
+      pollTimerRef.current = setInterval(async () => {
+        try {
+          const pollRes = await api.pollYouTubeOAuth(data.device_code);
+          if (pollRes.status === "success") {
+            clearInterval(pollTimerRef.current);
+            setOauthPolling(false);
+            setOauthSuccessMsg(pollRes.message || "Đã kết nối tài khoản YouTube thành công!");
+            fetchOAuthStatus();
+          } else if (pollRes.status === "error") {
+            clearInterval(pollTimerRef.current);
+            setOauthPolling(false);
+            setOauthError(pollRes.error || "Quá trình xác thực không thành công.");
+          }
+        } catch (err: any) {
+          // Keep polling on minor network hiccups
+        }
+      }, pollInterval);
+    } catch (err: any) {
+      setOauthError(err.message || "Không thể khởi tạo phiên đăng nhập Google");
+    } finally {
+      setOauthStarting(false);
+    }
+  };
+
+  const handleDisconnectOAuth = async () => {
+    if (!window.confirm("Bạn có chắc chắn muốn ngắt kết nối tài khoản YouTube?")) return;
+    try {
+      await api.disconnectYouTubeOAuth();
+      setOauthStatus({ connected: false });
+      setOauthFlowData(null);
+      setOauthSuccessMsg(null);
+    } catch (err: any) {
+      alert(`Lỗi: ${err.message || "Không thể ngắt kết nối"}`);
+    }
+  };
+
+  const handleCopyCode = () => {
+    if (!oauthFlowData?.user_code) return;
+    navigator.clipboard.writeText(oauthFlowData.user_code);
+    setOauthCopied(true);
+    setTimeout(() => setOauthCopied(false), 2500);
+  };
 
   const fetchCookieStatus = async () => {
     try {
@@ -620,13 +699,29 @@ export default function DubbingStudio() {
                       type="button"
                       onClick={() => setShowCookieModal(true)}
                       className={`text-[11px] px-2.5 py-1 rounded-lg border flex items-center gap-1.5 font-medium transition-all cursor-pointer ${
-                        cookieStatus?.has_cookies
+                        oauthStatus?.connected
                           ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25"
-                          : "bg-secondary/60 text-muted-foreground hover:text-foreground border-border hover:bg-secondary"
+                          : cookieStatus?.has_cookies
+                          ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/25"
+                          : "bg-primary/15 text-primary border-primary/30 hover:bg-primary/25"
                       }`}
                     >
-                      <Cookie className="w-3.5 h-3.5" />
-                      <span>{cookieStatus?.has_cookies ? "Cookie: Đã cấu hình" : "Thêm YouTube Cookie"}</span>
+                      {oauthStatus?.connected ? (
+                        <>
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                          <span>YouTube: Đã kết nối</span>
+                        </>
+                      ) : cookieStatus?.has_cookies ? (
+                        <>
+                          <Cookie className="w-3.5 h-3.5 text-blue-500" />
+                          <span>Cookie: Đã cài đặt</span>
+                        </>
+                      ) : (
+                        <>
+                          <Key className="w-3.5 h-3.5 text-primary" />
+                          <span>Kết nối YouTube (1-Click)</span>
+                        </>
+                      )}
                     </button>
                   </div>
                   <input
@@ -981,18 +1076,18 @@ export default function DubbingStudio() {
         </SectionCard>
       )}
 
-      {/* --- YOUTUBE COOKIE MODAL --- */}
+      {/* --- YOUTUBE AUTHENTICATION MODAL --- */}
       {showCookieModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-card border border-border rounded-2xl max-w-lg w-full p-6 shadow-2xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between pb-3 border-b border-border">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <div className="p-2 bg-primary/10 text-primary rounded-xl">
-                  <Cookie className="w-5 h-5" />
+                  <Key className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-foreground">Cấu Hình YouTube Cookies</h3>
-                  <p className="text-[11px] text-muted-foreground">Tải video Full HD 1080p từ máy chủ không bị giới hạn bot</p>
+                  <h3 className="text-sm font-bold text-foreground">Kết Nối Tài Khoản YouTube</h3>
+                  <p className="text-[11px] text-muted-foreground">Mở khóa tải video YouTube Full HD 1080p 60fps siêu tốc</p>
                 </div>
               </div>
               <button
@@ -1003,92 +1098,244 @@ export default function DubbingStudio() {
               </button>
             </div>
 
-            {/* Current Status */}
-            <div className={`p-3 rounded-xl border flex items-center justify-between ${
-              cookieStatus?.has_cookies
-                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
-                : "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
-            }`}>
-              <div className="flex items-center gap-2 text-xs font-semibold">
-                {cookieStatus?.has_cookies ? (
-                  <>
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>Đã cài đặt file Cookies ({cookieStatus.size_bytes} bytes)</span>
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle className="w-4 h-4" />
-                    <span>Chưa có cookies (Server tải ở chế độ khách)</span>
-                  </>
-                )}
-              </div>
-              {cookieStatus?.has_cookies && (
-                <button
-                  type="button"
-                  disabled={cookieUploading}
-                  onClick={handleDeleteCookies}
-                  className="px-2 py-1 bg-destructive/10 hover:bg-destructive/20 text-destructive text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  <span>Xóa</span>
-                </button>
-              )}
-            </div>
-
-            {cookieMsg && (
-              <div className="p-2.5 bg-secondary/80 rounded-xl text-xs text-foreground font-medium border border-border">
-                {cookieMsg}
-              </div>
-            )}
-
-            {/* Upload Method 1: File */}
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-bold text-foreground">Cách 1: Tải lên tệp cookies.txt</label>
-              <input
-                type="file"
-                accept=".txt"
-                onChange={handleUploadCookieFile}
-                disabled={cookieUploading}
-                className="block w-full text-xs text-muted-foreground file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:brightness-110 cursor-pointer border border-border rounded-xl p-1 bg-background"
-              />
-            </div>
-
-            {/* Upload Method 2: Textarea */}
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-bold text-foreground">Cách 2: Dán nội dung Netscape Cookies</label>
-              <textarea
-                rows={4}
-                value={cookieText}
-                onChange={(e) => setCookieText(e.target.value)}
-                placeholder="# Netscape HTTP Cookie File&#10;.youtube.com TRUE / TRUE ... SID ..."
-                className="w-full bg-background border border-border rounded-xl p-2.5 text-[11px] font-mono text-foreground focus:outline-none focus:border-primary resize-none"
-              />
+            {/* Modal Tabs */}
+            <div className="flex items-center gap-2 p-1 bg-secondary/50 rounded-xl border border-border">
               <button
                 type="button"
-                disabled={cookieUploading || !cookieText.trim()}
-                onClick={handleSaveCookieText}
-                className="self-end px-4 py-2 bg-primary hover:brightness-105 text-primary-foreground text-xs font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                onClick={() => setActiveModalTab("oauth")}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeModalTab === "oauth"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
               >
-                <Save className="w-3.5 h-3.5" />
-                <span>{cookieUploading ? "Đang lưu..." : "Lưu Nội Dung Cookie"}</span>
+                <Key className="w-3.5 h-3.5" />
+                <span>Đăng Nhập 1-Click (Khuyên Dùng)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveModalTab("cookies")}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeModalTab === "cookies"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Cookie className="w-3.5 h-3.5" />
+                <span>Dán Cookies.txt</span>
               </button>
             </div>
 
-            {/* Instructions */}
-            <div className="p-3 bg-secondary/30 border border-border rounded-xl flex flex-col gap-1 text-[11px] text-muted-foreground">
-              <div className="flex items-center gap-1 font-semibold text-foreground">
-                <HelpCircle className="w-3.5 h-3.5 text-primary" />
-                <span>Cách lấy file cookies.txt miễn phí 5s:</span>
-              </div>
-              <ol className="list-decimal list-inside space-y-0.5 ml-1">
-                <li>Cài tiện ích Chrome <b>"Get cookies.txt LOCALLY"</b>.</li>
-                <li>Mở tab <span className="font-mono text-foreground">youtube.com</span> đã đăng nhập tài khoản.</li>
-                <li>Bấm vào icon tiện ích và chọn <b>Export as cookies.txt</b>.</li>
-                <li>Tải file đó lên đây để mở khóa tải video tốc độ cao vĩnh viễn!</li>
-              </ol>
-            </div>
+            {/* TAB 1: 1-CLICK OAUTH */}
+            {activeModalTab === "oauth" && (
+              <div className="flex flex-col gap-3">
+                {/* Connected State */}
+                {oauthStatus?.connected ? (
+                  <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full">
+                        <ShieldCheck className="w-6 h-6" />
+                      </div>
+                      <div className="flex-grow">
+                        <h4 className="text-xs font-bold text-foreground">Đã Kết Nối Tài Khoản YouTube (OAuth 2.0)</h4>
+                        <p className="text-[11px] text-muted-foreground">Server đã được cấp quyền tải mọi video Full HD tốc độ cao mà không bị chặn bot.</p>
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleDisconnectOAuth}
+                        className="px-3 py-1.5 bg-destructive/10 hover:bg-destructive/20 text-destructive text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Ngắt Kết Nối</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {!oauthFlowData ? (
+                      <div className="flex flex-col gap-3 p-4 bg-secondary/30 border border-border rounded-xl">
+                        <div className="flex items-start gap-2.5">
+                          <Sparkles className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                          <div className="text-xs text-muted-foreground leading-relaxed">
+                            <b className="text-foreground">Không cần xuất file cookie thủ công!</b> Chỉ cần bấm nút bên dưới, mở trang xác nhận của Google và nhập mã gồm 8 ký tự để hoàn tất kết nối trong 3 giây.
+                          </div>
+                        </div>
 
-            <div className="flex justify-end pt-2">
+                        {oauthError && (
+                          <div className="p-2.5 bg-destructive/10 border border-destructive/30 rounded-lg text-xs text-destructive font-medium">
+                            {oauthError}
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          disabled={oauthStarting}
+                          onClick={handleStartOAuth}
+                          className="w-full py-2.5 bg-primary hover:brightness-105 text-primary-foreground font-bold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                        >
+                          {oauthStarting ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Đang tạo mã kết nối...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Key className="w-4 h-4" />
+                              <span>Bắt Đầu Kết Nối YouTube (1-Click)</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-3 p-4 bg-secondary/30 border border-primary/40 rounded-xl">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-foreground">Bước 1: Sao chép mã xác thực</span>
+                          <span className="text-[10px] text-muted-foreground font-medium">Hết hạn sau 30 phút</span>
+                        </div>
+
+                        {/* Code Display */}
+                        <div className="flex items-center justify-between p-3 bg-background border-2 border-dashed border-primary/60 rounded-xl">
+                          <span className="text-lg font-extrabold font-mono tracking-widest text-primary">
+                            {oauthFlowData.user_code}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleCopyCode}
+                            className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
+                          >
+                            {oauthCopied ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                <span className="text-emerald-500">Đã chép!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5" />
+                                <span>Sao chép mã</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Step 2 CTA */}
+                        <div className="flex flex-col gap-2 pt-1">
+                          <span className="text-xs font-bold text-foreground">Bước 2: Mở trang Google và dán mã</span>
+                          <a
+                            href={oauthFlowData.verification_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full py-2.5 bg-primary hover:brightness-105 text-primary-foreground font-bold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            <span>Mở trang Google xác thực ({oauthFlowData.verification_url})</span>
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
+
+                        {/* Live Waiting Status */}
+                        <div className="p-3 bg-background/80 border border-border rounded-xl flex items-center gap-2.5 text-xs text-muted-foreground">
+                          {oauthPolling ? (
+                            <>
+                              <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                              <span className="text-foreground font-medium">Đang chờ bạn bấm Cho phép trên Google... (Tự động nhận diện)</span>
+                            </>
+                          ) : oauthSuccessMsg ? (
+                            <>
+                              <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                              <span className="text-emerald-600 dark:text-emerald-400 font-bold">{oauthSuccessMsg}</span>
+                            </>
+                          ) : oauthError ? (
+                            <>
+                              <AlertCircle className="w-4 h-4 text-destructive" />
+                              <span className="text-destructive font-medium">{oauthError}</span>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* TAB 2: COOKIES */}
+            {activeModalTab === "cookies" && (
+              <div className="flex flex-col gap-3">
+                {/* Current Status */}
+                <div className={`p-3 rounded-xl border flex items-center justify-between ${
+                  cookieStatus?.has_cookies
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                    : "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                }`}>
+                  <div className="flex items-center gap-2 text-xs font-semibold">
+                    {cookieStatus?.has_cookies ? (
+                      <>
+                        <ShieldCheck className="w-4 h-4" />
+                        <span>Đã cài đặt file Cookies ({cookieStatus.size_bytes} bytes)</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="w-4 h-4" />
+                        <span>Chưa có cookies</span>
+                      </>
+                    )}
+                  </div>
+                  {cookieStatus?.has_cookies && (
+                    <button
+                      type="button"
+                      disabled={cookieUploading}
+                      onClick={handleDeleteCookies}
+                      className="px-2 py-1 bg-destructive/10 hover:bg-destructive/20 text-destructive text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Xóa</span>
+                    </button>
+                  )}
+                </div>
+
+                {cookieMsg && (
+                  <div className="p-2.5 bg-secondary/80 rounded-xl text-xs text-foreground font-medium border border-border">
+                    {cookieMsg}
+                  </div>
+                )}
+
+                {/* Upload Method 1: File */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-bold text-foreground">Cách 1: Tải lên tệp cookies.txt</label>
+                  <input
+                    type="file"
+                    accept=".txt"
+                    onChange={handleUploadCookieFile}
+                    disabled={cookieUploading}
+                    className="block w-full text-xs text-muted-foreground file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:brightness-110 cursor-pointer border border-border rounded-xl p-1 bg-background"
+                  />
+                </div>
+
+                {/* Upload Method 2: Textarea */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-bold text-foreground">Cách 2: Dán nội dung Netscape Cookies</label>
+                  <textarea
+                    rows={3}
+                    value={cookieText}
+                    onChange={(e) => setCookieText(e.target.value)}
+                    placeholder="# Netscape HTTP Cookie File&#10;.youtube.com TRUE / TRUE ... SID ..."
+                    className="w-full bg-background border border-border rounded-xl p-2.5 text-[11px] font-mono text-foreground focus:outline-none focus:border-primary resize-none"
+                  />
+                  <button
+                    type="button"
+                    disabled={cookieUploading || !cookieText.trim()}
+                    onClick={handleSaveCookieText}
+                    className="self-end px-4 py-2 bg-primary hover:brightness-105 text-primary-foreground text-xs font-bold rounded-xl transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{cookieUploading ? "Đang lưu..." : "Lưu Nội Dung Cookie"}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2 border-t border-border">
               <button
                 type="button"
                 onClick={() => { setShowCookieModal(false); setCookieMsg(null); }}

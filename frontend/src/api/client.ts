@@ -772,6 +772,30 @@ export const api = {
     });
   },
 
+  getYouTubeOAuthStatus: async (): Promise<{ connected: boolean; expires_at?: number; token_type?: string }> => {
+    return request<{ connected: boolean; expires_at?: number; token_type?: string }>("/v1/video-dubbing/oauth/status");
+  },
+
+  startYouTubeOAuth: async (): Promise<{ user_code: string; device_code: string; verification_url: string; interval: number; expires_in: number }> => {
+    return request<{ user_code: string; device_code: string; verification_url: string; interval: number; expires_in: number }>("/v1/video-dubbing/oauth/start", {
+      method: "POST",
+    });
+  },
+
+  pollYouTubeOAuth: async (deviceCode: string): Promise<{ status: "success" | "pending" | "error"; message?: string; error?: string }> => {
+    return request<{ status: "success" | "pending" | "error"; message?: string; error?: string }>("/v1/video-dubbing/oauth/poll", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_code: deviceCode }),
+    });
+  },
+
+  disconnectYouTubeOAuth: async (): Promise<{ status: string; message: string }> => {
+    return request<{ status: string; message: string }>("/v1/video-dubbing/oauth/disconnect", {
+      method: "DELETE",
+    });
+  },
+
   getDubbingJobLog: async (jobId: string): Promise<{ log: string }> => {
     return request<{ log: string }>(`/v1/video-dubbing/jobs/${jobId}/log?t=${Date.now()}`);
   },

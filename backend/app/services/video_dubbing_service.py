@@ -201,6 +201,119 @@ class VideoDubbingService:
             return False
 
     @staticmethod
+    def get_oauth_storage_path() -> str:
+        storage_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "storage"))
+        os.makedirs(storage_dir, exist_ok=True)
+        return os.path.join(storage_dir, "youtube_oauth.json")
+
+    @staticmethod
+    def get_oauth_token() -> Optional[dict]:
+        token_path = VideoDubbingService.get_oauth_storage_path()
+        if os.path.exists(token_path):
+            try:
+                with open(token_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if all(k in data for k in ('access_token', 'refresh_token', 'expires')):
+                        return data
+            except Exception:
+                pass
+        return None
+
+    @staticmethod
+    def save_oauth_token(token_data: dict):
+        token_path = VideoDubbingService.get_oauth_storage_path()
+        with open(token_path, "w", encoding="utf-8") as f:
+            json.dump(token_data, f, indent=2)
+        try:
+            import yt_dlp
+            from yt_dlp.cache import Cache
+            c = Cache(yt_dlp.YoutubeDL())
+            c.store('youtube-oauth2', 'token_data', token_data)
+        except Exception as e:
+            print(f"[VideoDubbingService] Failed to sync oauth to yt-dlp cache: {e}", flush=True)
+
+    @staticmethod
+    def delete_oauth_token():
+        token_path = VideoDubbingService.get_oauth_storage_path()
+        if os.path.exists(token_path):
+            try: os.remove(token_path)
+            except Exception: pass
+        try:
+            import yt_dlp
+            from yt_dlp.cache import Cache
+            c = Cache(yt_dlp.YoutubeDL())
+            c.remove('youtube-oauth2', 'token_data')
+        except Exception:
+            pass
+
+    @staticmethod
+    def refresh_oauth_token_if_needed() -> Optional[dict]:
+        token_data = VideoDubbingService.get_oauth_token()
+        if not token_data:
+            return None
+        now = time.time()
+        if token_data.get('expires', 0) > now + 120:
+            return token_data
+        refresh_token = token_data.get('refresh_token')
+        if not refresh_token:
+            return None
+        try:
+            from curl_cffi import requests as curl_requests
+            r = curl_requests.post('https://www.youtube.com/o/oauth2/token', json={
+                'client_id': _GOOGLE_CLIENT_ID,
+                'client_secret': _GOOGLE_CLIENT_SECRET,
+                'refresh_token': refresh_token,
+                'grant_type': 'refresh_token'
+            }, timeout=10, verify=False)
+            res = r.json()
+            if 'access_token' in res:
+                token_data['access_token'] = res['access_token']
+                token_data['expires'] = time.time() + res.get('expires_in', 3600)
+                if 'refresh_token' in res:
+                    token_data['refresh_token'] = res['refresh_token']
+                VideoDubbingService.save_oauth_token(token_data)
+                return token_data
+        except Exception as e:
+            print(f"[VideoDubbingService] Failed to refresh OAuth token: {e}", flush=True)
+        return token_data
+
+    @staticmethod
+    def start_oauth_device_flow() -> dict:
+        import uuid
+        from curl_cffi import requests as curl_requests
+        r = curl_requests.post('https://www.youtube.com/o/oauth2/device/code', json={
+            'client_id': _GOOGLE_CLIENT_ID,
+            'scope': _GOOGLE_SCOPES,
+            'device_id': uuid.uuid4().hex,
+            'device_model': 'ytlr::'
+        }, timeout=10, verify=False)
+        return r.json()
+
+    @staticmethod
+    def poll_oauth_device_flow(device_code: str) -> dict:
+        from curl_cffi import requests as curl_requests
+        r = curl_requests.post('https://www.youtube.com/o/oauth2/token', json={
+            'client_id': _GOOGLE_CLIENT_ID,
+            'client_secret': _GOOGLE_CLIENT_SECRET,
+            'device_code': device_code,
+            'grant_type': 'urn:ietf:params:oauth:grant-type:device_code'
+        }, timeout=10, verify=False)
+        res = r.json()
+        if 'access_token' in res:
+            token_data = {
+                'access_token': res['access_token'],
+                'refresh_token': res['refresh_token'],
+                'token_type': res.get('token_type', 'Bearer'),
+                'expires': time.time() + res.get('expires_in', 3600)
+            }
+            VideoDubbingService.save_oauth_token(token_data)
+            return {'status': 'success', 'message': 'Đã kết nối tài khoản YouTube thành công!'}
+        elif res.get('error') in ('authorization_pending', 'slow_down'):
+            return {'status': 'pending'}
+        else:
+            return {'status': 'error', 'error': res.get('error_description') or res.get('error', 'Lỗi xác thực')}
+
+    @staticmethod
     def download_youtube_video(url: str, output_dir: str, log_file: Optional[str] = None) -> Tuple[str, str]:
         """
         Downloads a YouTube video in the best available quality and returns (video_path, title).
@@ -221,7 +334,10 @@ class VideoDubbingService:
                 except Exception:
                     pass
 
-        # Check for persistent cookies in backend/app or backend/storage, or generate fresh visitor cookies
+        # Check for persistent OAuth token or cookies
+        oauth_token = VideoDubbingService.refresh_oauth_token_if_needed()
+        has_oauth = bool(oauth_token)
+
         bundled_cookies = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "cookies.txt"))
         storage_cookies = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "storage", "cookies.txt"))
         
@@ -277,7 +393,11 @@ class VideoDubbingService:
                 'nocheckcertificate': True,
                 'quiet': False
             }
-            if cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
+            if has_oauth:
+                ydl_opts['username'] = 'oauth2'
+                ydl_opts['password'] = ''
+                _log("Using authenticated YouTube OAuth2 connection")
+            elif cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
                 ydl_opts['cookiefile'] = cookie_path
                 _log(f"Passing cookiefile to yt-dlp: {cookie_path}")
 

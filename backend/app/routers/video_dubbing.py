@@ -123,6 +123,41 @@ def delete_cookies():
                 pass
     return {"status": "success", "message": "Đã xóa file cookies."}
 
+class OAuthPollRequest(BaseModel):
+    device_code: str
+
+@router.get("/oauth/status")
+def get_youtube_oauth_status():
+    token_data = VideoDubbingService.refresh_oauth_token_if_needed()
+    if token_data:
+        return {
+            "connected": True,
+            "expires_at": token_data.get("expires", 0),
+            "token_type": token_data.get("token_type", "Bearer")
+        }
+    return {"connected": False}
+
+@router.post("/oauth/start")
+def start_youtube_oauth():
+    try:
+        data = VideoDubbingService.start_oauth_device_flow()
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Không thể khởi tạo phiên đăng nhập Google: {e}")
+
+@router.post("/oauth/poll")
+def poll_youtube_oauth(req: OAuthPollRequest):
+    try:
+        res = VideoDubbingService.poll_oauth_device_flow(req.device_code)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi kiểm tra trạng thái xác thực: {e}")
+
+@router.delete("/oauth/disconnect")
+def disconnect_youtube_oauth():
+    VideoDubbingService.delete_oauth_token()
+    return {"status": "success", "message": "Đã ngắt kết nối tài khoản YouTube thành công."}
+
 def run_dubbing_pipeline(job_id: str):
     """Background task to run the video dubbing stages (Download -> Extract Audio -> Separate -> Transcribe -> Translate)."""
     db = SessionLocal()
