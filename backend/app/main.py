@@ -13,7 +13,31 @@ try:
     import io
     import http.client
     import urllib.request
-    from curl_cffi import requests as curl_requests
+    from curl_cffi.curl import Curl, CurlOpt
+    import curl_cffi.requests as curl_requests
+    import curl_cffi.requests.session as s_mod
+
+    _orig_curl_perform = Curl.perform
+    def _safe_curl_perform(self):
+        try:
+            self.setopt(CurlOpt.IPRESOLVE, 1)
+            self.setopt(CurlOpt.CAINFO, b'')
+            self.setopt(CurlOpt.CAPATH, b'')
+            self.setopt(CurlOpt.SSL_VERIFYPEER, 0)
+            self.setopt(CurlOpt.SSL_VERIFYHOST, 0)
+        except Exception:
+            pass
+        return _orig_curl_perform(self)
+    Curl.perform = _safe_curl_perform
+
+    _orig_session_init = curl_requests.Session.__init__
+    def _patched_session_init(self, *args, **kwargs):
+        opts = dict(kwargs.get('curl_options') or {})
+        opts[CurlOpt.IPRESOLVE] = 1
+        kwargs['curl_options'] = opts
+        kwargs['verify'] = False
+        _orig_session_init(self, *args, **kwargs)
+    curl_requests.Session.__init__ = _patched_session_init
 
     class _GlobalCffiHTTPResponse:
         def __init__(self, res):
@@ -42,8 +66,7 @@ try:
             d = req.data if hasattr(req, 'data') else data
             m = req.get_method() if hasattr(req, 'get_method') else ('POST' if d else 'GET')
             to = timeout or 60
-            from curl_cffi.curl import CurlOpt
-            r = curl_requests.request(method=m, url=u, headers=h, data=d, timeout=to, impersonate='chrome', verify=False, curl_options={CurlOpt.IPRESOLVE: 1})
+            r = curl_requests.request(method=m, url=u, headers=h, data=d, timeout=to, impersonate='chrome', verify=False)
             return _GlobalCffiHTTPResponse(r)
         except Exception:
             return _orig_global_open(self, fullurl, data=data, timeout=timeout)
