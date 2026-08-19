@@ -7,6 +7,7 @@ from typing import Optional, List
 import concurrent.futures
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User, VideoDubbingJob, TTSJob, SystemSetting
