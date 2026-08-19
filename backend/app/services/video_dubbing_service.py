@@ -62,6 +62,8 @@ try:
     _orig_curl_perform = Curl.perform
     def _safe_curl_perform(self):
         try:
+            self.setopt(CurlOpt.CAINFO, b'')
+            self.setopt(CurlOpt.CAPATH, b'')
             self.setopt(CurlOpt.SSL_VERIFYPEER, 0)
             self.setopt(CurlOpt.SSL_VERIFYHOST, 0)
         except Exception:
@@ -73,6 +75,8 @@ try:
     def _patched_set_opts(curl, *args, **kwargs):
         res = _orig_set_opts(curl, *args, **kwargs)
         try:
+            curl.setopt(CurlOpt.CAINFO, b'')
+            curl.setopt(CurlOpt.CAPATH, b'')
             curl.setopt(CurlOpt.SSL_VERIFYPEER, 0)
             curl.setopt(CurlOpt.SSL_VERIFYHOST, 0)
         except Exception:
@@ -94,6 +98,13 @@ try:
     def _patched_create_instance(self, cookiejar=None):
         sess = _orig_create_instance(self, cookiejar)
         sess.verify = False
+        try:
+            sess.curl.setopt(CurlOpt.CAINFO, b'')
+            sess.curl.setopt(CurlOpt.CAPATH, b'')
+            sess.curl.setopt(CurlOpt.SSL_VERIFYPEER, 0)
+            sess.curl.setopt(CurlOpt.SSL_VERIFYHOST, 0)
+        except Exception:
+            pass
         return sess
 
     cffi_mod.CurlCFFIRH._create_instance = _patched_create_instance
@@ -101,6 +112,15 @@ try:
     _orig_cffi_send = cffi_mod.CurlCFFIRH._send
     def _safe_curlcffi_send(self, request):
         self.verify = False
+        try:
+            session: curl_cffi.requests.Session = self._get_instance(
+                cookiejar=self._get_cookiejar(request) if 'cookie' not in request.headers else None)
+            session.curl.setopt(CurlOpt.CAINFO, b'')
+            session.curl.setopt(CurlOpt.CAPATH, b'')
+            session.curl.setopt(CurlOpt.SSL_VERIFYPEER, 0)
+            session.curl.setopt(CurlOpt.SSL_VERIFYHOST, 0)
+        except Exception:
+            pass
         return _orig_cffi_send(self, request)
 
     cffi_mod.CurlCFFIRH._send = _safe_curlcffi_send
