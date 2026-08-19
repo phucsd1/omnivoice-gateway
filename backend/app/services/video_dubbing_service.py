@@ -46,8 +46,7 @@ try:
             d = req.data if hasattr(req, 'data') else data
             m = req.get_method() if hasattr(req, 'get_method') else ('POST' if d else 'GET')
             to = timeout or 60
-            from curl_cffi.curl import CurlOpt
-            r = curl_requests.request(method=m, url=u, headers=h, data=d, timeout=to, impersonate='chrome', verify=False, curl_options={CurlOpt.IPRESOLVE: 1})
+            r = curl_requests.request(method=m, url=u, headers=h, data=d, timeout=to, impersonate='chrome', verify=False)
             return _CffiHTTPResponse(r)
         except Exception:
             return _orig_opener_open(self, fullurl, data=data, timeout=timeout)
@@ -58,42 +57,6 @@ except Exception as e:
 
 try:
     from curl_cffi.curl import Curl, CurlOpt
-    import curl_cffi.requests.session as s_mod
-
-    _orig_curl_perform = Curl.perform
-    def _safe_curl_perform(self):
-        try:
-            self.setopt(CurlOpt.IPRESOLVE, 1)
-            self.setopt(CurlOpt.CAINFO, b'')
-            self.setopt(CurlOpt.CAPATH, b'')
-            self.setopt(CurlOpt.SSL_VERIFYPEER, 0)
-            self.setopt(CurlOpt.SSL_VERIFYHOST, 0)
-        except Exception:
-            pass
-        return _orig_curl_perform(self)
-    Curl.perform = _safe_curl_perform
-
-    _orig_set_opts = s_mod.set_curl_options
-    def _patched_set_opts(curl, *args, **kwargs):
-        res = _orig_set_opts(curl, *args, **kwargs)
-        try:
-            curl.setopt(CurlOpt.IPRESOLVE, 1)
-            curl.setopt(CurlOpt.CAINFO, b'')
-            curl.setopt(CurlOpt.CAPATH, b'')
-            curl.setopt(CurlOpt.SSL_VERIFYPEER, 0)
-            curl.setopt(CurlOpt.SSL_VERIFYHOST, 0)
-        except Exception:
-            pass
-        return res
-    s_mod.set_curl_options = _patched_set_opts
-
-    import curl_cffi.requests as curl_requests
-    _orig_session_request = curl_requests.Session.request
-    def _patched_session_request(self, *args, **kwargs):
-        kwargs['verify'] = False
-        return _orig_session_request(self, *args, **kwargs)
-    curl_requests.Session.request = _patched_session_request
-
     import yt_dlp
     import yt_dlp.networking._curlcffi as cffi_mod
 
@@ -117,7 +80,7 @@ try:
     def _safe_curlcffi_send(self, request):
         self.verify = False
         try:
-            session: curl_cffi.requests.Session = self._get_instance(
+            session = self._get_instance(
                 cookiejar=self._get_cookiejar(request) if 'cookie' not in request.headers else None)
             session.curl.setopt(CurlOpt.IPRESOLVE, 1)
             session.curl.setopt(CurlOpt.CAINFO, b'')
