@@ -262,13 +262,13 @@ class VideoDubbingService:
         if not refresh_token:
             return None
         try:
-            from curl_cffi import requests as curl_requests
-            r = curl_requests.post('https://www.youtube.com/o/oauth2/token', json={
+            import requests as py_requests
+            r = py_requests.post('https://www.youtube.com/o/oauth2/token', json={
                 'client_id': _GOOGLE_CLIENT_ID,
                 'client_secret': _GOOGLE_CLIENT_SECRET,
                 'refresh_token': refresh_token,
                 'grant_type': 'refresh_token'
-            }, timeout=10, verify=False)
+            }, timeout=10)
             res = r.json()
             if 'access_token' in res:
                 token_data['access_token'] = res['access_token']
@@ -284,24 +284,24 @@ class VideoDubbingService:
     @staticmethod
     def start_oauth_device_flow() -> dict:
         import uuid
-        from curl_cffi import requests as curl_requests
-        r = curl_requests.post('https://www.youtube.com/o/oauth2/device/code', json={
+        import requests as py_requests
+        r = py_requests.post('https://www.youtube.com/o/oauth2/device/code', json={
             'client_id': _GOOGLE_CLIENT_ID,
             'scope': _GOOGLE_SCOPES,
             'device_id': uuid.uuid4().hex,
             'device_model': 'ytlr::'
-        }, timeout=10, verify=False)
+        }, timeout=10)
         return r.json()
 
     @staticmethod
     def poll_oauth_device_flow(device_code: str) -> dict:
-        from curl_cffi import requests as curl_requests
-        r = curl_requests.post('https://www.youtube.com/o/oauth2/token', json={
+        import requests as py_requests
+        r = py_requests.post('https://www.youtube.com/o/oauth2/token', json={
             'client_id': _GOOGLE_CLIENT_ID,
             'client_secret': _GOOGLE_CLIENT_SECRET,
             'device_code': device_code,
             'grant_type': 'urn:ietf:params:oauth:grant-type:device_code'
-        }, timeout=10, verify=False)
+        }, timeout=10)
         res = r.json()
         if 'access_token' in res:
             token_data = {
