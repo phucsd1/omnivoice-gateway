@@ -59,11 +59,24 @@ try:
     from curl_cffi.curl import Curl, CurlOpt
     import curl_cffi.requests.session as s_mod
 
+    _orig_curl_perform = Curl.perform
+    def _safe_curl_perform(self):
+        try:
+            self.setopt(CurlOpt.SSL_VERIFYPEER, 0)
+            self.setopt(CurlOpt.SSL_VERIFYHOST, 0)
+        except Exception:
+            pass
+        return _orig_curl_perform(self)
+    Curl.perform = _safe_curl_perform
+
     _orig_set_opts = s_mod.set_curl_options
     def _patched_set_opts(curl, *args, **kwargs):
         res = _orig_set_opts(curl, *args, **kwargs)
-        curl.setopt(CurlOpt.SSL_VERIFYPEER, 0)
-        curl.setopt(CurlOpt.SSL_VERIFYHOST, 0)
+        try:
+            curl.setopt(CurlOpt.SSL_VERIFYPEER, 0)
+            curl.setopt(CurlOpt.SSL_VERIFYHOST, 0)
+        except Exception:
+            pass
         return res
     s_mod.set_curl_options = _patched_set_opts
 
