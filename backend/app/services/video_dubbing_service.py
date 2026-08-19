@@ -12,48 +12,7 @@ from typing import List, Dict, Any, Tuple, Optional
 from sqlalchemy.orm import Session
 from app.config import settings
 
-# High-Performance Chrome TLS Impersonation Bridge for urllib & yt-dlp to bypass datacenter IP and bot blocks
-try:
-    import io
-    import http.client
-    import urllib.request
-    from curl_cffi import requests as curl_requests
 
-    class _CffiHTTPResponse:
-        def __init__(self, res):
-            self._res = res
-            self.status = res.status_code
-            self.code = res.status_code
-            self.reason = res.reason
-            self.headers = http.client.HTTPMessage()
-            for k, v in res.headers.items():
-                self.headers.add_header(k, v)
-            self.fp = io.BytesIO(res.content)
-        def read(self, *a, **kw): return self.fp.read(*a, **kw)
-        def readline(self, *a, **kw): return self.fp.readline(*a, **kw)
-        def close(self): self.fp.close()
-        def info(self): return self.headers
-        def getcode(self): return self.code
-        def geturl(self): return self._res.url
-
-    _orig_opener_open = urllib.request.OpenerDirector.open
-
-    def _cffi_opener_open(self, fullurl, data=None, timeout=None):
-        try:
-            req = fullurl
-            u = req.full_url if hasattr(req, 'full_url') else str(req)
-            h = dict(req.headers) if hasattr(req, 'headers') else {}
-            d = req.data if hasattr(req, 'data') else data
-            m = req.get_method() if hasattr(req, 'get_method') else ('POST' if d else 'GET')
-            to = timeout or 60
-            r = curl_requests.request(method=m, url=u, headers=h, data=d, timeout=to, impersonate='chrome', verify=False)
-            return _CffiHTTPResponse(r)
-        except Exception:
-            return _orig_opener_open(self, fullurl, data=data, timeout=timeout)
-
-    urllib.request.OpenerDirector.open = _cffi_opener_open
-except Exception as e:
-    print(f"[VideoDubbingService] Urllib bridge note: {e}", flush=True)
 
 try:
     from curl_cffi.curl import Curl, CurlOpt
