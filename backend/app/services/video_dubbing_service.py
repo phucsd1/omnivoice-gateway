@@ -14,50 +14,7 @@ from app.config import settings
 
 
 
-# Force empty certificate paths for BoringSSL on Debian Linux
-os.environ['SSL_CERT_FILE'] = os.devnull
-os.environ['SSL_CERT_DIR'] = os.devnull
-os.environ['CURL_CA_BUNDLE'] = os.devnull
 
-try:
-    from curl_cffi.curl import Curl, CurlOpt
-    import yt_dlp
-    import yt_dlp.networking._curlcffi as cffi_mod
-
-    _devnull_b = os.devnull.encode('utf-8')
-
-    _orig_create_instance = cffi_mod.CurlCFFIRH._create_instance
-    def _patched_create_instance(self, cookiejar=None):
-        sess = _orig_create_instance(self, cookiejar)
-        sess.verify = False
-        try:
-            sess.curl.setopt(CurlOpt.CAINFO, _devnull_b)
-            sess.curl.setopt(CurlOpt.CAPATH, _devnull_b)
-            sess.curl.setopt(CurlOpt.SSL_VERIFYPEER, 0)
-            sess.curl.setopt(CurlOpt.SSL_VERIFYHOST, 0)
-        except Exception:
-            pass
-        return sess
-
-    cffi_mod.CurlCFFIRH._create_instance = _patched_create_instance
-
-    _orig_cffi_send = cffi_mod.CurlCFFIRH._send
-    def _safe_curlcffi_send(self, request):
-        self.verify = False
-        try:
-            session = self._get_instance(
-                cookiejar=self._get_cookiejar(request) if 'cookie' not in request.headers else None)
-            session.curl.setopt(CurlOpt.CAINFO, _devnull_b)
-            session.curl.setopt(CurlOpt.CAPATH, _devnull_b)
-            session.curl.setopt(CurlOpt.SSL_VERIFYPEER, 0)
-            session.curl.setopt(CurlOpt.SSL_VERIFYHOST, 0)
-        except Exception:
-            pass
-        return _orig_cffi_send(self, request)
-
-    cffi_mod.CurlCFFIRH._send = _safe_curlcffi_send
-except Exception as e:
-    print(f"[VideoDubbingService] CurlCFFIRH bridge note: {e}", flush=True)
 
 _GOOGLE_CLIENT_ID = '861556708454-d6dlm3lh05idd8npek18k6be8ba3oc68.apps.googleusercontent.com'
 _GOOGLE_CLIENT_SECRET = 'SboVhoG9s0rNafixCSGGKXAT'
@@ -336,10 +293,7 @@ class VideoDubbingService:
                 def error(self, msg):
                     _log(f"[yt-dlp ERR] {msg}")
 
-            from yt_dlp.networking.impersonate import ImpersonateTarget
-
             ydl_opts = {
-                'impersonate': ImpersonateTarget.from_str('chrome'),
                 'logger': YtDlpLogger(),
                 'socket_timeout': 45,
                 'extractor_retries': 2,
@@ -350,7 +304,7 @@ class VideoDubbingService:
                 },
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['web_embedded', 'android', 'mweb']
+                        'player_client': ['android', 'web_embedded', 'mweb']
                     }
                 },
                 'format': 'bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/bestvideo+bestaudio/best',
@@ -430,10 +384,9 @@ class VideoDubbingService:
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
                 "--no-check-certificate",
-                "--impersonate", "chrome",
                 "--remote-components", "ejs:github",
                 "--js-runtimes", "node",
-                "--extractor-args", "youtube:player_client=web_embedded,android,mweb",
+                "--extractor-args", "youtube:player_client=android,web_embedded,mweb",
                 "-f", "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/bestvideo+bestaudio/best",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),

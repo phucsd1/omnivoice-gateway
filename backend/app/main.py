@@ -8,64 +8,7 @@ import sqlite3
 import ssl
 import socket
 
-# Force empty certificate paths for BoringSSL on Debian Linux to prevent curl 35 TLS connect errors
-os.environ['SSL_CERT_FILE'] = os.devnull
-os.environ['SSL_CERT_DIR'] = os.devnull
-os.environ['CURL_CA_BUNDLE'] = os.devnull
 
-# Configure global Chrome TLS impersonation bridge for requests and yt-dlp
-try:
-    from curl_cffi.curl import Curl, CurlOpt
-    import curl_cffi.requests as curl_requests
-    import curl_cffi.requests.session as s_mod
-
-    _devnull_b = os.devnull.encode('utf-8')
-
-    _orig_impersonate = Curl.impersonate
-    def _safe_impersonate(self, target, default_headers=True):
-        ret = _orig_impersonate(self, target, default_headers=default_headers)
-        try:
-            self.setopt(CurlOpt.CAINFO, _devnull_b)
-            self.setopt(CurlOpt.CAPATH, _devnull_b)
-            self.setopt(CurlOpt.SSL_VERIFYPEER, 0)
-            self.setopt(CurlOpt.SSL_VERIFYHOST, 0)
-        except Exception:
-            pass
-        return ret
-    Curl.impersonate = _safe_impersonate
-
-    _orig_curl_perform = Curl.perform
-    def _safe_curl_perform(self):
-        try:
-            self.setopt(CurlOpt.CAINFO, _devnull_b)
-            self.setopt(CurlOpt.CAPATH, _devnull_b)
-            self.setopt(CurlOpt.SSL_VERIFYPEER, 0)
-            self.setopt(CurlOpt.SSL_VERIFYHOST, 0)
-        except Exception:
-            pass
-        return _orig_curl_perform(self)
-    Curl.perform = _safe_curl_perform
-
-    _orig_set_opts = s_mod.set_curl_options
-    def _patched_set_opts(curl, *args, **kwargs):
-        res = _orig_set_opts(curl, *args, **kwargs)
-        try:
-            curl.setopt(CurlOpt.CAINFO, _devnull_b)
-            curl.setopt(CurlOpt.CAPATH, _devnull_b)
-            curl.setopt(CurlOpt.SSL_VERIFYPEER, 0)
-            curl.setopt(CurlOpt.SSL_VERIFYHOST, 0)
-        except Exception:
-            pass
-        return res
-    s_mod.set_curl_options = _patched_set_opts
-
-    _orig_session_init = curl_requests.Session.__init__
-    def _patched_session_init(self, *args, **kwargs):
-        kwargs['verify'] = False
-        _orig_session_init(self, *args, **kwargs)
-    curl_requests.Session.__init__ = _patched_session_init
-except Exception as e:
-    print(f"[Main] Global Chrome TLS bridge note: {e}", flush=True)
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
