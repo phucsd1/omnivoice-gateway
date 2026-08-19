@@ -8,18 +8,25 @@ import sqlite3
 import ssl
 import socket
 
+# Force empty certificate paths for BoringSSL on Debian Linux to prevent curl 35 TLS connect errors
+os.environ['SSL_CERT_FILE'] = os.devnull
+os.environ['SSL_CERT_DIR'] = os.devnull
+os.environ['CURL_CA_BUNDLE'] = os.devnull
+
 # Configure global Chrome TLS impersonation bridge for requests and yt-dlp
 try:
     from curl_cffi.curl import Curl, CurlOpt
     import curl_cffi.requests as curl_requests
     import curl_cffi.requests.session as s_mod
 
+    _devnull_b = os.devnull.encode('utf-8')
+
     _orig_impersonate = Curl.impersonate
     def _safe_impersonate(self, target, default_headers=True):
         ret = _orig_impersonate(self, target, default_headers=default_headers)
         try:
-            self.setopt(CurlOpt.CAINFO, b'')
-            self.setopt(CurlOpt.CAPATH, b'')
+            self.setopt(CurlOpt.CAINFO, _devnull_b)
+            self.setopt(CurlOpt.CAPATH, _devnull_b)
             self.setopt(CurlOpt.SSL_VERIFYPEER, 0)
             self.setopt(CurlOpt.SSL_VERIFYHOST, 0)
         except Exception:
@@ -30,8 +37,8 @@ try:
     _orig_curl_perform = Curl.perform
     def _safe_curl_perform(self):
         try:
-            self.setopt(CurlOpt.CAINFO, b'')
-            self.setopt(CurlOpt.CAPATH, b'')
+            self.setopt(CurlOpt.CAINFO, _devnull_b)
+            self.setopt(CurlOpt.CAPATH, _devnull_b)
             self.setopt(CurlOpt.SSL_VERIFYPEER, 0)
             self.setopt(CurlOpt.SSL_VERIFYHOST, 0)
         except Exception:
@@ -43,8 +50,8 @@ try:
     def _patched_set_opts(curl, *args, **kwargs):
         res = _orig_set_opts(curl, *args, **kwargs)
         try:
-            curl.setopt(CurlOpt.CAINFO, b'')
-            curl.setopt(CurlOpt.CAPATH, b'')
+            curl.setopt(CurlOpt.CAINFO, _devnull_b)
+            curl.setopt(CurlOpt.CAPATH, _devnull_b)
             curl.setopt(CurlOpt.SSL_VERIFYPEER, 0)
             curl.setopt(CurlOpt.SSL_VERIFYHOST, 0)
         except Exception:

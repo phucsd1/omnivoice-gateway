@@ -14,18 +14,25 @@ from app.config import settings
 
 
 
+# Force empty certificate paths for BoringSSL on Debian Linux
+os.environ['SSL_CERT_FILE'] = os.devnull
+os.environ['SSL_CERT_DIR'] = os.devnull
+os.environ['CURL_CA_BUNDLE'] = os.devnull
+
 try:
     from curl_cffi.curl import Curl, CurlOpt
     import yt_dlp
     import yt_dlp.networking._curlcffi as cffi_mod
+
+    _devnull_b = os.devnull.encode('utf-8')
 
     _orig_create_instance = cffi_mod.CurlCFFIRH._create_instance
     def _patched_create_instance(self, cookiejar=None):
         sess = _orig_create_instance(self, cookiejar)
         sess.verify = False
         try:
-            sess.curl.setopt(CurlOpt.CAINFO, b'')
-            sess.curl.setopt(CurlOpt.CAPATH, b'')
+            sess.curl.setopt(CurlOpt.CAINFO, _devnull_b)
+            sess.curl.setopt(CurlOpt.CAPATH, _devnull_b)
             sess.curl.setopt(CurlOpt.SSL_VERIFYPEER, 0)
             sess.curl.setopt(CurlOpt.SSL_VERIFYHOST, 0)
         except Exception:
@@ -40,8 +47,8 @@ try:
         try:
             session = self._get_instance(
                 cookiejar=self._get_cookiejar(request) if 'cookie' not in request.headers else None)
-            session.curl.setopt(CurlOpt.CAINFO, b'')
-            session.curl.setopt(CurlOpt.CAPATH, b'')
+            session.curl.setopt(CurlOpt.CAINFO, _devnull_b)
+            session.curl.setopt(CurlOpt.CAPATH, _devnull_b)
             session.curl.setopt(CurlOpt.SSL_VERIFYPEER, 0)
             session.curl.setopt(CurlOpt.SSL_VERIFYHOST, 0)
         except Exception:
