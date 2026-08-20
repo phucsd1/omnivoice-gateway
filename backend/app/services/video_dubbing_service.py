@@ -277,71 +277,51 @@ class VideoDubbingService:
         v_match = re.search(r'(?:v=|\/embed\/|\.be\/)([0-9A-Za-z_-]{11})', url)
         standard_url = f"https://www.youtube.com/watch?v={v_match.group(1)}" if v_match else url
 
-        # Method 1: Ultra-Fast High Definition 1080p Downloader with OAuth2 / standard networking
+        # Method 1: High-Performance Isolated Subprocess yt-dlp (Bypasses Python OpenSSL symbol collisions & datacenter TLS blocks)
         try:
-            _log(f"Starting Ultra-Fast YouTube 1080p Downloader ({url})...")
-            import yt_dlp
-            try:
-                import yt_dlp.networking._curlcffi as cffi_mod
-                cffi_mod.CurlCFFIRH = None
-            except Exception:
-                pass
-
-            class YtDlpLogger:
-                def debug(self, msg):
-                    if not msg.startswith('[download]') or 'ETA' in msg:
-                        _log(f"[yt-dlp] {msg}")
-                def info(self, msg):
-                    _log(f"[yt-dlp] {msg}")
-                def warning(self, msg):
-                    _log(f"[yt-dlp WARN] {msg}")
-                def error(self, msg):
-                    _log(f"[yt-dlp ERR] {msg}")
-
-            ydl_opts = {
-                'logger': YtDlpLogger(),
-                'socket_timeout': 45,
-                'extractor_retries': 2,
-                'extractor_args': {
-                    'youtube': {
-                        'player_skip': ['webpage', 'configs', 'js', 'initial_data'],
-                        'player_client': ['android', 'android_vr']
-                    }
-                },
-                'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-                'merge_output_format': 'mp4',
-                'outtmpl': os.path.join(output_dir, "input_video.%(ext)s"),
-                'nocheckcertificate': True,
-                'quiet': False
-            }
+            _log(f"Starting Isolated Subprocess YouTube Downloader ({url})...")
+            cmd = [
+                sys.executable, "-m", "yt_dlp",
+                "--no-warnings",
+                "--no-check-certificate",
+                "--impersonate", "chrome",
+                "--extractor-args", "youtube:player_skip=webpage,configs,js,initial_data;player_client=android",
+                "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+                "--merge-output-format", "mp4",
+                "-o", os.path.join(output_dir, "input_video.%(ext)s"),
+                "--socket-timeout", "45",
+                "--print", "after_video:%(title)s",
+            ]
             if has_oauth:
-                ydl_opts['username'] = 'oauth2'
-                ydl_opts['password'] = ''
-                _log("Using authenticated YouTube OAuth2 connection")
+                cmd.extend(["--username", "oauth2", "--password", ""])
+                _log("Using authenticated YouTube OAuth2 connection in subprocess")
             elif cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
-                ydl_opts['cookiefile'] = cookie_path
-                _log(f"Passing cookiefile to yt-dlp: {cookie_path}")
-
+                cmd.extend(["--cookies", cookie_path])
+                _log(f"Passing cookiefile to subprocess yt-dlp: {cookie_path}")
+            
+            cmd.append(url)
             t0 = time.time()
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                title = info.get('title', 'YouTube Video') if info else 'YouTube Video'
-
-            # Look for downloaded file
-            for ext in ['.mp4', '.mkv', '.webm', '.m4a']:
-                candidate = os.path.join(output_dir, f"input_video{ext}")
-                if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
-                    if not candidate.endswith('.mp4'):
-                        mp4_path = os.path.join(output_dir, "input_video.mp4")
-                        subprocess.run(["ffmpeg", "-y", "-i", candidate, "-c", "copy", mp4_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                        try: os.remove(candidate)
-                        except Exception: pass
-                        candidate = mp4_path
-                    _log(f"Ultra-Fast download success: '{title}' ({candidate}, size={os.path.getsize(candidate)} bytes in {time.time()-t0:.2f}s)")
-                    return candidate, title
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL)
+            if res.returncode == 0:
+                stdout_lines = [line.strip() for line in res.stdout.strip().splitlines() if line.strip()]
+                title = stdout_lines[0] if stdout_lines else "YouTube Video"
+                for ext in ['.mp4', '.mkv', '.webm', '.m4a']:
+                    candidate = os.path.join(output_dir, f"input_video{ext}")
+                    if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
+                        if not candidate.endswith('.mp4'):
+                            mp4_path = os.path.join(output_dir, "input_video.mp4")
+                            subprocess.run(["ffmpeg", "-y", "-i", candidate, "-c", "copy", mp4_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                            try: os.remove(candidate)
+                            except Exception: pass
+                            candidate = mp4_path
+                        _log(f"Subprocess yt-dlp download success: '{title}' ({candidate}, size={os.path.getsize(candidate)} bytes in {time.time()-t0:.2f}s)")
+                        return candidate, title
+            else:
+                err_sub = res.stderr[-500:] if res.stderr else f"Exit code {res.returncode}"
+                _log(f"Subprocess yt-dlp failed (rc={res.returncode}): {err_sub}")
         except Exception as e:
-            err_ytdlp = e
-            _log(f"Ultra-Fast download failed: {e}")
+            err_sub = e
+            _log(f"Subprocess yt-dlp exception: {e}")
 
         # Method 2: High-Speed HD pytubefix fallback with ANDROID_VR client
         for client_name in ['ANDROID_VR', 'ANDROID']:
@@ -378,46 +358,41 @@ class VideoDubbingService:
                 err_pytubefix = e
                 _log(f"Pytubefix ({client_name}) failed: {e}")
 
-        # Method 3: CLI subprocess yt-dlp
+        # Method 3: In-process yt_dlp fallback
         try:
-            _log("Attempting YouTube download via CLI subprocess yt-dlp...")
-            cmd = [
-                sys.executable, "-m", "yt_dlp",
-                "--no-warnings",
-                "--no-check-certificate",
-                "--extractor-args", "youtube:player_skip=webpage,configs,js,initial_data;player_client=android,android_vr",
-                "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-                "--merge-output-format", "mp4",
-                "-o", os.path.join(output_dir, "input_video.%(ext)s"),
-                "--socket-timeout", "60",
-                "--print", "after_video:%(title)s",
-            ]
+            _log("Attempting YouTube download via in-process yt-dlp fallback...")
+            import yt_dlp
+            ydl_opts = {
+                'socket_timeout': 30,
+                'extractor_retries': 2,
+                'extractor_args': {
+                    'youtube': {
+                        'player_skip': ['webpage', 'configs', 'js', 'initial_data'],
+                        'player_client': ['android']
+                    }
+                },
+                'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+                'merge_output_format': 'mp4',
+                'outtmpl': os.path.join(output_dir, "input_video.%(ext)s"),
+                'nocheckcertificate': True,
+                'quiet': False
+            }
             if has_oauth:
-                cmd.extend(["--username", "oauth2", "--password", ""])
-            else:
-                try:
-                    import curl_cffi
-                    cmd.extend(["--impersonate", "chrome"])
-                except Exception:
-                    pass
-                if has_user_cookies and cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
-                    cmd.extend(["--cookies", cookie_path])
-            cmd.append(url)
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL)
-            if res.returncode == 0:
-                stdout_lines = [line.strip() for line in res.stdout.strip().splitlines() if line.strip()]
-                title = stdout_lines[0] if stdout_lines else "YouTube Video"
-                for ext in ['.mp4', '.m4a', '.mp3', '.wav', '.mkv', '.webm']:
-                    candidate = os.path.join(output_dir, f"input_video{ext}")
-                    if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
-                        _log(f"CLI yt-dlp download success: '{title}' ({candidate})")
-                        return candidate, title
-            else:
-                err_sub = res.stderr[-500:]
-                _log(f"CLI yt-dlp failed (rc={res.returncode}): {err_sub}")
+                ydl_opts['username'] = 'oauth2'
+                ydl_opts['password'] = ''
+            elif cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
+                ydl_opts['cookiefile'] = cookie_path
+
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                title = info.get('title', 'YouTube Video') if info else 'YouTube Video'
+            for ext in ['.mp4', '.mkv', '.webm', '.m4a']:
+                candidate = os.path.join(output_dir, f"input_video{ext}")
+                if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
+                    return candidate, title
         except Exception as e:
-            err_sub = e
-            _log(f"CLI yt-dlp exception: {e}")
+            err_ytdlp = e
+            _log(f"In-process yt-dlp failed: {e}")
 
         err_msg = f"Không thể tải video từ YouTube: (yt-dlp: {err_ytdlp}) | (CLI: {err_sub}) | (pytubefix: {err_pytubefix})"
         if not has_oauth and not has_user_cookies:
