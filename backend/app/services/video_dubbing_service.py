@@ -293,21 +293,19 @@ class VideoDubbingService:
                 def error(self, msg):
                     _log(f"[yt-dlp ERR] {msg}")
 
+            from yt_dlp.networking.impersonate import ImpersonateTarget
+
             ydl_opts = {
+                'impersonate': ImpersonateTarget.from_str('chrome'),
                 'logger': YtDlpLogger(),
                 'socket_timeout': 45,
                 'extractor_retries': 2,
-                'remote_components': ['ejs:github'],
-                'js_runtimes': {
-                    'deno': {},
-                    'node': {},
-                },
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android', 'web_embedded', 'mweb']
+                        'player_client': ['android', 'ios']
                     }
                 },
-                'format': 'bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/bestvideo+bestaudio/best',
+                'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
                 'merge_output_format': 'mp4',
                 'outtmpl': os.path.join(output_dir, "input_video.%(ext)s"),
                 'nocheckcertificate': True,
@@ -377,17 +375,16 @@ class VideoDubbingService:
                 err_pytubefix = e
                 _log(f"Pytubefix ({client_name}) failed: {e}")
 
-        # Method 3: CLI subprocess yt-dlp with Node JS challenge solver
+        # Method 3: CLI subprocess yt-dlp with Chrome impersonation & android/ios clients
         try:
             _log("Attempting YouTube download via CLI subprocess yt-dlp...")
             cmd = [
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
                 "--no-check-certificate",
-                "--remote-components", "ejs:github",
-                "--js-runtimes", "node",
-                "--extractor-args", "youtube:player_client=android,web_embedded,mweb",
-                "-f", "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/bestvideo+bestaudio/best",
+                "--impersonate", "chrome",
+                "--extractor-args", "youtube:player_client=android,ios",
+                "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
                 "--socket-timeout", "60",
