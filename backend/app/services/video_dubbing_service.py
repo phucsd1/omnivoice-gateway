@@ -302,7 +302,7 @@ class VideoDubbingService:
                 'extractor_retries': 2,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android', 'ios']
+                        'player_client': ['android_vr', 'android']
                     }
                 },
                 'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
@@ -383,7 +383,7 @@ class VideoDubbingService:
                 "--no-warnings",
                 "--no-check-certificate",
                 "--impersonate", "chrome",
-                "--extractor-args", "youtube:player_client=android,ios",
+                "--extractor-args", "youtube:player_client=android_vr,android",
                 "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
