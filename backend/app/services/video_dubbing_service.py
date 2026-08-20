@@ -304,7 +304,8 @@ class VideoDubbingService:
                 'extractor_retries': 2,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_vr', 'android', 'web']
+                        'player_skip': ['webpage', 'configs', 'js', 'initial_data'],
+                        'player_client': ['android', 'android_vr']
                     }
                 },
                 'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
@@ -384,7 +385,7 @@ class VideoDubbingService:
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
                 "--no-check-certificate",
-                "--extractor-args", "youtube:player_client=android_vr,android,web",
+                "--extractor-args", "youtube:player_skip=webpage,configs,js,initial_data;player_client=android,android_vr",
                 "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
