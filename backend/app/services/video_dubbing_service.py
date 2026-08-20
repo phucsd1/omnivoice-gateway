@@ -257,21 +257,27 @@ class VideoDubbingService:
                 except Exception:
                     pass
 
-        # Check for persistent OAuth token or cookies
+        # Check for persistent OAuth token or authenticated cookies
         oauth_token = VideoDubbingService.refresh_oauth_token_if_needed()
         has_oauth = bool(oauth_token)
 
-        bundled_cookies = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "cookies.txt"))
         storage_cookies = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "storage", "cookies.txt"))
+        bundled_cookies = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "cookies.txt"))
         
         has_user_cookies = False
         cookie_path = None
         for ck in [storage_cookies, bundled_cookies]:
             if os.path.exists(ck) and os.path.getsize(ck) > 0:
-                cookie_path = ck
-                has_user_cookies = True
-                _log(f"Using saved cookies ({os.path.getsize(ck)} bytes from {os.path.basename(ck)})")
-                break
+                try:
+                    with open(ck, 'r', encoding='utf-8', errors='ignore') as f:
+                        c_text = f.read()
+                        if 'SID' in c_text or 'LOGIN_INFO' in c_text or '__Secure-1PSID' in c_text or '__Secure-3PSID' in c_text:
+                            cookie_path = ck
+                            has_user_cookies = True
+                            _log(f"Using verified authenticated cookies ({os.path.getsize(ck)} bytes from {os.path.basename(ck)})")
+                            break
+                except Exception:
+                    pass
 
         # Standardize URL
         v_match = re.search(r'(?:v=|\/embed\/|\.be\/)([0-9A-Za-z_-]{11})', url)
@@ -286,7 +292,7 @@ class VideoDubbingService:
                 "--no-check-certificate",
                 "--impersonate", "chrome",
                 "--extractor-args", "youtube:player_skip=webpage,configs,js,initial_data;player_client=android",
-                "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+                "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best/18/17",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
                 "--socket-timeout", "45",
@@ -295,9 +301,9 @@ class VideoDubbingService:
             if has_oauth:
                 cmd.extend(["--username", "oauth2", "--password", ""])
                 _log("Using authenticated YouTube OAuth2 connection in subprocess")
-            elif cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
+            elif has_user_cookies and cookie_path:
                 cmd.extend(["--cookies", cookie_path])
-                _log(f"Passing cookiefile to subprocess yt-dlp: {cookie_path}")
+                _log(f"Passing authenticated cookies to subprocess yt-dlp: {cookie_path}")
             
             cmd.append(url)
             t0 = time.time()
