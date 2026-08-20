@@ -277,10 +277,15 @@ class VideoDubbingService:
         v_match = re.search(r'(?:v=|\/embed\/|\.be\/)([0-9A-Za-z_-]{11})', url)
         standard_url = f"https://www.youtube.com/watch?v={v_match.group(1)}" if v_match else url
 
-        # Method 1: Ultra-Fast High Definition 1080p Downloader with web_embedded client & JS solver
+        # Method 1: Ultra-Fast High Definition 1080p Downloader with OAuth2 / standard networking
         try:
             _log(f"Starting Ultra-Fast YouTube 1080p Downloader ({url})...")
             import yt_dlp
+            try:
+                import yt_dlp.networking._curlcffi as cffi_mod
+                cffi_mod.CurlCFFIRH = None
+            except Exception:
+                pass
 
             class YtDlpLogger:
                 def debug(self, msg):
@@ -312,15 +317,9 @@ class VideoDubbingService:
                 ydl_opts['username'] = 'oauth2'
                 ydl_opts['password'] = ''
                 _log("Using authenticated YouTube OAuth2 connection")
-            else:
-                try:
-                    from yt_dlp.networking.impersonate import ImpersonateTarget
-                    ydl_opts['impersonate'] = ImpersonateTarget.from_str('chrome')
-                except Exception:
-                    pass
-                if cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
-                    ydl_opts['cookiefile'] = cookie_path
-                    _log(f"Passing cookiefile to yt-dlp: {cookie_path}")
+            elif cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
+                ydl_opts['cookiefile'] = cookie_path
+                _log(f"Passing cookiefile to yt-dlp: {cookie_path}")
 
             t0 = time.time()
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
