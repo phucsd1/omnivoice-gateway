@@ -293,16 +293,13 @@ class VideoDubbingService:
                 def error(self, msg):
                     _log(f"[yt-dlp ERR] {msg}")
 
-            from yt_dlp.networking.impersonate import ImpersonateTarget
-
             ydl_opts = {
-                'impersonate': ImpersonateTarget.from_str('chrome'),
                 'logger': YtDlpLogger(),
                 'socket_timeout': 45,
                 'extractor_retries': 2,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_vr', 'android']
+                        'player_client': ['android_vr', 'android', 'web']
                     }
                 },
                 'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
@@ -315,9 +312,15 @@ class VideoDubbingService:
                 ydl_opts['username'] = 'oauth2'
                 ydl_opts['password'] = ''
                 _log("Using authenticated YouTube OAuth2 connection")
-            elif cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
-                ydl_opts['cookiefile'] = cookie_path
-                _log(f"Passing cookiefile to yt-dlp: {cookie_path}")
+            else:
+                try:
+                    from yt_dlp.networking.impersonate import ImpersonateTarget
+                    ydl_opts['impersonate'] = ImpersonateTarget.from_str('chrome')
+                except Exception:
+                    pass
+                if cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
+                    ydl_opts['cookiefile'] = cookie_path
+                    _log(f"Passing cookiefile to yt-dlp: {cookie_path}")
 
             t0 = time.time()
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -375,23 +378,30 @@ class VideoDubbingService:
                 err_pytubefix = e
                 _log(f"Pytubefix ({client_name}) failed: {e}")
 
-        # Method 3: CLI subprocess yt-dlp with Chrome impersonation & android/ios clients
+        # Method 3: CLI subprocess yt-dlp
         try:
             _log("Attempting YouTube download via CLI subprocess yt-dlp...")
             cmd = [
                 sys.executable, "-m", "yt_dlp",
                 "--no-warnings",
                 "--no-check-certificate",
-                "--impersonate", "chrome",
-                "--extractor-args", "youtube:player_client=android_vr,android",
+                "--extractor-args", "youtube:player_client=android_vr,android,web",
                 "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
                 "--merge-output-format", "mp4",
                 "-o", os.path.join(output_dir, "input_video.%(ext)s"),
                 "--socket-timeout", "60",
                 "--print", "after_video:%(title)s",
             ]
-            if has_user_cookies and cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
-                cmd.extend(["--cookies", cookie_path])
+            if has_oauth:
+                cmd.extend(["--username", "oauth2", "--password", ""])
+            else:
+                try:
+                    import curl_cffi
+                    cmd.extend(["--impersonate", "chrome"])
+                except Exception:
+                    pass
+                if has_user_cookies and cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
+                    cmd.extend(["--cookies", cookie_path])
             cmd.append(url)
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL)
             if res.returncode == 0:
