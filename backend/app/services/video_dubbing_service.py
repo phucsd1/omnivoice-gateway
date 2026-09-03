@@ -313,15 +313,13 @@ class VideoDubbingService:
                     sys.executable, "-m", "yt_dlp",
                     "--no-warnings",
                     "--no-check-certificate",
-                    "--impersonate", "chrome",
                     "--cache-dir", cache_dir,
                     "--username", "oauth2",
                     "--password", "",
-                    "--extractor-args", "youtube:player_client=tv,web",
                     "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best/18/17",
                     "--merge-output-format", "mp4",
                     "-o", os.path.join(output_dir, "input_video.%(ext)s"),
-                    "--socket-timeout", "45",
+                    "--socket-timeout", "60",
                     "--print", "after_video:%(title)s",
                     url
                 ]
@@ -435,7 +433,6 @@ class VideoDubbingService:
                 'extractor_retries': 2,
                 'extractor_args': {
                     'youtube': {
-                        'player_skip': ['webpage', 'configs', 'js', 'initial_data'],
                         'player_client': ['android']
                     }
                 },
