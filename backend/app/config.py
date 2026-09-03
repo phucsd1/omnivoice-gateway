@@ -66,6 +66,9 @@ class Settings(BaseSettings):
     GITHUB_CLIENT_ID: str = ""
     GITHUB_CLIENT_SECRET: str = ""
 
+    # Tailscale Settings
+    TAILSCALE_AUTHKEY: str = os.getenv("TAILSCALE_AUTHKEY", "tskey-auth-ksU5DoFSD421CNTRL-z12jPRmsZViP2SP1dWQxUizwT96h7JGBc")
+
     def model_post_init(self, __context):
         if not self.GOOGLE_CLIENT_ID or not self.GOOGLE_CLIENT_ID.strip():
             self.GOOGLE_CLIENT_ID = "576483956315-5rlq09hagvvltj268u8gsbd6bgp1tv2m.apps.googleusercontent.com"

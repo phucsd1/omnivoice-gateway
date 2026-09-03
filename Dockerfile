@@ -15,6 +15,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Tailscale static binaries (supports userspace networking)
+RUN curl -fsSL https://pkgs.tailscale.com/stable/tailscale_1.80.3_amd64.tgz -o /tmp/tailscale.tgz \
+    && tar -C /tmp -xzf /tmp/tailscale.tgz \
+    && mv /tmp/tailscale_1.80.3_amd64/tailscale /usr/local/bin/tailscale \
+    && mv /tmp/tailscale_1.80.3_amd64/tailscaled /usr/local/bin/tailscaled \
+    && chmod +x /usr/local/bin/tailscale /usr/local/bin/tailscaled \
+    && rm -rf /tmp/tailscale*
+
 # Set up user with UID 1000 (Hugging Face Spaces requirement)
 RUN useradd -m -u 1000 user
 USER user

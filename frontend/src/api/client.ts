@@ -836,6 +836,34 @@ export const api = {
     });
   },
 
+  getTailscaleStatus: async (): Promise<{
+    installed: boolean;
+    running: boolean;
+    connected: boolean;
+    tailscale_ip?: string;
+    hostname?: string;
+    peers?: Array<{ id: string; hostname: string; os: string; ip?: string; online: boolean; exit_node: boolean; exit_node_option: boolean }>;
+    message?: string;
+  }> => {
+    return request("/v1/video-dubbing/tailscale/status");
+  },
+
+  connectTailscale: async (authKey?: string): Promise<{ status: string; message: string }> => {
+    return request("/v1/video-dubbing/tailscale/connect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ auth_key: authKey || null }),
+    });
+  },
+
+  setTailscaleExitNode: async (exitNode: string): Promise<{ status: string; message: string }> => {
+    return request("/v1/video-dubbing/tailscale/set-exit-node", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ exit_node: exitNode }),
+    });
+  },
+
   getDubbingJobLog: async (jobId: string): Promise<{ log: string }> => {
     return request<{ log: string }>(`/v1/video-dubbing/jobs/${jobId}/log?t=${Date.now()}`);
   },

@@ -218,6 +218,14 @@ class VideoDubbingService:
         except Exception:
             pass
 
+        # 4. Tailscale userspace proxy (localhost:1055) fallback if active
+        try:
+            from app.services.tailscale_service import TailscaleService
+            if TailscaleService.is_proxy_available():
+                return "http://127.0.0.1:1055"
+        except Exception:
+            pass
+
         return None
 
     @staticmethod

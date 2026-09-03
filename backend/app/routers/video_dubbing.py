@@ -266,6 +266,29 @@ def delete_proxy():
     VideoDubbingService.delete_youtube_proxy()
     return {"status": "success", "message": "Đã xóa cấu hình Proxy."}
 
+class TailscaleConnectPayload(BaseModel):
+    auth_key: Optional[str] = None
+
+class TailscaleExitNodePayload(BaseModel):
+    exit_node: str
+
+@router.get("/tailscale/status")
+def get_tailscale_status():
+    from app.services.tailscale_service import TailscaleService
+    return TailscaleService.get_status()
+
+@router.post("/tailscale/connect")
+def connect_tailscale(payload: TailscaleConnectPayload):
+    from app.services.tailscale_service import TailscaleService
+    res = TailscaleService.start_tailscale(payload.auth_key)
+    return res
+
+@router.post("/tailscale/set-exit-node")
+def set_tailscale_exit_node(payload: TailscaleExitNodePayload):
+    from app.services.tailscale_service import TailscaleService
+    res = TailscaleService.set_exit_node(payload.exit_node)
+    return res
+
 def run_dubbing_pipeline(job_id: str):
     """Background task to run the video dubbing stages (Download -> Extract Audio -> Separate -> Transcribe -> Translate)."""
     db = SessionLocal()

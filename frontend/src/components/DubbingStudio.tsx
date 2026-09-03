@@ -26,7 +26,8 @@ import {
   Copy,
   Check,
   LogOut,
-  Globe
+  Globe,
+  Network
 } from "lucide-react";
 import { api, type VideoDubbingJobResponse, type SubtitleSegment, type LLMProfile } from "../api/client";
 import { PageHeader } from "./ui/PageHeader";
@@ -89,8 +90,8 @@ export default function DubbingStudio() {
   const [vocalsVolume, setVocalsVolume] = useState(1.0);
   const [bgmVolume, setBgmVolume] = useState(0.4);
 
-  // YouTube Authentication States (OAuth, Cookie & Residential Proxy)
-  const [activeModalTab, setActiveModalTab] = useState<"oauth" | "cookies" | "proxy">("oauth");
+  // YouTube Authentication States (OAuth, Cookie, Residential Proxy & Tailscale VPN)
+  const [activeModalTab, setActiveModalTab] = useState<"oauth" | "cookies" | "proxy" | "tailscale">("oauth");
   const [oauthStatus, setOauthStatus] = useState<{ connected: boolean; expires_at?: number } | null>(null);
   const [oauthFlowData, setOauthFlowData] = useState<{ user_code: string; device_code: string; verification_url: string; interval: number } | null>(null);
   const [oauthStarting, setOauthStarting] = useState(false);
@@ -114,6 +115,20 @@ export default function DubbingStudio() {
   const [proxyTestResult, setProxyTestResult] = useState<{ status: "success" | "error"; message: string } | null>(null);
   const [proxyMsg, setProxyMsg] = useState<string | null>(null);
 
+  // Tailscale VPN States
+  const [tailscaleStatus, setTailscaleStatus] = useState<{
+    installed: boolean;
+    running: boolean;
+    connected: boolean;
+    tailscale_ip?: string;
+    hostname?: string;
+    peers?: Array<{ id: string; hostname: string; os: string; ip?: string; online: boolean; exit_node: boolean; exit_node_option: boolean }>;
+    message?: string;
+  } | null>(null);
+  const [tailscaleKeyInput, setTailscaleKeyInput] = useState("tskey-auth-ksU5DoFSD421CNTRL-z12jPRmsZViP2SP1dWQxUizwT96h7JGBc");
+  const [tailscaleConnecting, setTailscaleConnecting] = useState(false);
+  const [tailscaleMsg, setTailscaleMsg] = useState<string | null>(null);
+
   // Restore active job from localStorage on mount & fetch settings & auth statuses
   useEffect(() => {
     fetchSystemLlmSettings();
@@ -121,6 +136,7 @@ export default function DubbingStudio() {
     fetchCookieStatus();
     fetchOAuthStatus();
     fetchProxyStatus();
+    fetchTailscaleStatus();
     if (jobId) {
       fetchJobDetails(jobId);
     }
@@ -316,6 +332,33 @@ export default function DubbingStudio() {
     } catch (err: any) {
       alert(`Lỗi: ${err.message || "Không thể xóa proxy"}`);
     }
+  };
+
+  const fetchTailscaleStatus = async () => {
+    try {
+      const res = await api.getTailscaleStatus();
+      setTailscaleStatus(res);
+    } catch {}
+  };
+
+  const handleConnectTailscale = async () => {
+    setTailscaleConnecting(true);
+    setTailscaleMsg(null);
+    try {
+      const res = await api.connectTailscale(tailscaleKeyInput.trim() || undefined);
+      setTailscaleMsg(res.message);
+      setTimeout(() => fetchTailscaleStatus(), 3000);
+    } catch (err: any) {
+      setTailscaleMsg(`Lỗi: ${err.message || "Không thể kết nối Tailscale"}`);
+    } finally {
+      setTailscaleConnecting(false);
+    }
+  };
+
+  const handleUsePeerAsProxy = (peerIp: string) => {
+    const pUrl = `http://${peerIp}:8899`;
+    setProxyInput(pUrl);
+    setActiveModalTab("proxy");
   };
 
   const fetchLlmProfiles = async () => {
@@ -1240,6 +1283,18 @@ export default function DubbingStudio() {
                 <Globe className="w-3.5 h-3.5" />
                 <span>🌐 Proxy Dân Cư</span>
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveModalTab("tailscale")}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeModalTab === "tailscale"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Network className="w-3.5 h-3.5" />
+                <span>🔗 Tailscale VPN</span>
+              </button>
             </div>
 
             {/* TAB 1: 1-CLICK OAUTH */}
@@ -1568,6 +1623,122 @@ export default function DubbingStudio() {
                   <span className="font-bold text-foreground">💡 Nơi lấy Proxy miễn phí / giá rẻ:</span>
                   <span>• Bạn có thể đăng ký tài khoản tại <a href="https://www.webshare.io" target="_blank" rel="noreferrer" className="text-primary underline font-bold">Webshare.io</a> để nhận ngay <strong>10 Proxy miễn phí</strong> vĩnh viễn (hỗ trợ HTTP & SOCKS5).</span>
                   <span>• Hoặc dùng dịch vụ Proxy dân cư xoay vòng như Smartproxy, IPRoyal, Oxylabs.</span>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: TAILSCALE VPN */}
+            {activeModalTab === "tailscale" && (
+              <div className="flex flex-col gap-3.5">
+                {tailscaleStatus?.connected ? (
+                  <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex flex-col gap-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg">
+                        <Network className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-foreground">Máy Chủ Đã Kết Nối Mạng Tailscale</h4>
+                        <p className="text-[11px] text-muted-foreground font-mono">
+                          Node: {tailscaleStatus.hostname} | IP: <span className="text-primary font-bold">{tailscaleStatus.tailscale_ip}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/5 p-2 rounded-lg border border-emerald-500/20">
+                      ⚡ SOCKS5 / HTTP Proxy nội bộ đang lắng nghe tại: <code className="font-mono font-bold">127.0.0.1:1055</code>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3.5 bg-secondary/40 border border-border rounded-xl">
+                    <h4 className="text-xs font-bold text-foreground mb-1">🔗 Kết Nối Tailscale Mesh VPN</h4>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Tailscale kết nối máy chủ Cloud và máy tính gia đình của bạn vào chung một mạng nội bộ ảo bảo mật. Bạn có thể định tuyến tải video qua máy tính gia đình để bypass 100% chặn bot của YouTube.
+                    </p>
+                  </div>
+                )}
+
+                {/* Peers list if connected */}
+                {tailscaleStatus?.connected && tailscaleStatus.peers && tailscaleStatus.peers.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <span className="text-xs font-bold text-foreground">Các thiết bị trong mạng Tailscale của bạn:</span>
+                    <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto pr-1">
+                      {tailscaleStatus.peers.map((peer) => (
+                        <div key={peer.id} className="p-2.5 bg-background border border-border rounded-xl flex items-center justify-between text-xs">
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`w-2 h-2 rounded-full ${peer.online ? "bg-emerald-500" : "bg-muted-foreground"}`} />
+                              <span className="font-bold text-foreground">{peer.hostname}</span>
+                              <span className="text-[10px] text-muted-foreground uppercase">({peer.os})</span>
+                            </div>
+                            <span className="text-[11px] font-mono text-muted-foreground ml-3.5">{peer.ip}</span>
+                          </div>
+
+                          {peer.ip && (
+                            <button
+                              type="button"
+                              onClick={() => handleUsePeerAsProxy(peer.ip!)}
+                              className="px-2.5 py-1 bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-semibold rounded-lg border border-primary/20 transition-colors cursor-pointer"
+                            >
+                              Dùng làm Proxy (8899)
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Auth Key Input */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-bold text-foreground">
+                    Tailscale Auth Key:
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="tskey-auth-..."
+                    value={tailscaleKeyInput}
+                    onChange={(e) => setTailscaleKeyInput(e.target.value)}
+                    className="bg-background border border-border rounded-xl px-3.5 py-2.5 text-xs font-mono text-foreground focus:outline-none focus:border-primary"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Lấy key tại: <a href="https://login.tailscale.com/admin/settings/keys" target="_blank" rel="noreferrer" className="text-primary underline">Tailscale Keys Console</a>
+                  </p>
+                </div>
+
+                {tailscaleMsg && (
+                  <div className="p-2.5 bg-primary/10 border border-primary/20 text-primary text-xs rounded-xl text-center font-bold">
+                    {tailscaleMsg}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={fetchTailscaleStatus}
+                    className="flex-1 py-2.5 bg-secondary hover:bg-secondary/80 text-foreground font-bold text-xs rounded-xl border border-border transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Làm Mới Trạng Thái</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleConnectTailscale}
+                    disabled={tailscaleConnecting || !tailscaleKeyInput.trim()}
+                    className="flex-1 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                  >
+                    {tailscaleConnecting ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Đang kết nối...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Network className="w-3.5 h-3.5" />
+                        <span>Kết Nối Tailscale</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             )}
