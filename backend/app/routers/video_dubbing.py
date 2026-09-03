@@ -106,9 +106,44 @@ async def upload_cookies(file: Optional[UploadFile] = File(None), cookie_text: O
         content = cookie_text
     else:
         raise HTTPException(status_code=400, detail="Cần cung cấp file cookies.txt hoặc nội dung cookie.")
+
+    # Auto-convert raw header or key=value cookies into Netscape format if not already in Netscape format
+    if content and "# Netscape" not in content and "\t" not in content:
+        import re
+        raw = content.strip()
+        # Extract cookie from curl or header string if needed
+        cookie_match = re.search(r'(?:[-–]H\s+[\'"][Cc]ookie:\s*|[Cc]ookie:\s*)([^\r\n\'"]+)', raw)
+        if cookie_match:
+            raw = cookie_match.group(1)
+        
+        lines = [
+            "# Netscape HTTP Cookie File",
+            "# http://curl.haxx.se/rfc/cookie_spec.html",
+            "# Converted by OmniVoice Gateway"
+        ]
+        count = 0
+        for part in raw.replace('\r', '').replace('\n', ' ').split(';'):
+            part = part.strip()
+            if '=' in part:
+                k, v = part.split('=', 1)
+                k = k.strip()
+                v = v.strip()
+                if k:
+                    lines.append(f".youtube.com\tTRUE\t/\tTRUE\t2147483647\t{k}\t{v}")
+                    count += 1
+        if count > 0:
+            content = "\n".join(lines) + "\n"
         
     with open(target_path, "w", encoding="utf-8") as f:
         f.write(content)
+
+    # Also mirror to bundled cookies path for fallback persistence
+    bundled_cookies = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "cookies.txt"))
+    try:
+        with open(bundled_cookies, "w", encoding="utf-8") as f:
+            f.write(content)
+    except Exception:
+        pass
         
     return {"status": "success", "message": f"Đã lưu cookies.txt thành công ({len(content)} ký tự)", "size_bytes": len(content)}
 
