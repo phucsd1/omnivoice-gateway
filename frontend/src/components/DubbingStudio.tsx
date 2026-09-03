@@ -25,7 +25,8 @@ import {
   ExternalLink,
   Copy,
   Check,
-  LogOut
+  LogOut,
+  Globe
 } from "lucide-react";
 import { api, type VideoDubbingJobResponse, type SubtitleSegment, type LLMProfile } from "../api/client";
 import { PageHeader } from "./ui/PageHeader";
@@ -88,8 +89,8 @@ export default function DubbingStudio() {
   const [vocalsVolume, setVocalsVolume] = useState(1.0);
   const [bgmVolume, setBgmVolume] = useState(0.4);
 
-  // YouTube Authentication States (OAuth & Cookie)
-  const [activeModalTab, setActiveModalTab] = useState<"oauth" | "cookies">("oauth");
+  // YouTube Authentication States (OAuth, Cookie & Residential Proxy)
+  const [activeModalTab, setActiveModalTab] = useState<"oauth" | "cookies" | "proxy">("oauth");
   const [oauthStatus, setOauthStatus] = useState<{ connected: boolean; expires_at?: number } | null>(null);
   const [oauthFlowData, setOauthFlowData] = useState<{ user_code: string; device_code: string; verification_url: string; interval: number } | null>(null);
   const [oauthStarting, setOauthStarting] = useState(false);
@@ -105,12 +106,21 @@ export default function DubbingStudio() {
   const [cookieUploading, setCookieUploading] = useState(false);
   const [cookieMsg, setCookieMsg] = useState<string | null>(null);
 
+  // Residential Proxy States
+  const [proxyStatus, setProxyStatus] = useState<{ is_configured: boolean; proxy?: string } | null>(null);
+  const [proxyInput, setProxyInput] = useState("");
+  const [proxyTesting, setProxyTesting] = useState(false);
+  const [proxySaving, setProxySaving] = useState(false);
+  const [proxyTestResult, setProxyTestResult] = useState<{ status: "success" | "error"; message: string } | null>(null);
+  const [proxyMsg, setProxyMsg] = useState<string | null>(null);
+
   // Restore active job from localStorage on mount & fetch settings & auth statuses
   useEffect(() => {
     fetchSystemLlmSettings();
     fetchLlmProfiles();
     fetchCookieStatus();
     fetchOAuthStatus();
+    fetchProxyStatus();
     if (jobId) {
       fetchJobDetails(jobId);
     }
@@ -250,6 +260,61 @@ export default function DubbingStudio() {
       setCookieMsg(`Lỗi: ${err.message || "Không thể xóa cookie"}`);
     } finally {
       setCookieUploading(false);
+    }
+  };
+
+  const fetchProxyStatus = async () => {
+    try {
+      const res = await api.getYouTubeProxyStatus();
+      setProxyStatus(res);
+      if (res.proxy) {
+        setProxyInput(res.proxy);
+      }
+    } catch {}
+  };
+
+  const handleTestProxy = async () => {
+    if (!proxyInput.trim()) return;
+    setProxyTesting(true);
+    setProxyTestResult(null);
+    try {
+      const res = await api.testYouTubeProxy(proxyInput.trim());
+      setProxyTestResult(res);
+    } catch (err: any) {
+      setProxyTestResult({
+        status: "error",
+        message: err.message || "Lỗi kiểm tra proxy."
+      });
+    } finally {
+      setProxyTesting(false);
+    }
+  };
+
+  const handleSaveProxy = async () => {
+    if (!proxyInput.trim()) return;
+    setProxySaving(true);
+    setProxyMsg(null);
+    try {
+      const res = await api.setYouTubeProxy(proxyInput.trim());
+      setProxyMsg(res.message);
+      fetchProxyStatus();
+    } catch (err: any) {
+      setProxyMsg(`Lỗi: ${err.message || "Không thể lưu proxy"}`);
+    } finally {
+      setProxySaving(false);
+    }
+  };
+
+  const handleDeleteProxy = async () => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa Proxy đã cấu hình?")) return;
+    try {
+      await api.deleteYouTubeProxy();
+      setProxyStatus({ is_configured: false });
+      setProxyInput("");
+      setProxyTestResult(null);
+      setProxyMsg("Đã xóa Proxy thành công.");
+    } catch (err: any) {
+      alert(`Lỗi: ${err.message || "Không thể xóa proxy"}`);
     }
   };
 
@@ -713,34 +778,55 @@ export default function DubbingStudio() {
                       <PlaySquare className="w-3.5 h-3.5 text-red-500" />
                       <span>Đường dẫn YouTube</span>
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowCookieModal(true)}
-                      className={`text-[11px] px-2.5 py-1 rounded-lg border flex items-center gap-1.5 font-medium transition-all cursor-pointer ${
-                        oauthStatus?.connected
-                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25"
-                          : cookieStatus?.has_cookies
-                          ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/25"
-                          : "bg-primary/15 text-primary border-primary/30 hover:bg-primary/25"
-                      }`}
-                    >
-                      {oauthStatus?.connected ? (
-                        <>
-                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                          <span>YouTube: Đã kết nối</span>
-                        </>
-                      ) : cookieStatus?.has_cookies ? (
-                        <>
-                          <Cookie className="w-3.5 h-3.5 text-blue-500" />
-                          <span>Cookie: Đã cài đặt</span>
-                        </>
-                      ) : (
-                        <>
-                          <Key className="w-3.5 h-3.5 text-primary" />
-                          <span>Kết nối YouTube (1-Click)</span>
-                        </>
-                      )}
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveModalTab("proxy");
+                          setShowCookieModal(true);
+                        }}
+                        className={`text-[11px] px-2.5 py-1 rounded-lg border flex items-center gap-1.5 font-medium transition-all cursor-pointer ${
+                          proxyStatus?.is_configured
+                            ? "bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30 hover:bg-purple-500/25"
+                            : "bg-secondary/60 text-muted-foreground border-border hover:bg-secondary hover:text-foreground"
+                        }`}
+                      >
+                        <Globe className={`w-3.5 h-3.5 ${proxyStatus?.is_configured ? "text-purple-500" : "text-muted-foreground"}`} />
+                        <span>{proxyStatus?.is_configured ? "Proxy: Đang bật" : "Proxy Dân Cư"}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveModalTab(oauthStatus?.connected ? "oauth" : cookieStatus?.has_cookies ? "cookies" : "oauth");
+                          setShowCookieModal(true);
+                        }}
+                        className={`text-[11px] px-2.5 py-1 rounded-lg border flex items-center gap-1.5 font-medium transition-all cursor-pointer ${
+                          oauthStatus?.connected
+                            ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25"
+                            : cookieStatus?.has_cookies
+                            ? "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/25"
+                            : "bg-primary/15 text-primary border-primary/30 hover:bg-primary/25"
+                        }`}
+                      >
+                        {oauthStatus?.connected ? (
+                          <>
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                            <span>YouTube: Đã kết nối</span>
+                          </>
+                        ) : cookieStatus?.has_cookies ? (
+                          <>
+                            <Cookie className="w-3.5 h-3.5 text-blue-500" />
+                            <span>Cookie: Đã cài đặt</span>
+                          </>
+                        ) : (
+                          <>
+                            <Key className="w-3.5 h-3.5 text-primary" />
+                            <span>Kết nối YouTube</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                   <input
                     type="url"
@@ -1142,6 +1228,18 @@ export default function DubbingStudio() {
                 <Cookie className="w-3.5 h-3.5" />
                 <span>Dán Cookies.txt</span>
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveModalTab("proxy")}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeModalTab === "proxy"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span>🌐 Proxy Dân Cư</span>
+              </button>
             </div>
 
             {/* TAB 1: 1-CLICK OAUTH */}
@@ -1349,6 +1447,127 @@ export default function DubbingStudio() {
                     <Save className="w-3.5 h-3.5" />
                     <span>{cookieUploading ? "Đang lưu..." : "Lưu Nội Dung Cookie"}</span>
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: RESIDENTIAL PROXY */}
+            {activeModalTab === "proxy" && (
+              <div className="flex flex-col gap-3.5">
+                {proxyStatus?.is_configured ? (
+                  <div className="p-3.5 bg-purple-500/10 border border-purple-500/30 rounded-xl flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 bg-purple-500/20 text-purple-600 dark:text-purple-400 rounded-lg">
+                        <Globe className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-foreground">Proxy Dân Cư Đang Hoạt Động</h4>
+                        <p className="text-[11px] text-muted-foreground font-mono">{proxyStatus.proxy}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleDeleteProxy}
+                      className="px-3 py-1.5 bg-destructive/10 hover:bg-destructive/20 text-destructive text-xs font-bold rounded-lg border border-destructive/30 transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Xóa</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-3.5 bg-secondary/40 border border-border rounded-xl">
+                    <h4 className="text-xs font-bold text-foreground mb-1">💡 Cơ Chế Proxy Dân Cư (Residential Proxy)</h4>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Khi cấu hình Proxy, máy chủ Cloud sẽ chuyển hướng toàn bộ kết nối tải YouTube qua IP dân cư (Việt Nam hoặc quốc tế). YouTube sẽ coi đây là máy tính gia đình và cho phép tải 100% video HD trực tiếp mà không bị chặn bot.
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-bold text-foreground">
+                    Địa chỉ Proxy (HTTP / HTTPS / SOCKS5):
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="http://username:password@proxy.webshare.io:80"
+                    value={proxyInput}
+                    onChange={(e) => {
+                      setProxyInput(e.target.value);
+                      setProxyTestResult(null);
+                    }}
+                    className="bg-background border border-border rounded-xl px-3.5 py-2.5 text-xs font-mono text-foreground focus:outline-none focus:border-primary"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Hỗ trợ định dạng: <code className="text-primary font-mono">http://user:pass@host:port</code> hoặc <code className="text-primary font-mono">socks5://host:port</code>
+                  </p>
+                </div>
+
+                {/* Test result message */}
+                {proxyTestResult && (
+                  <div className={`p-3 rounded-xl border text-xs flex items-start gap-2 ${
+                    proxyTestResult.status === "success"
+                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                      : "bg-destructive/10 border-destructive/30 text-destructive"
+                  }`}>
+                    {proxyTestResult.status === "success" ? (
+                      <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    )}
+                    <span className="leading-tight">{proxyTestResult.message}</span>
+                  </div>
+                )}
+
+                {proxyMsg && (
+                  <div className="p-2.5 bg-primary/10 border border-primary/20 text-primary text-xs rounded-xl text-center font-bold">
+                    {proxyMsg}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleTestProxy}
+                    disabled={proxyTesting || !proxyInput.trim()}
+                    className="flex-1 py-2.5 bg-secondary hover:bg-secondary/80 text-foreground font-bold text-xs rounded-xl border border-border transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                  >
+                    {proxyTesting ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Đang kiểm tra...</span>
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>Kiểm Tra Kết Nối</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSaveProxy}
+                    disabled={proxySaving || !proxyInput.trim()}
+                    className="flex-1 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                  >
+                    {proxySaving ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Đang lưu...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-3.5 h-3.5" />
+                        <span>Lưu & Sử Dụng</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="p-3 bg-secondary/20 rounded-xl border border-border/60 text-[11px] text-muted-foreground flex flex-col gap-1">
+                  <span className="font-bold text-foreground">💡 Nơi lấy Proxy miễn phí / giá rẻ:</span>
+                  <span>• Bạn có thể đăng ký tài khoản tại <a href="https://www.webshare.io" target="_blank" rel="noreferrer" className="text-primary underline font-bold">Webshare.io</a> để nhận ngay <strong>10 Proxy miễn phí</strong> vĩnh viễn (hỗ trợ HTTP & SOCKS5).</span>
+                  <span>• Hoặc dùng dịch vụ Proxy dân cư xoay vòng như Smartproxy, IPRoyal, Oxylabs.</span>
                 </div>
               </div>
             )}

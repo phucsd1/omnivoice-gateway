@@ -189,6 +189,76 @@ class VideoDubbingService:
             pass
 
     @staticmethod
+    def get_youtube_proxy() -> Optional[str]:
+        # 1. Environment variable
+        for k in ["YOUTUBE_PROXY", "HTTP_PROXY", "HTTPS_PROXY"]:
+            val = os.environ.get(k)
+            if val and val.strip():
+                return val.strip()
+        
+        # 2. File storage
+        proxy_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "storage", "youtube_proxy.txt"))
+        if os.path.exists(proxy_file):
+            try:
+                with open(proxy_file, "r", encoding="utf-8") as f:
+                    val = f.read().strip()
+                    if val:
+                        return val
+            except Exception:
+                pass
+
+        # 3. DB SystemSetting
+        try:
+            from app.database import SessionLocal
+            from app.models import SystemSetting
+            db = SessionLocal()
+            entry = db.query(SystemSetting).filter(SystemSetting.key == "youtube_proxy").first()
+            if entry and entry.value.strip():
+                return entry.value.strip()
+        except Exception:
+            pass
+
+        return None
+
+    @staticmethod
+    def save_youtube_proxy(proxy_url: str):
+        proxy_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "storage", "youtube_proxy.txt"))
+        os.makedirs(os.path.dirname(proxy_file), exist_ok=True)
+        with open(proxy_file, "w", encoding="utf-8") as f:
+            f.write(proxy_url.strip())
+        
+        try:
+            from app.database import SessionLocal
+            from app.models import SystemSetting
+            db = SessionLocal()
+            entry = db.query(SystemSetting).filter(SystemSetting.key == "youtube_proxy").first()
+            if not entry:
+                entry = SystemSetting(key="youtube_proxy", value=proxy_url.strip())
+                db.add(entry)
+            else:
+                entry.value = proxy_url.strip()
+            db.commit()
+        except Exception:
+            pass
+
+    @staticmethod
+    def delete_youtube_proxy():
+        proxy_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "storage", "youtube_proxy.txt"))
+        if os.path.exists(proxy_file):
+            try: os.remove(proxy_file)
+            except Exception: pass
+        try:
+            from app.database import SessionLocal
+            from app.models import SystemSetting
+            db = SessionLocal()
+            entry = db.query(SystemSetting).filter(SystemSetting.key == "youtube_proxy").first()
+            if entry:
+                db.delete(entry)
+                db.commit()
+        except Exception:
+            pass
+
+    @staticmethod
     def refresh_oauth_token_if_needed() -> Optional[dict]:
         token_data = VideoDubbingService.get_oauth_token()
         if not token_data:
@@ -304,6 +374,10 @@ class VideoDubbingService:
         standard_url = f"https://www.youtube.com/watch?v={v_match.group(1)}" if v_match else url
 
         cache_dir = VideoDubbingService.get_oauth_cache_dir()
+        proxy_url = VideoDubbingService.get_youtube_proxy()
+        if proxy_url:
+            masked_p = re.sub(r'://([^:]+):([^@]+)@', r'://\1:***@', proxy_url)
+            _log(f"Routing YouTube download through Residential Proxy: {masked_p}")
 
         # Method 1: Authenticated Subprocess yt-dlp via YouTube TV OAuth (Primary when user connected 1-Click)
         if has_oauth:
@@ -321,8 +395,10 @@ class VideoDubbingService:
                     "-o", os.path.join(output_dir, "input_video.%(ext)s"),
                     "--socket-timeout", "60",
                     "--print", "after_video:%(title)s",
-                    url
                 ]
+                if proxy_url:
+                    cmd_oauth.extend(["--proxy", proxy_url])
+                cmd_oauth.append(url)
                 t0 = time.time()
                 res_oauth = subprocess.run(cmd_oauth, capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL)
                 if res_oauth.returncode == 0:
@@ -361,6 +437,8 @@ class VideoDubbingService:
                 "--socket-timeout", "45",
                 "--print", "after_video:%(title)s",
             ]
+            if proxy_url:
+                cmd.extend(["--proxy", proxy_url])
             if has_user_cookies and cookie_path:
                 cmd.extend(["--cookies", cookie_path])
                 _log(f"Passing authenticated cookies to subprocess yt-dlp: {cookie_path}")
@@ -394,7 +472,8 @@ class VideoDubbingService:
             try:
                 _log(f"Attempting YouTube download via pytubefix with {client_name} client...")
                 from pytubefix import YouTube
-                yt = YouTube(url, client=client_name)
+                proxies_ptf = {'http': proxy_url, 'https': proxy_url} if proxy_url else None
+                yt = YouTube(url, client=client_name, proxies=proxies_ptf)
                 title = yt.title or "YouTube Video"
                 
                 v_candidates = yt.streams.filter(only_video=True, file_extension='mp4')
@@ -442,6 +521,8 @@ class VideoDubbingService:
                 'nocheckcertificate': True,
                 'quiet': False
             }
+            if proxy_url:
+                ydl_opts['proxy'] = proxy_url
             if has_user_cookies and cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
                 ydl_opts['cookiefile'] = cookie_path
 

@@ -204,6 +204,68 @@ def sync_youtube_oauth(req: OAuthSyncRequest):
         return {"status": "success", "connected": True}
     return {"status": "error", "message": "Invalid token data"}
 
+class ProxyConfigPayload(BaseModel):
+    proxy_url: str
+
+@router.get("/proxy-status")
+def get_proxy_status():
+    proxy = VideoDubbingService.get_youtube_proxy()
+    if proxy:
+        import re
+        masked = re.sub(r'://([^:]+):([^@]+)@', r'://\1:***@', proxy)
+        return {"is_configured": True, "proxy": masked}
+    return {"is_configured": False, "proxy": None}
+
+@router.post("/set-proxy")
+def set_proxy(payload: ProxyConfigPayload):
+    p = payload.proxy_url.strip()
+    if not p:
+        VideoDubbingService.delete_youtube_proxy()
+        return {"status": "success", "message": "Đã xóa proxy"}
+    
+    if not (p.startswith("http://") or p.startswith("https://") or p.startswith("socks5://") or p.startswith("socks5h://")):
+        p = f"http://{p}"
+        
+    VideoDubbingService.save_youtube_proxy(p)
+    import re
+    masked = re.sub(r'://([^:]+):([^@]+)@', r'://\1:***@', p)
+    return {"status": "success", "message": f"Đã lưu proxy thành công: {masked}", "proxy": masked}
+
+@router.post("/test-proxy")
+def test_proxy(payload: ProxyConfigPayload):
+    import requests as py_requests
+    p = payload.proxy_url.strip()
+    if not p:
+        raise HTTPException(status_code=400, detail="Vui lòng cung cấp URL proxy để kiểm tra.")
+    if not (p.startswith("http://") or p.startswith("https://") or p.startswith("socks5://") or p.startswith("socks5h://")):
+        p = f"http://{p}"
+    
+    try:
+        proxies = {"http": p, "https": p}
+        r = py_requests.get("https://ipinfo.io/json", proxies=proxies, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            return {
+                "status": "success",
+                "ip": data.get("ip"),
+                "country": data.get("country"),
+                "city": data.get("city"),
+                "org": data.get("org"),
+                "message": f"Kết nối Proxy thành công! IP xuất phát: {data.get('ip')} ({data.get('city')}, {data.get('country')} - {data.get('org')})"
+            }
+        else:
+            raise Exception(f"HTTP {r.status_code}: {r.text[:150]}")
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Không thể kết nối qua Proxy: {str(e)}"
+        }
+
+@router.delete("/delete-proxy")
+def delete_proxy():
+    VideoDubbingService.delete_youtube_proxy()
+    return {"status": "success", "message": "Đã xóa cấu hình Proxy."}
+
 def run_dubbing_pipeline(job_id: str):
     """Background task to run the video dubbing stages (Download -> Extract Audio -> Separate -> Transcribe -> Translate)."""
     db = SessionLocal()

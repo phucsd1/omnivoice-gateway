@@ -810,6 +810,32 @@ export const api = {
     });
   },
 
+  getYouTubeProxyStatus: async (): Promise<{ is_configured: boolean; proxy?: string }> => {
+    return request<{ is_configured: boolean; proxy?: string }>("/v1/video-dubbing/proxy-status");
+  },
+
+  setYouTubeProxy: async (proxyUrl: string): Promise<{ status: string; message: string; proxy?: string }> => {
+    return request<{ status: string; message: string; proxy?: string }>("/v1/video-dubbing/set-proxy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ proxy_url: proxyUrl }),
+    });
+  },
+
+  testYouTubeProxy: async (proxyUrl: string): Promise<{ status: "success" | "error"; message: string; ip?: string; country?: string; city?: string; org?: string }> => {
+    return request<{ status: "success" | "error"; message: string; ip?: string; country?: string; city?: string; org?: string }>("/v1/video-dubbing/test-proxy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ proxy_url: proxyUrl }),
+    });
+  },
+
+  deleteYouTubeProxy: async (): Promise<{ status: string; message: string }> => {
+    return request<{ status: string; message: string }>("/v1/video-dubbing/delete-proxy", {
+      method: "DELETE",
+    });
+  },
+
   getDubbingJobLog: async (jobId: string): Promise<{ log: string }> => {
     return request<{ log: string }>(`/v1/video-dubbing/jobs/${jobId}/log?t=${Date.now()}`);
   },
