@@ -298,13 +298,6 @@ async def lifespan(app: FastAPI):
         from app.services.kaggle_orchestrator import KaggleOrchestrator
         KaggleOrchestrator.start_queue_runner()
         
-    # Start Tailscale service in background if configured
-    try:
-        from app.services.tailscale_service import TailscaleService
-        TailscaleService.start_background()
-    except Exception as ts_e:
-        print(f"[Main] Failed to initialize Tailscale service: {ts_e}", flush=True)
-        
     # Start auto-shutdown idle monitor (disabled by default, enabled only if ENABLE_AUTO_SHUTDOWN=true)
     # This prevents the server from shutting down unexpectedly during local development or VM hosting.
     shutdown_task = None
