@@ -133,6 +133,12 @@ class VideoDubbingService:
         return os.path.join(storage_dir, "youtube_oauth.json")
 
     @staticmethod
+    def get_oauth_cache_dir() -> str:
+        storage_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "storage", "yt_dlp_cache"))
+        os.makedirs(storage_dir, exist_ok=True)
+        return storage_dir
+
+    @staticmethod
     def get_oauth_token() -> Optional[dict]:
         token_path = VideoDubbingService.get_oauth_storage_path()
         if os.path.exists(token_path):
@@ -150,11 +156,16 @@ class VideoDubbingService:
         token_path = VideoDubbingService.get_oauth_storage_path()
         with open(token_path, "w", encoding="utf-8") as f:
             json.dump(token_data, f, indent=2)
+        cache_dir = VideoDubbingService.get_oauth_cache_dir()
         try:
             import yt_dlp
             from yt_dlp.cache import Cache
-            c = Cache(yt_dlp.YoutubeDL())
-            c.store('youtube-oauth2', 'token_data', token_data)
+            for ydl_inst in [yt_dlp.YoutubeDL({'cachedir': cache_dir}), yt_dlp.YoutubeDL()]:
+                try:
+                    c = Cache(ydl_inst)
+                    c.store('youtube-oauth2', 'token_data', token_data)
+                except Exception:
+                    pass
         except Exception as e:
             print(f"[VideoDubbingService] Failed to sync oauth to yt-dlp cache: {e}", flush=True)
 
@@ -164,11 +175,16 @@ class VideoDubbingService:
         if os.path.exists(token_path):
             try: os.remove(token_path)
             except Exception: pass
+        cache_dir = VideoDubbingService.get_oauth_cache_dir()
         try:
             import yt_dlp
             from yt_dlp.cache import Cache
-            c = Cache(yt_dlp.YoutubeDL())
-            c.remove('youtube-oauth2', 'token_data')
+            for ydl_inst in [yt_dlp.YoutubeDL({'cachedir': cache_dir}), yt_dlp.YoutubeDL()]:
+                try:
+                    c = Cache(ydl_inst)
+                    c.remove('youtube-oauth2', 'token_data')
+                except Exception:
+                    pass
         except Exception:
             pass
 
@@ -230,7 +246,11 @@ class VideoDubbingService:
                 'expires': time.time() + res.get('expires_in', 3600)
             }
             VideoDubbingService.save_oauth_token(token_data)
-            return {'status': 'success', 'message': 'Đã kết nối tài khoản YouTube thành công!'}
+            return {
+                'status': 'success',
+                'message': 'Đã kết nối tài khoản YouTube thành công!',
+                'token_data': token_data
+            }
         elif res.get('error') in ('authorization_pending', 'slow_down') or r.status_code == 428:
             return {'status': 'pending'}
         else:
@@ -283,7 +303,52 @@ class VideoDubbingService:
         v_match = re.search(r'(?:v=|\/embed\/|\.be\/)([0-9A-Za-z_-]{11})', url)
         standard_url = f"https://www.youtube.com/watch?v={v_match.group(1)}" if v_match else url
 
-        # Method 1: High-Performance Isolated Subprocess yt-dlp via Android Client (Direct Stream, zero auth needed)
+        cache_dir = VideoDubbingService.get_oauth_cache_dir()
+
+        # Method 1: Authenticated Subprocess yt-dlp via YouTube TV OAuth (Primary when user connected 1-Click)
+        if has_oauth:
+            try:
+                _log(f"Starting Authenticated YouTube OAuth2 Downloader ({url})...")
+                cmd_oauth = [
+                    sys.executable, "-m", "yt_dlp",
+                    "--no-warnings",
+                    "--no-check-certificate",
+                    "--impersonate", "chrome",
+                    "--cache-dir", cache_dir,
+                    "--username", "oauth2",
+                    "--password", "",
+                    "--extractor-args", "youtube:player_client=tv,web",
+                    "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best/18/17",
+                    "--merge-output-format", "mp4",
+                    "-o", os.path.join(output_dir, "input_video.%(ext)s"),
+                    "--socket-timeout", "45",
+                    "--print", "after_video:%(title)s",
+                    url
+                ]
+                t0 = time.time()
+                res_oauth = subprocess.run(cmd_oauth, capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL)
+                if res_oauth.returncode == 0:
+                    stdout_lines = [line.strip() for line in res_oauth.stdout.strip().splitlines() if line.strip()]
+                    title = stdout_lines[0] if stdout_lines else "YouTube Video"
+                    for ext in ['.mp4', '.mkv', '.webm', '.m4a']:
+                        candidate = os.path.join(output_dir, f"input_video{ext}")
+                        if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
+                            if not candidate.endswith('.mp4'):
+                                mp4_path = os.path.join(output_dir, "input_video.mp4")
+                                subprocess.run(["ffmpeg", "-y", "-i", candidate, "-c", "copy", mp4_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                try: os.remove(candidate)
+                                except Exception: pass
+                                candidate = mp4_path
+                            _log(f"OAuth2 download success: '{title}' ({candidate}, size={os.path.getsize(candidate)} bytes in {time.time()-t0:.2f}s)")
+                            return candidate, title
+                else:
+                    err_sub = res_oauth.stderr[-400:] if res_oauth.stderr else f"Exit code {res_oauth.returncode}"
+                    _log(f"OAuth2 download failed (rc={res_oauth.returncode}): {err_sub}")
+            except Exception as e:
+                err_sub = e
+                _log(f"OAuth2 download exception: {e}")
+
+        # Method 2: High-Performance Isolated Subprocess yt-dlp via Android Client (Direct Stream)
         try:
             _log(f"Starting Isolated Subprocess YouTube Downloader ({url})...")
             cmd = [
@@ -325,45 +390,6 @@ class VideoDubbingService:
         except Exception as e:
             err_sub = e
             _log(f"Subprocess yt-dlp android exception: {e}")
-
-        # Method 2: Authenticated Subprocess yt-dlp (For age-restricted, premium, or private videos)
-        if has_oauth:
-            try:
-                _log(f"Attempting Authenticated YouTube OAuth2 connection ({url})...")
-                cmd_oauth = [
-                    sys.executable, "-m", "yt_dlp",
-                    "--no-warnings",
-                    "--no-check-certificate",
-                    "--impersonate", "chrome",
-                    "--username", "oauth2",
-                    "--password", "",
-                    "--extractor-args", "youtube:player_client=tv,web",
-                    "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best/18/17",
-                    "--merge-output-format", "mp4",
-                    "-o", os.path.join(output_dir, "input_video.%(ext)s"),
-                    "--socket-timeout", "45",
-                    "--print", "after_video:%(title)s",
-                    url
-                ]
-                res_oauth = subprocess.run(cmd_oauth, capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL)
-                if res_oauth.returncode == 0:
-                    stdout_lines = [line.strip() for line in res_oauth.stdout.strip().splitlines() if line.strip()]
-                    title = stdout_lines[0] if stdout_lines else "YouTube Video"
-                    for ext in ['.mp4', '.mkv', '.webm', '.m4a']:
-                        candidate = os.path.join(output_dir, f"input_video{ext}")
-                        if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
-                            if not candidate.endswith('.mp4'):
-                                mp4_path = os.path.join(output_dir, "input_video.mp4")
-                                subprocess.run(["ffmpeg", "-y", "-i", candidate, "-c", "copy", mp4_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                                try: os.remove(candidate)
-                                except Exception: pass
-                                candidate = mp4_path
-                            _log(f"OAuth2 download success: '{title}' ({candidate}, size={os.path.getsize(candidate)} bytes)")
-                            return candidate, title
-                else:
-                    _log(f"OAuth2 download failed: {res_oauth.stderr[-300:]}")
-            except Exception as e:
-                _log(f"OAuth2 download exception: {e}")
 
         # Method 3: High-Speed HD pytubefix fallback with ANDROID_VR client
         for client_name in ['ANDROID_VR', 'ANDROID']:

@@ -114,6 +114,20 @@ export default function DubbingStudio() {
     if (jobId) {
       fetchJobDetails(jobId);
     }
+
+    // Auto-restore OAuth session from localStorage if server restarted
+    const savedOauth = localStorage.getItem("youtube_oauth_token");
+    if (savedOauth) {
+      try {
+        const parsed = JSON.parse(savedOauth);
+        api.syncYouTubeOAuth(parsed).then(() => fetchOAuthStatus()).catch(() => fetchOAuthStatus());
+      } catch {
+        fetchOAuthStatus();
+      }
+    } else {
+      fetchOAuthStatus();
+    }
+
     return () => {
       if (pollTimerRef.current) clearInterval(pollTimerRef.current);
     };
@@ -144,6 +158,9 @@ export default function DubbingStudio() {
           if (pollRes.status === "success") {
             clearInterval(pollTimerRef.current);
             setOauthPolling(false);
+            if (pollRes.token_data) {
+              localStorage.setItem("youtube_oauth_token", JSON.stringify(pollRes.token_data));
+            }
             setOauthSuccessMsg(pollRes.message || "Đã kết nối tài khoản YouTube thành công!");
             fetchOAuthStatus();
           } else if (pollRes.status === "error") {
@@ -166,6 +183,7 @@ export default function DubbingStudio() {
     if (!window.confirm("Bạn có chắc chắn muốn ngắt kết nối tài khoản YouTube?")) return;
     try {
       await api.disconnectYouTubeOAuth();
+      localStorage.removeItem("youtube_oauth_token");
       setOauthStatus({ connected: false });
       setOauthFlowData(null);
       setOauthSuccessMsg(null);

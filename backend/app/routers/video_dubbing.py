@@ -159,6 +159,16 @@ def disconnect_youtube_oauth():
     VideoDubbingService.delete_oauth_token()
     return {"status": "success", "message": "Đã ngắt kết nối tài khoản YouTube thành công."}
 
+class OAuthSyncRequest(BaseModel):
+    token_data: dict
+
+@router.post("/oauth/sync")
+def sync_youtube_oauth(req: OAuthSyncRequest):
+    if req.token_data and all(k in req.token_data for k in ('access_token', 'refresh_token')):
+        VideoDubbingService.save_oauth_token(req.token_data)
+        return {"status": "success", "connected": True}
+    return {"status": "error", "message": "Invalid token data"}
+
 def run_dubbing_pipeline(job_id: str):
     """Background task to run the video dubbing stages (Download -> Extract Audio -> Separate -> Transcribe -> Translate)."""
     db = SessionLocal()
@@ -524,10 +534,19 @@ async def create_dubbing_job(
     target_language: str = Form("Vietnamese"),
     uploaded_job_id: Optional[str] = Form(None),
     llm_profile_id: Optional[str] = Form(None),
+    oauth_token: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_user_or_api_key)
 ):
     """Tải lên video hoặc dán link YouTube để bắt đầu quy trình lồng tiếng tự động."""
+    if oauth_token:
+        try:
+            t_data = json.loads(oauth_token)
+            if all(k in t_data for k in ('access_token', 'refresh_token')):
+                VideoDubbingService.save_oauth_token(t_data)
+        except Exception:
+            pass
+
     if not file and not youtube_url and not uploaded_job_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

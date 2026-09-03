@@ -698,6 +698,12 @@ export const api = {
     if (uploadedJobId) formData.append("uploaded_job_id", uploadedJobId);
     if (llmProfileId) formData.append("llm_profile_id", llmProfileId);
     formData.append("target_language", targetLanguage || "Vietnamese");
+    
+    const savedOauth = localStorage.getItem("youtube_oauth_token");
+    if (savedOauth) {
+      formData.append("oauth_token", savedOauth);
+    }
+
     return request<VideoDubbingJobResponse>("/v1/video-dubbing", {
       method: "POST",
       body: formData,
@@ -782,11 +788,19 @@ export const api = {
     });
   },
 
-  pollYouTubeOAuth: async (deviceCode: string): Promise<{ status: "success" | "pending" | "error"; message?: string; error?: string }> => {
-    return request<{ status: "success" | "pending" | "error"; message?: string; error?: string }>("/v1/video-dubbing/oauth/poll", {
+  pollYouTubeOAuth: async (deviceCode: string): Promise<{ status: "success" | "pending" | "error"; message?: string; error?: string; token_data?: any }> => {
+    return request<{ status: "success" | "pending" | "error"; message?: string; error?: string; token_data?: any }>("/v1/video-dubbing/oauth/poll", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ device_code: deviceCode }),
+    });
+  },
+
+  syncYouTubeOAuth: async (tokenData: any): Promise<{ status: string; connected: boolean }> => {
+    return request<{ status: string; connected: boolean }>("/v1/video-dubbing/oauth/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token_data: tokenData }),
     });
   },
 
