@@ -262,6 +262,11 @@ class VideoDubbingJobListResponse(BaseModel):
     page_size: int
     jobs: List[VideoDubbingJobResponse]
 
+class DubbingRetryTranslationRequest(BaseModel):
+    llm_profile_id: Optional[str] = None
+    target_language: Optional[str] = None
+    force_fallback: Optional[bool] = False
+
 class LLMProfileResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

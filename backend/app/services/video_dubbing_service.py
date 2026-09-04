@@ -848,9 +848,23 @@ class VideoDubbingService:
                     "generationConfig": gen_config
                 }
                 res = requests.post(url, headers=headers, json=payload, timeout=45)
-                res.raise_for_status()
+                # If thinkingConfig causes 400 error, retry once without thinkingConfig
+                if not res.ok and "thinkingConfig" in gen_config and res.status_code == 400:
+                    gen_config.pop("thinkingConfig", None)
+                    payload["generationConfig"] = gen_config
+                    res = requests.post(url, headers=headers, json=payload, timeout=45)
+
+                if not res.ok:
+                    err_msg = res.text
+                    try:
+                        err_json = res.json()
+                        if "error" in err_json:
+                            err_msg = err_json["error"].get("message", err_msg)
+                    except Exception:
+                        pass
+                    raise Exception(f"HTTP {res.status_code} ({provider}): {err_msg[:250]}")
+
                 res_data = res.json()
-                
                 parts = res_data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
                 text_out = ""
                 for part in parts:
@@ -891,7 +905,21 @@ class VideoDubbingService:
                     payload["reasoning_effort"] = thinking_effort
                 
                 res = requests.post(url, headers=headers, json=payload, timeout=45)
-                res.raise_for_status()
+                # If reasoning_effort causes 400 error, retry once without reasoning_effort
+                if not res.ok and "reasoning_effort" in payload and res.status_code == 400:
+                    payload.pop("reasoning_effort", None)
+                    res = requests.post(url, headers=headers, json=payload, timeout=45)
+
+                if not res.ok:
+                    err_msg = res.text
+                    try:
+                        err_json = res.json()
+                        if "error" in err_json:
+                            err_msg = err_json["error"].get("message", err_msg)
+                    except Exception:
+                        pass
+                    raise Exception(f"HTTP {res.status_code} ({provider}): {err_msg[:250]}")
+
                 res_data = res.json()
                 msg_obj = res_data.get("choices", [{}])[0].get("message", {})
                 text_out = msg_obj.get("content") or msg_obj.get("reasoning_content") or ""

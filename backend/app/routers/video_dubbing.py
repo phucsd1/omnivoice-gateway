@@ -7,11 +7,12 @@ from typing import Optional, List
 import concurrent.futures
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse
+from datetime import datetime
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User, VideoDubbingJob, TTSJob, SystemSetting
-from app.schemas import VideoDubbingJobResponse, SubtitleSegment, SubtitleUpdateRequest, VideoDubbingJobListResponse
+from app.schemas import VideoDubbingJobResponse, SubtitleSegment, SubtitleUpdateRequest, VideoDubbingJobListResponse, DubbingRetryTranslationRequest
 from app.utils.auth import get_user_or_api_key
 from app.config import settings
 from app.services.video_dubbing_service import VideoDubbingService
@@ -588,20 +589,28 @@ def trigger_translation_stage(dub_job_id: str, text: str, alignment_str: str, db
     db.commit()
     VideoDubbingService.log_to_job(dub_job_id, f"Hoàn tất phân tích & hợp nhất phụ đề gốc: gồm {len(merged_orig_segments)} phân đoạn hoàn chỉnh.")
 
-    # Call LLM translator
+    # Call LLM translator with resilient fallback
     llm_prof_id = getattr(job, "llm_profile_id", None)
     VideoDubbingService.log_to_job(dub_job_id, f"Bắt đầu dịch thuật phụ đề tự động sang tiếng: {job.target_language} bằng LLM (Profile ID: {llm_prof_id or 'Default'})...")
-    translated = VideoDubbingService.translate_subtitles_llm(merged_orig_segments, job.target_language, db, llm_profile_id=llm_prof_id)
     
-    # Merge and normalize translated subtitles as well
-    merged_translated = VideoDubbingService.merge_and_normalize_subtitles(translated)
-    job.translated_subtitles = json.dumps(merged_translated)
-    
+    try:
+        translated = VideoDubbingService.translate_subtitles_llm(merged_orig_segments, job.target_language, db, llm_profile_id=llm_prof_id)
+        merged_translated = VideoDubbingService.merge_and_normalize_subtitles(translated)
+        job.translated_subtitles = json.dumps(merged_translated)
+        job.error_message = None
+        VideoDubbingService.log_to_job(dub_job_id, "Dịch thuật phụ đề hoàn tất. Chuyển trạng thái sang: AWAITING_REVIEW.")
+    except Exception as e:
+        err_msg = str(e)
+        print(f"[VideoDubbing] Translation failed for {dub_job_id}: {err_msg}")
+        VideoDubbingService.log_to_job(dub_job_id, f"⚠️ [CẢNH BÁO LLM] Dịch tự động thất bại: {err_msg}. Đã chuyển phụ đề gốc sang để bạn tự chỉnh sửa hoặc bấm 'Dịch Lại Bằng AI'.")
+        # Fallback to original subtitles so the job is NEVER stuck!
+        job.translated_subtitles = json.dumps(merged_orig_segments)
+        job.error_message = f"Dịch LLM thất bại: {err_msg}"
+
     job.status = "awaiting_review"
     job.progress = 100
     job.message = "Đang chờ người dùng kiểm tra và xác nhận phụ đề dịch."
     db.commit()
-    VideoDubbingService.log_to_job(dub_job_id, "Dịch thuật phụ đề hoàn tất. Chuyển trạng thái sang: AWAITING_REVIEW.")
 
 @router.post("/upload", response_model=VideoDubbingJobResponse)
 async def upload_dubbing_video(
@@ -845,6 +854,76 @@ def get_dubbing_job(
     if not job:
         raise HTTPException(status_code=404, detail="Không tìm thấy tác vụ lồng tiếng.")
     
+    # Auto-recovery: If job is stuck in 'translating' for more than 60 seconds and original_subtitles is already available,
+    # auto-advance it to awaiting_review so the user can immediately review and edit!
+    if job.status == "translating" and job.original_subtitles:
+        delta = (datetime.utcnow() - job.updated_at).total_seconds() if job.updated_at else 9999
+        if delta > 60:
+            print(f"[AutoRecovery] Rescuing stuck job {job.id} (stuck for {delta:.0f}s in translating)")
+            job.status = "awaiting_review"
+            job.progress = 100
+            job.message = "Đã tự động chuyển sang duyệt phụ đề (bản dịch trước đó bị gián đoạn, bạn có thể tự sửa hoặc bấm Dịch lại)."
+            if not job.translated_subtitles:
+                job.translated_subtitles = job.original_subtitles
+            if not job.error_message:
+                job.error_message = "Quá trình dịch LLM tự động bị gián đoạn hoặc quá thời gian chờ."
+            db.commit()
+            VideoDubbingService.log_to_job(job.id, "⚠️ [TỰ ĐỘNG PHỤC HỒI] Quá trình dịch thuật trước đó bị gián đoạn. Đã tự động mở bước Duyệt Phụ Đề để bạn tiếp tục công việc.")
+
+    return _format_dubbing_job_response(job)
+
+@router.post("/jobs/{job_id}/retry-translation", response_model=VideoDubbingJobResponse)
+def retry_dubbing_translation(
+    job_id: str,
+    payload: DubbingRetryTranslationRequest = DubbingRetryTranslationRequest(),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_user_or_api_key)
+):
+    """Dịch lại phụ đề cho tác vụ lồng tiếng với profile LLM chỉ định hoặc dùng bản fallback."""
+    job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id, VideoDubbingJob.user_id == current_user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tác vụ lồng tiếng.")
+
+    if not job.original_subtitles:
+        raise HTTPException(status_code=400, detail="Chưa có dữ liệu phụ đề gốc từ bước nhận diện Whisper ASR.")
+
+    try:
+        orig_segments = json.loads(job.original_subtitles)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Dữ liệu phụ đề gốc không hợp lệ.")
+
+    target_lang = payload.target_language or job.target_language
+    llm_prof_id = payload.llm_profile_id or job.llm_profile_id
+
+    if payload.force_fallback:
+        job.translated_subtitles = job.original_subtitles
+        job.status = "awaiting_review"
+        job.progress = 100
+        job.message = "Đã chuyển sang phụ đề gốc."
+        db.commit()
+        VideoDubbingService.log_to_job(job_id, "Người dùng đã chọn bỏ qua dịch LLM và sử dụng phụ đề gốc.")
+        return _format_dubbing_job_response(job)
+
+    VideoDubbingService.log_to_job(job_id, f"Bắt đầu dịch lại phụ đề sang tiếng: {target_lang} bằng LLM (Profile ID: {llm_prof_id or 'Default'})...")
+    try:
+        translated = VideoDubbingService.translate_subtitles_llm(orig_segments, target_lang, db, llm_profile_id=llm_prof_id)
+        merged_translated = VideoDubbingService.merge_and_normalize_subtitles(translated)
+        job.translated_subtitles = json.dumps(merged_translated)
+        job.target_language = target_lang
+        job.llm_profile_id = llm_prof_id
+        job.status = "awaiting_review"
+        job.progress = 100
+        job.error_message = None
+        job.message = "Dịch thuật phụ đề thành công."
+        db.commit()
+        VideoDubbingService.log_to_job(job_id, "Dịch lại phụ đề qua LLM thành công.")
+    except Exception as e:
+        err_msg = str(e)
+        job.error_message = err_msg
+        db.commit()
+        VideoDubbingService.log_to_job(job_id, f"⚠️ Lỗi khi dịch lại phụ đề: {err_msg}")
+        raise HTTPException(status_code=500, detail=f"Lỗi dịch thuật qua LLM: {err_msg}")
+
     return _format_dubbing_job_response(job)
 
 @router.delete("/jobs/{job_id}", response_model=dict)

@@ -915,6 +915,19 @@ export const api = {
     });
   },
 
+  retryDubbingTranslation: async (
+    jobId: string,
+    params?: { llm_profile_id?: string; target_language?: string; force_fallback?: boolean }
+  ): Promise<VideoDubbingJobResponse> => {
+    return request<VideoDubbingJobResponse>(`/v1/video-dubbing/jobs/${jobId}/retry-translation`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(params || {}),
+    });
+  },
+
   updateDubbingSubtitles: async (jobId: string, originalSubtitles?: SubtitleSegment[], translatedSubtitles?: SubtitleSegment[]): Promise<{ status: string; message: string }> => {
     return request<{ status: string; message: string }>(`/v1/video-dubbing/jobs/${jobId}/subtitles`, {
       method: "PUT",

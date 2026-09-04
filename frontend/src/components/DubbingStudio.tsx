@@ -31,7 +31,8 @@ import {
   Search,
   Eye,
   Play,
-  Layers
+  Layers,
+  Zap
 } from "lucide-react";
 import { api, type VideoDubbingJobResponse, type SubtitleSegment, type LLMProfile } from "../api/client";
 import { PageHeader } from "./ui/PageHeader";
@@ -111,6 +112,7 @@ export default function DubbingStudio() {
   const [translatedSubs, setTranslatedSubs] = useState<SubtitleSegment[]>([]);
   const [selectedSegId, setSelectedSegId] = useState<number | null>(null);
   const [savingSubs, setSavingSubs] = useState(false);
+  const [retranslating, setRetranslating] = useState(false);
 
   // Media Player Refs & Audio Mixer
   const videoPlayerRef = useRef<HTMLVideoElement>(null);
@@ -1023,9 +1025,35 @@ export default function DubbingStudio() {
             </div>
 
             {/* Live Message */}
-            <div className="flex items-center gap-2 p-3 bg-secondary/40 border border-border/60 rounded-xl text-xs text-foreground">
-              <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0 animate-spin" />
-              <span className="font-medium">{job.message || "Đang xử lý tiến trình..."}</span>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 bg-secondary/40 border border-border/60 rounded-xl text-xs text-foreground">
+              <div className="flex items-center gap-2">
+                <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0 animate-spin" />
+                <span className="font-medium">{job.message || "Đang xử lý tiến trình..."}</span>
+              </div>
+              {job.status === "translating" && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      setRetranslating(true);
+                      const updated = await api.retryDubbingTranslation(job.id, { force_fallback: true });
+                      setJob(updated);
+                      if (updated.original_subtitles) setOriginalSubs(updated.original_subtitles);
+                      if (updated.translated_subtitles) setTranslatedSubs(updated.translated_subtitles);
+                    } catch (e: any) {
+                      alert(e.message || "Không thể bỏ qua");
+                    } finally {
+                      setRetranslating(false);
+                    }
+                  }}
+                  disabled={retranslating}
+                  className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
+                  title="Bỏ qua dịch thuật LLM nếu bị kẹt và chuyển ngay sang bước duyệt phụ đề"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>{retranslating ? "Đang mở duyệt..." : "⚡ Bỏ Qua Dịch & Mở Duyệt Ngay"}</span>
+                </button>
+              )}
             </div>
 
             {/* Console log terminal */}
@@ -1726,7 +1754,59 @@ export default function DubbingStudio() {
           {/* Right: Subtitle Timeline Editor */}
           <SectionCard title="Biên Tập Bản Dịch Phụ Đề">
             <div className="flex flex-col gap-3">
-              <div className="flex justify-end mb-1">
+              {job.error_message && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-600 dark:text-amber-400 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-bold">Cảnh báo dịch thuật tự động:</span>
+                    <span className="text-[11px] font-mono break-all">{job.error_message}</span>
+                    <span className="text-[10px] text-muted-foreground mt-0.5">
+                      Hệ thống đã giữ lại các phân đoạn phụ đề để bạn tự chỉnh sửa bên dưới, hoặc bạn có thể chọn Profile LLM khác và bấm <strong>Dịch Lại Bằng AI</strong>.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                <div className="flex items-center gap-1.5">
+                  {llmProfiles.length > 0 && (
+                    <select
+                      value={selectedLlmProfileId || ""}
+                      onChange={(e) => setSelectedLlmProfileId(e.target.value)}
+                      className="bg-background border border-border rounded-lg px-2 py-1 text-[11px] text-foreground font-medium focus:ring-1 focus:ring-primary outline-hidden"
+                    >
+                      {llmProfiles.map(p => (
+                        <option key={p.id} value={p.id}>{p.name} ({p.model})</option>
+                      ))}
+                    </select>
+                  )}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        setRetranslating(true);
+                        const updated = await api.retryDubbingTranslation(job.id, {
+                          llm_profile_id: selectedLlmProfileId || undefined,
+                          target_language: targetLanguage || job.target_language
+                        });
+                        setJob(updated);
+                        if (updated.translated_subtitles) setTranslatedSubs(updated.translated_subtitles);
+                        alert("Đã dịch lại toàn bộ phụ đề qua AI thành công!");
+                      } catch (e: any) {
+                        alert(`Lỗi khi dịch lại: ${e.message || "Mô hình LLM không phản hồi"}`);
+                      } finally {
+                        setRetranslating(false);
+                      }
+                    }}
+                    disabled={retranslating}
+                    className="px-2.5 py-1 bg-secondary hover:bg-secondary/80 text-foreground text-xs font-semibold rounded-lg border border-border transition-colors cursor-pointer flex items-center gap-1"
+                    title="Dịch lại tất cả phân đoạn bằng mô hình AI"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${retranslating ? "animate-spin text-primary" : ""}`} />
+                    <span>{retranslating ? "Đang dịch..." : "Dịch Lại Bằng AI"}</span>
+                  </button>
+                </div>
+
                 <button
                   onClick={handleSaveSubtitles}
                   disabled={savingSubs}
