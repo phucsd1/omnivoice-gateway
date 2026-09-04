@@ -143,3 +143,41 @@ def test_video_dubbing_flow():
     
     output_res = client.get(f"/v1/video-dubbing/jobs/{job_id}/output", headers=user_headers)
     assert output_res.status_code == 200
+
+    # 9. Test shorten-subtitle endpoint
+    shorten_res = client.post(
+        f"/v1/video-dubbing/jobs/{job_id}/shorten-subtitle",
+        headers=user_headers,
+        json={
+            "segment_id": 1,
+            "text": "Đây là một câu rất dài dòng vượt quá thời lượng cần nói của video này",
+            "target_duration": 1.5,
+            "target_language": "Vietnamese"
+        }
+    )
+    assert shorten_res.status_code == 200
+    shorten_data = shorten_res.json()
+    assert shorten_data["segment_id"] == 1
+    assert "shortened_text" in shorten_data
+    assert len(shorten_data["shortened_text"]) > 0
+
+    # 10. Test fast remix endpoint
+    remix_res = client.post(
+        f"/v1/video-dubbing/jobs/{job_id}/remix",
+        headers=user_headers,
+        json={
+            "vocals_volume": 1.3,
+            "bgm_volume": 0.25
+        }
+    )
+    assert remix_res.status_code == 200
+    remix_data = remix_res.json()
+    assert remix_data["status"] == "success"
+    assert "output_video_url" in remix_data
+
+    # 11. Test re-edit endpoint (unlock completed job back to awaiting_review)
+    reedit_res = client.post(f"/v1/video-dubbing/jobs/{job_id}/re-edit", headers=user_headers)
+    assert reedit_res.status_code == 200
+    reedit_data = reedit_res.json()
+    assert reedit_data["status"] == "awaiting_review"
+    assert len(reedit_data["translated_subtitles"]) > 0

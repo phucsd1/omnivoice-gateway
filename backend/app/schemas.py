@@ -267,6 +267,25 @@ class DubbingRetryTranslationRequest(BaseModel):
     target_language: Optional[str] = None
     force_fallback: Optional[bool] = False
 
+class ShortenSubtitleRequest(BaseModel):
+    segment_id: int
+    text: str
+    target_duration: float
+    target_language: Optional[str] = "Vietnamese"
+    original_text: Optional[str] = None
+    llm_profile_id: Optional[str] = None
+
+class ShortenSubtitleResponse(BaseModel):
+    segment_id: int
+    original_text: Optional[str] = None
+    shortened_text: str
+    estimated_duration: float
+    target_duration: float
+
+class RemixDubbingRequest(BaseModel):
+    vocals_volume: Optional[float] = 1.0
+    bgm_volume: Optional[float] = 0.35
+
 class LLMProfileResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

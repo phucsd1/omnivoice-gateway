@@ -35,7 +35,9 @@ import {
   Zap,
   Volume2,
   VolumeX,
-  RotateCcw
+  RotateCcw,
+  AlertTriangle,
+  Edit3
 } from "lucide-react";
 import { api, type VideoDubbingJobResponse, type SubtitleSegment, type LLMProfile } from "../api/client";
 import { PageHeader } from "./ui/PageHeader";
@@ -123,10 +125,19 @@ export default function DubbingStudio() {
   const bgmPlayerRef = useRef<HTMLAudioElement>(null);
 
   const [vocalsVolume, setVocalsVolume] = useState(1.0);
-  const [bgmVolume, setBgmVolume] = useState(0.4);
+  const [bgmVolume, setBgmVolume] = useState(0.35);
   const [vocalsMuted, setVocalsMuted] = useState(false);
   const [bgmMuted, setBgmMuted] = useState(false);
   const [reseparating, setReseparating] = useState(false);
+
+  // New: AI Subtitle Shortening, Re-Edit & Fast Remix states
+  const [shorteningSegId, setShorteningSegId] = useState<number | null>(null);
+  const [reEditing, setReEditing] = useState(false);
+  const [remixing, setRemixing] = useState(false);
+  const [remixVocalVol, setRemixVocalVol] = useState(1.2);
+  const [remixBgmVol, setRemixBgmVol] = useState(0.3);
+  const [outputVideoTimestamp, setOutputVideoTimestamp] = useState<number>(Date.now());
+  const [showRemixPanel, setShowRemixPanel] = useState(false);
 
   // YouTube Authentication States (OAuth, Cookie, Residential Proxy Pool)
   const [activeModalTab, setActiveModalTab] = useState<"proxy" | "oauth" | "cookies">("proxy");
@@ -607,6 +618,66 @@ export default function DubbingStudio() {
       setError(err.message || "Lỗi hoàn tất lồng tiếng.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleReEditJob = async () => {
+    if (!jobId) return;
+    setReEditing(true);
+    try {
+      const updated = await api.reEditDubbingJob(jobId);
+      setJob(updated);
+      if (updated.translated_subtitles && updated.translated_subtitles.length > 0) {
+        setTranslatedSubs(updated.translated_subtitles);
+      }
+      if (updated.original_subtitles && updated.original_subtitles.length > 0) {
+        setOriginalSubs(updated.original_subtitles);
+      }
+      fetchAllJobs();
+    } catch (e: any) {
+      alert(`Lỗi khi mở lại chế độ chỉnh sửa: ${e.message || "Vui lòng thử lại"}`);
+    } finally {
+      setReEditing(false);
+    }
+  };
+
+  const handleShortenSubtitle = async (segId: number, text: string, targetDur: number, origText?: string) => {
+    if (!jobId || !text.trim()) return;
+    setShorteningSegId(segId);
+    try {
+      const res = await api.shortenSubtitle(jobId, {
+        segment_id: segId,
+        text,
+        target_duration: targetDur,
+        target_language: targetLanguage || job?.target_language || "Vietnamese",
+        original_text: origText,
+        llm_profile_id: selectedLlmProfileId || undefined,
+      });
+      if (res.shortened_text) {
+        updateSubText(segId, res.shortened_text);
+      }
+    } catch (e: any) {
+      alert(`Không thể rút gọn câu bằng AI: ${e.message || "Mô hình LLM không phản hồi"}`);
+    } finally {
+      setShorteningSegId(null);
+    }
+  };
+
+  const handleFastRemix = async () => {
+    if (!jobId) return;
+    setRemixing(true);
+    try {
+      await api.remixDubbingAudio(jobId, {
+        vocals_volume: remixVocalVol,
+        bgm_volume: remixBgmVol,
+      });
+      setOutputVideoTimestamp(Date.now());
+      fetchAllJobs();
+      alert("Đã hòa âm lại và cập nhật video thành công!");
+    } catch (e: any) {
+      alert(`Lỗi hòa âm video: ${e.message || "Không tìm thấy file âm thanh"}`);
+    } finally {
+      setRemixing(false);
     }
   };
 
@@ -2066,6 +2137,12 @@ export default function DubbingStudio() {
                 {translatedSubs.map((seg, idx) => {
                   const origSeg = originalSubs[idx] || seg;
                   const isSelected = selectedSegId === seg.id;
+                  const duration = typeof seg.start === "number" && typeof seg.end === "number" ? Math.max(0.1, seg.end - seg.start) : 2.0;
+                  const words = (seg.text || "").trim().split(/\s+/).filter(Boolean).length;
+                  const estSeconds = Math.round((words / 3.0) * 10) / 10;
+                  const isOverDuration = estSeconds > duration * 1.15;
+                  const isShortening = shorteningSegId === seg.id;
+
                   return (
                     <div
                       key={seg.id}
@@ -2073,14 +2150,54 @@ export default function DubbingStudio() {
                       className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
                         isSelected
                           ? "bg-primary/10 border-primary shadow-sm"
+                          : isOverDuration
+                          ? "bg-amber-500/5 border-amber-500/40 hover:border-amber-500/60"
                           : "bg-secondary/20 border-border/60 hover:border-border"
                       }`}
                     >
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-[10px] font-bold text-primary tracking-wider">PHÂN ĐOẠN #{seg.id}</span>
-                        <span className="text-[10px] font-mono font-bold text-muted-foreground bg-background px-2 py-0.5 rounded border border-border">
-                          {typeof seg.start === "number" ? seg.start.toFixed(2) : "0.00"}s → {typeof seg.end === "number" ? seg.end.toFixed(2) : "0.00"}s ({typeof seg.start === "number" && typeof seg.end === "number" ? (seg.end - seg.start).toFixed(1) : "0.0"}s)
-                        </span>
+                      <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-primary tracking-wider">PHÂN ĐOẠN #{seg.id}</span>
+                          {isOverDuration && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                              <AlertTriangle className="w-2.5 h-2.5" />
+                              <span>Quá dài (~{estSeconds}s / {duration.toFixed(1)}s)</span>
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleShortenSubtitle(seg.id, seg.text, duration, origSeg.text);
+                            }}
+                            disabled={isShortening}
+                            className={`px-2 py-0.5 text-[10px] font-bold rounded border transition-all flex items-center gap-1 cursor-pointer ${
+                              isOverDuration
+                                ? "bg-amber-500 text-white hover:bg-amber-600 border-amber-600 shadow-xs"
+                                : "bg-primary/10 text-primary hover:bg-primary/20 border-primary/30"
+                            }`}
+                            title="Dùng AI rút gọn câu này để vừa khớp số giây nói"
+                          >
+                            {isShortening ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                <span>Đang rút gọn...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="w-3 h-3" />
+                                <span>Rút gọn AI</span>
+                              </>
+                            )}
+                          </button>
+
+                          <span className="text-[10px] font-mono font-bold text-muted-foreground bg-background px-2 py-0.5 rounded border border-border">
+                            {typeof seg.start === "number" ? seg.start.toFixed(2) : "0.00"}s → {typeof seg.end === "number" ? seg.end.toFixed(2) : "0.00"}s ({duration.toFixed(1)}s)
+                          </span>
+                        </div>
                       </div>
                       
                       <div className="flex flex-col gap-2">
@@ -2090,13 +2207,20 @@ export default function DubbingStudio() {
                         </div>
                         
                         <div>
-                          <span className="text-[9px] uppercase font-bold text-primary tracking-wider">Dịch ({targetLanguage}):</span>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] uppercase font-bold text-primary tracking-wider">Dịch ({targetLanguage}):</span>
+                            <span className="text-[9px] text-muted-foreground font-mono">
+                              {words} từ • ước tính {estSeconds}s
+                            </span>
+                          </div>
                           <textarea
                             value={seg.text}
                             onChange={(e) => updateSubText(seg.id, e.target.value)}
                             onClick={(e) => e.stopPropagation()}
                             rows={2}
-                            className="w-full bg-background border border-border rounded-lg p-2 text-xs text-foreground mt-1 focus:outline-none focus:border-primary font-medium"
+                            className={`w-full bg-background border rounded-lg p-2 text-xs text-foreground mt-1 focus:outline-none focus:border-primary font-medium ${
+                              isOverDuration ? "border-amber-500/50" : "border-border"
+                            }`}
                           />
                         </div>
                       </div>
@@ -2127,17 +2251,18 @@ export default function DubbingStudio() {
 
             <div className="aspect-video w-full max-w-2xl rounded-2xl overflow-hidden bg-black border border-border shadow-xl">
               <video
-                src={api.getDubbingFileUrl(jobId, "output")}
+                key={`dubbed_video_${outputVideoTimestamp}`}
+                src={`${api.getDubbingFileUrl(jobId, "output")}&v=${outputVideoTimestamp}`}
                 controls
                 className="w-full h-full object-contain"
               />
             </div>
 
-            <div className="flex flex-wrap gap-4 justify-center">
+            <div className="flex flex-wrap gap-3 justify-center">
               <a
                 href={api.getDubbingFileUrl(jobId, "output")}
                 download={`dubbed_video_${jobId}.mp4`}
-                className="px-5 py-2.5 bg-gradient-to-r from-primary to-accent hover:brightness-105 text-white font-bold text-xs rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer"
+                className="px-4 py-2.5 bg-gradient-to-r from-primary to-accent hover:brightness-105 text-white font-bold text-xs rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer"
               >
                 <Download className="w-4 h-4" />
                 <span>Tải Video MP4 Lồng Tiếng</span>
@@ -2166,12 +2291,135 @@ export default function DubbingStudio() {
                   a.click();
                   document.body.removeChild(a);
                 }}
-                className="px-5 py-2.5 bg-secondary hover:bg-secondary/80 text-foreground font-bold text-xs rounded-xl border border-border transition-colors flex items-center gap-2 cursor-pointer"
+                className="px-4 py-2.5 bg-secondary hover:bg-secondary/80 text-foreground font-bold text-xs rounded-xl border border-border transition-colors flex items-center gap-2 cursor-pointer"
               >
                 <FileText className="w-4 h-4" />
                 <span>Tải Phụ Đề SRT</span>
               </button>
+
+              {/* Action 1: Re-edit Subtitles & Re-dub */}
+              <button
+                onClick={handleReEditJob}
+                disabled={reEditing}
+                className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-amber-500/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                title="Quay lại Step 3 để chỉnh sửa câu từ, rút gọn câu hoặc đổi giọng đọc"
+              >
+                {reEditing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Đang mở lại...</span>
+                  </>
+                ) : (
+                  <>
+                    <Edit3 className="w-4 h-4" />
+                    <span>Chỉnh Sửa Phụ Đề & Lồng Tiếng Lại</span>
+                  </>
+                )}
+              </button>
+
+              {/* Action 2: Toggle Fast Remix Panel */}
+              <button
+                onClick={() => setShowRemixPanel(prev => !prev)}
+                className={`px-4 py-2.5 text-xs font-bold rounded-xl border transition-all flex items-center gap-2 cursor-pointer ${
+                  showRemixPanel
+                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                    : "bg-secondary hover:bg-secondary/80 text-foreground border-border"
+                }`}
+                title="Cân chỉnh âm lượng giọng nói và nhạc nền mà không cần tạo lại giọng"
+              >
+                <Sliders className="w-4 h-4 text-primary" />
+                <span>{showRemixPanel ? "Đóng Bảng Hòa Âm" : "Hòa Âm Lại Nhanh (3s)"}</span>
+              </button>
             </div>
+
+            {/* FAST REMIX & AUTO-DUCKING PANEL */}
+            {showRemixPanel && (
+              <div className="w-full max-w-2xl bg-secondary/30 border border-primary/30 rounded-2xl p-5 flex flex-col gap-4 text-left animate-in fade-in zoom-in-95 duration-200">
+                <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-primary/10 text-primary rounded-xl">
+                      <Sliders className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-foreground">Hòa Âm Lại Siêu Tốc & Auto-Ducking</h4>
+                      <p className="text-[11px] text-muted-foreground">Xuất lại video với cân bằng âm thanh mới trong 3 giây (không cần sinh lại TTS)</p>
+                    </div>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                    Sidechain Auto-Ducking Active
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Vocal Volume Slider */}
+                  <div className="p-3 bg-background rounded-xl border border-border/60 flex flex-col gap-2">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span className="flex items-center gap-1.5 text-foreground">
+                        <Mic className="w-3.5 h-3.5 text-primary" />
+                        <span>Giọng Lồng Tiếng</span>
+                      </span>
+                      <span className="font-mono text-primary">{Math.round(remixVocalVol * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.2"
+                      max="2.0"
+                      step="0.05"
+                      value={remixVocalVol}
+                      onChange={(e) => setRemixVocalVol(parseFloat(e.target.value))}
+                      className="w-full accent-primary bg-secondary h-1.5 rounded-lg cursor-pointer"
+                    />
+                    <span className="text-[10px] text-muted-foreground">Khuyên dùng: 100% - 130% để giọng rõ ràng</span>
+                  </div>
+
+                  {/* BGM Volume Slider */}
+                  <div className="p-3 bg-background rounded-xl border border-border/60 flex flex-col gap-2">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span className="flex items-center gap-1.5 text-foreground">
+                        <Music className="w-3.5 h-3.5 text-accent" />
+                        <span>Nhạc Nền / Gốc (BGM)</span>
+                      </span>
+                      <span className={`font-mono ${remixBgmVol <= 0.02 ? "text-rose-500" : "text-accent"}`}>
+                        {remixBgmVol <= 0.02 ? "TẮT (0%)" : `${Math.round(remixBgmVol * 100)}%`}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1.0"
+                      step="0.05"
+                      value={remixBgmVol}
+                      onChange={(e) => setRemixBgmVol(parseFloat(e.target.value))}
+                      className="w-full accent-accent bg-secondary h-1.5 rounded-lg cursor-pointer"
+                    />
+                    <span className="text-[10px] text-muted-foreground">Kéo về 0% để tắt sạch 100% âm thanh gốc</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[11px] text-muted-foreground italic">
+                    💡 Nhạc nền sẽ tự động giảm nhỏ (-14dB) khi giọng nói cất lên và hồi phục khi hết câu.
+                  </span>
+                  <button
+                    onClick={handleFastRemix}
+                    disabled={remixing}
+                    className="px-4 py-2 bg-gradient-to-r from-primary to-accent hover:brightness-105 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {remixing ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Đang hòa âm lại...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-3.5 h-3.5" />
+                        <span>Áp Dụng Hòa Âm Mới (3s)</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
 
           </div>
         </SectionCard>

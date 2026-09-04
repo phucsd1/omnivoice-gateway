@@ -890,11 +890,15 @@ class VideoDubbingService:
                 })
             return translated
 
-        # Create translation prompt
+        # Create translation prompt with strict video dubbing & time synchronization rules
         prompt = (
-            f"You are a professional video subtitle translator. Translate the following video subtitle segments "
-            f"into {target_language}. Keep the context and style natural. You MUST preserve the exact JSON array structure "
-            f"with the keys 'id', 'start', 'end', and 'text'. Return ONLY the valid JSON array without any explanations or backticks.\n\n"
+            f"You are an expert video dubbing translator and voice-sync director. "
+            f"Translate the following video subtitle segments into {target_language}.\n\n"
+            f"CRITICAL VIDEO DUBBING CONSTRAINTS:\n"
+            f"1. TIME DURATION BUDGET: The translation will be voiced by AI text-to-speech to fit the EXACT duration between 'start' and 'end' seconds.\n"
+            f"2. BREVITY & PACING: For each segment, duration = end - start seconds. The translated text in {target_language} MUST be concise, natural, and succinct so it can be comfortably spoken within that duration (~3 words per second, or ~4-5 syllables/sec). Do NOT make the translation wordy or verbose.\n"
+            f"3. PRESERVE MEANING: Keep the natural colloquial tone and core meaning, but express it economically to avoid speech overrun or audio collision with subsequent segments.\n"
+            f"4. FORMAT: You MUST preserve the exact JSON array structure with keys 'id', 'start', 'end', and 'text'. Return ONLY the valid JSON array without any markdown fences, backticks, or extra explanation.\n\n"
             f"Subtitles JSON:\n{json.dumps(subtitles, ensure_ascii=False)}"
         )
 
@@ -1033,6 +1037,94 @@ class VideoDubbingService:
             raise RuntimeError(f"Lỗi dịch thuật phụ đề qua LLM ({profile_name}): {e}")
 
     @staticmethod
+    def shorten_subtitle_llm(
+        text: str,
+        target_duration: float,
+        target_language: str = "Vietnamese",
+        original_text: Optional[str] = None,
+        db: Optional[Session] = None,
+        llm_profile_id: Optional[str] = None
+    ) -> str:
+        """
+        Uses LLM to condense/shorten a subtitle sentence so that it fits comfortably within target_duration seconds
+        (budget: ~3.0 words/sec for native Vietnamese speech) while preserving core meaning.
+        """
+        if not text or not text.strip():
+            return ""
+
+        max_words = max(2, int(target_duration * 3.0))
+
+        llm_config = VideoDubbingService.get_llm_settings(db, llm_profile_id=llm_profile_id)
+        provider = llm_config["provider"]
+        api_key = llm_config["api_key"]
+        model = llm_config["model"]
+        custom_endpoint = llm_config["custom_endpoint"]
+        profile_name = llm_config.get("profile_name", "Default")
+
+        if provider == "none" or (not api_key and provider != "custom"):
+            words = text.strip().split()
+            if len(words) > max_words:
+                return " ".join(words[:max_words])
+            return text
+
+        context_info = f'\nOriginal English context: "{original_text}"' if original_text else ""
+        prompt = (
+            f"You are a professional voiceover editor and dubbing dialogue adapter. "
+            f"Shorten the following {target_language} subtitle text so it can be comfortably spoken "
+            f"in {target_duration:.1f} seconds (STRICT LIMIT: MAXIMUM {max_words} WORDS).\n"
+            f'Current text: "{text}"{context_info}\n\n'
+            f"RULES:\n"
+            f"1. Language MUST be {target_language}.\n"
+            f"2. Keep the core meaning clear, natural, and punchy.\n"
+            f"3. Maximum word count: {max_words} words.\n"
+            f"4. Return ONLY the final shortened sentence without quotes, explanations, markdown, or preface."
+        )
+
+        try:
+            if provider == "gemini":
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+                headers = {"Content-Type": "application/json"}
+                payload = {
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"temperature": 0.3, "maxOutputTokens": 150}
+                }
+                res = requests.post(url, headers=headers, json=payload, timeout=25)
+                if res.ok:
+                    res_data = res.json()
+                    parts = res_data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+                    out = "".join([p.get("text", "") for p in parts if not p.get("thought")]).strip()
+                    if out:
+                        return out.strip('"\n\r ')
+            elif provider in ["openai", "custom"]:
+                url = custom_endpoint.strip() if (provider == "custom" and custom_endpoint) else "https://api.openai.com/v1/chat/completions"
+                if not url.endswith("/chat/completions"):
+                    url = url.rstrip("/") + "/chat/completions"
+                headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {api_key}"
+                }
+                payload = {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": "You are a concise voiceover editor. Output only the shortened sentence."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "temperature": 0.3,
+                    "max_tokens": 100
+                }
+                res = requests.post(url, headers=headers, json=payload, timeout=25)
+                if res.ok:
+                    res_data = res.json()
+                    out = res_data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                    if out:
+                        return out.strip('"\n\r ')
+        except Exception as e:
+            print(f"[VideoDubbingService Warning] LLM sentence shortening failed: {e}")
+
+        # Fallback: return original text
+        return text
+
+    @staticmethod
     def merge_and_normalize_subtitles(subs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Filters out empty/junk segments, merges fragmented short sentences into coherent paragraphs,
@@ -1109,14 +1201,15 @@ class VideoDubbingService:
     def assemble_dubbed_vocal(segments: List[Dict[str, Any]], output_vocal_path: str, total_duration: float):
         """
         Assembles individual audio segment WAVs into a single output vocal track at their respective timestamps
-        with speed-matching (time-stretching) and smooth additive mixing.
+        with anti-collision lookahead, pitch-preserving speed matching, sequential boundary enforcement,
+        and clean crossfade transitions.
         """
         def pitch_neutral_stretch(audio_data: np.ndarray, sr: int, speed_factor: float) -> np.ndarray:
             """
             Performs 100% pitch-preserving time stretch using librosa phase vocoder.
             Does NOT alter audio pitch/frequency, eliminating Chipmunk distortion.
             """
-            speed_factor = max(0.5, min(1.8, speed_factor))
+            speed_factor = max(0.6, min(1.8, speed_factor))
             try:
                 import librosa
                 return librosa.effects.time_stretch(audio_data, rate=speed_factor)
@@ -1127,14 +1220,17 @@ class VideoDubbingService:
         duration_samples = int(total_duration * 24000)
         output_vocal = np.zeros(duration_samples, dtype=np.float32)
 
-        for seg in segments:
+        # 1. Filter and sort segments chronologically by start timestamp
+        valid_segs = [s for s in segments if s.get("file_path") and os.path.exists(s.get("file_path"))]
+        valid_segs.sort(key=lambda s: float(s.get("start", 0.0)))
+
+        for i, seg in enumerate(valid_segs):
             seg_path = seg.get("file_path")
-            start_time = float(seg.get("start", 0.0))
+            start_time = max(0.0, float(seg.get("start", 0.0)))
             end_time = float(seg.get("end", 0.0)) if seg.get("end") else None
-            
-            if not seg_path or not os.path.exists(seg_path):
-                continue
-                
+            next_seg = valid_segs[i + 1] if (i + 1 < len(valid_segs)) else None
+            next_start = float(next_seg.get("start", 0.0)) if next_seg else None
+
             try:
                 data, sr = sf.read(seg_path)
                 
@@ -1148,14 +1244,36 @@ class VideoDubbingService:
                     num_samples = int(len(data) * 24000 / sr)
                     data = signal.resample(data, num_samples)
 
-                # Time-stretching / speed matching with PITCH-NEUTRAL librosa:
-                # If audio duration is longer than allocated subtitle slot, speed it up WITHOUT changing pitch!
-                if end_time and end_time > start_time:
-                    target_sec = end_time - start_time
+                # 2. Anti-collision lookahead:
+                # Determine target window and hard deadline before the next speaker starts
+                gap_silence = 0.06  # 60ms natural breathing silence before next speaker begins
+                if next_start is not None and next_start > start_time:
+                    max_allowed_sec = max(0.3, next_start - start_time - gap_silence)
+                    if end_time and end_time > start_time:
+                        target_sec = min(end_time - start_time, max_allowed_sec)
+                    else:
+                        target_sec = max_allowed_sec
+                else:
+                    target_sec = (end_time - start_time) if (end_time and end_time > start_time) else 10.0
+                    max_allowed_sec = target_sec * 1.25
+
+                actual_sec = len(data) / 24000.0
+
+                # 3. Dynamic pitch-neutral speed scaling (up to 1.50x without pitch distortion)
+                if actual_sec > target_sec * 1.03 and target_sec > 0.3:
+                    speed_factor = min(1.50, actual_sec / target_sec)
+                    data = pitch_neutral_stretch(data, 24000, speed_factor)
                     actual_sec = len(data) / 24000.0
-                    if actual_sec > target_sec * 1.05 and target_sec > 0.5:
-                        speed_factor = min(1.35, actual_sec / target_sec)
-                        data = pitch_neutral_stretch(data, 24000, speed_factor)
+
+                # 4. Strict sequential boundary clamping:
+                # If audio duration still encroaches upon next segment's start, apply smooth fade-out
+                if next_start is not None and (start_time + actual_sec > next_start - 0.03):
+                    max_samples = int(max(0.2, (next_start - 0.03 - start_time)) * 24000)
+                    if max_samples < len(data):
+                        data = data[:max_samples]
+                        fade_samples = min(int(0.04 * 24000), len(data))
+                        if fade_samples > 0:
+                            data[-fade_samples:] *= np.linspace(1.0, 0.0, fade_samples, dtype=np.float32)
 
                 start_idx = int(start_time * 24000)
                 end_idx = start_idx + len(data)
@@ -1163,9 +1281,17 @@ class VideoDubbingService:
                 if end_idx > len(output_vocal):
                     padding = np.zeros(end_idx - len(output_vocal), dtype=np.float32)
                     output_vocal = np.concatenate([output_vocal, padding])
-                    
-                # Additive mixing to avoid cutting off prior audio
-                output_vocal[start_idx:end_idx] += data
+
+                # 5. Clean boundary placement:
+                # Prevent voice bleed from prior audio overlapping current speaker start
+                lead_in = min(int(0.02 * 24000), len(data))
+                if lead_in > 0:
+                    existing = output_vocal[start_idx:start_idx + lead_in]
+                    output_vocal[start_idx:start_idx + lead_in] = existing * np.linspace(0.4, 0.0, lead_in, dtype=np.float32) + data[:lead_in]
+                    output_vocal[start_idx + lead_in:end_idx] = data[lead_in:]
+                else:
+                    output_vocal[start_idx:end_idx] = data
+
             except Exception as e:
                 print(f"[VideoDubbingService] Failed to insert segment {seg_path} into vocal track: {e}")
 
@@ -1179,9 +1305,10 @@ class VideoDubbingService:
         sf.write(output_vocal_path, output_vocal, 24000, format='WAV', subtype='PCM_16')
 
     @staticmethod
-    def mix_and_mux_video(video_path: str, bgm_path: str, vocal_path: str, output_path: str, vocal_vol: float = 1.2, bgm_vol: float = 0.5):
+    def mix_and_mux_video(video_path: str, bgm_path: str, vocal_path: str, output_path: str, vocal_vol: float = 1.2, bgm_vol: float = 0.35):
         """
-        Mixes vocal track and background music together and remuxes them with the original video track.
+        Mixes vocal track and background music together using Auto-Ducking (Sidechain Compression)
+        and remuxes them with the original video track.
         """
         temp_dir = os.path.dirname(output_path)
         temp_mixed_audio = os.path.join(temp_dir, f"temp_mixed_{os.path.basename(output_path)}.wav")
@@ -1203,12 +1330,20 @@ class VideoDubbingService:
                 temp_mixed_audio
             ]
         else:
-            # Mix audio tracks using FFmpeg amix
+            # Studio-grade Audio Ducking with Sidechain Compression:
+            # Automatically attenuates BGM by ~14dB whenever dubbed vocal has speech, and recovers smoothly during pauses.
+            # normalize=0 preserves 100% vocal punchiness without dividing amplitude by 2!
+            ducking_filter = (
+                f"[0:a]volume={vocal_vol},asplit=2[vocal_main][vocal_sc];"
+                f"[1:a]volume={bgm_vol}[bgm_raw];"
+                f"[bgm_raw][vocal_sc]sidechaincompress=threshold=0.025:ratio=5:attack=35:release=350:makeup=1[bgm_ducked];"
+                f"[vocal_main][bgm_ducked]amix=inputs=2:normalize=0:duration=first:dropout_transition=0[out]"
+            )
             mix_cmd = [
                 "ffmpeg", "-y",
                 "-i", vocal_path,
                 "-i", bgm_path,
-                "-filter_complex", f"[0:a]volume={vocal_vol}[vocal];[1:a]volume={bgm_vol}[bgm];[vocal][bgm]amix=inputs=2:duration=first:dropout_transition=0[out]",
+                "-filter_complex", ducking_filter,
                 "-map", "[out]",
                 "-acodec", "pcm_s16le", "-ar", "24000",
                 temp_mixed_audio
@@ -1216,8 +1351,20 @@ class VideoDubbingService:
         
         res_mix = subprocess.run(mix_cmd, capture_output=True, text=True)
         if res_mix.returncode != 0:
-            print(f"[FFmpeg Mix Error] {res_mix.stderr}")
-            raise RuntimeError(f"FFmpeg audio mixing failed: {res_mix.stderr[:300]}")
+            print(f"[FFmpeg Ducking Mix Warning] {res_mix.stderr[:200]}. Falling back to standard amix normalize=0...")
+            fallback_cmd = [
+                "ffmpeg", "-y",
+                "-i", vocal_path,
+                "-i", bgm_path,
+                "-filter_complex", f"[0:a]volume={vocal_vol}[vocal];[1:a]volume={bgm_vol}[bgm];[vocal][bgm]amix=inputs=2:normalize=0:duration=first:dropout_transition=0[out]",
+                "-map", "[out]",
+                "-acodec", "pcm_s16le", "-ar", "24000",
+                temp_mixed_audio
+            ]
+            res_fb = subprocess.run(fallback_cmd, capture_output=True, text=True)
+            if res_fb.returncode != 0:
+                print(f"[FFmpeg Mix Error] {res_fb.stderr}")
+                raise RuntimeError(f"FFmpeg audio mixing failed: {res_fb.stderr[:300]}")
         
         # Check if video_path has a video stream
         has_video = False

@@ -1,4 +1,5 @@
 import os
+import time
 import uuid
 import json
 import shutil
@@ -12,7 +13,16 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User, VideoDubbingJob, TTSJob, SystemSetting
-from app.schemas import VideoDubbingJobResponse, SubtitleSegment, SubtitleUpdateRequest, VideoDubbingJobListResponse, DubbingRetryTranslationRequest
+from app.schemas import (
+    VideoDubbingJobResponse,
+    SubtitleSegment,
+    SubtitleUpdateRequest,
+    VideoDubbingJobListResponse,
+    DubbingRetryTranslationRequest,
+    ShortenSubtitleRequest,
+    ShortenSubtitleResponse,
+    RemixDubbingRequest,
+)
 from app.utils.auth import get_user_or_api_key
 from app.config import settings
 from app.services.video_dubbing_service import VideoDubbingService
@@ -1078,6 +1088,7 @@ def run_finalization_pipeline(job_id: str):
                         AudioService.generate_mock_wav(seg_wav, duration=dur, freq=320.0 + idx * 15.0)
                         seg_audio_list.append({
                             "start": float(seg.get("start", 0.0)),
+                            "end": float(seg.get("end", 0.0)) if seg.get("end") else None,
                             "file_path": seg_wav
                         })
                     except Exception as s_err:
@@ -1167,6 +1178,157 @@ def run_finalization_pipeline(job_id: str):
             db.commit()
     finally:
         db.close()
+
+@router.post("/jobs/{job_id}/re-edit", response_model=VideoDubbingJobResponse)
+def re_edit_dubbing_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_user_or_api_key)
+):
+    """Mở khóa tác vụ lồng tiếng để quay lại Step 3 (Biên tập phụ đề và bộ trộn)."""
+    job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id, VideoDubbingJob.user_id == current_user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tác vụ lồng tiếng.")
+    
+    job.status = "awaiting_review"
+    job.error_message = None
+    job.message = "Đang mở lại chế độ biên tập phụ đề & hòa âm..."
+    db.commit()
+    db.refresh(job)
+    VideoDubbingService.log_to_job(job_id, "Người dùng đã mở lại chế độ biên tập phụ đề và hòa âm (Step 3).")
+    return VideoDubbingJobResponse(
+        id=job.id,
+        status=job.status,
+        progress=job.progress,
+        message=job.message,
+        source_type=job.source_type,
+        source_url=job.source_url,
+        target_language=job.target_language,
+        llm_profile_id=job.llm_profile_id,
+        original_subtitles=json.loads(job.original_subtitles or "[]"),
+        translated_subtitles=json.loads(job.translated_subtitles or "[]"),
+        vocals_audio_path=job.vocals_audio_path,
+        bgm_audio_path=job.bgm_audio_path,
+        vocals_volume=job.vocals_volume,
+        bgm_volume=job.bgm_volume,
+        output_video_url=f"/v1/video-dubbing/jobs/{job.id}/output" if job.output_video_path and os.path.exists(job.output_video_path) else None,
+        error_message=job.error_message,
+        created_at=job.created_at,
+        updated_at=job.updated_at
+    )
+
+@router.post("/jobs/{job_id}/shorten-subtitle", response_model=ShortenSubtitleResponse)
+def shorten_subtitle_segment(
+    job_id: str,
+    payload: ShortenSubtitleRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_user_or_api_key)
+):
+    """Rút gọn một phân đoạn phụ đề bằng AI để vừa khít thời lượng chỉ định."""
+    job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id, VideoDubbingJob.user_id == current_user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tác vụ lồng tiếng.")
+
+    profile_id = payload.llm_profile_id or job.llm_profile_id
+    target_lang = payload.target_language or job.target_language or "Vietnamese"
+
+    shortened = VideoDubbingService.shorten_subtitle_llm(
+        text=payload.text,
+        target_duration=payload.target_duration,
+        target_language=target_lang,
+        original_text=payload.original_text,
+        db=db,
+        llm_profile_id=profile_id
+    )
+
+    words = len(shortened.strip().split()) if shortened else 0
+    est_dur = round(words / 3.0, 2)
+
+    return ShortenSubtitleResponse(
+        segment_id=payload.segment_id,
+        original_text=payload.text,
+        shortened_text=shortened,
+        estimated_duration=est_dur,
+        target_duration=payload.target_duration
+    )
+
+@router.post("/jobs/{job_id}/remix")
+def remix_dubbed_video(
+    job_id: str,
+    payload: RemixDubbingRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_user_or_api_key)
+):
+    """
+    Trộn lại âm thanh và đóng gói lại video siêu tốc (2-3 giây) bằng FFmpeg
+    sử dụng track dubbed_vocals.wav đã sinh và áp dụng Auto-Ducking mới.
+    """
+    job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id, VideoDubbingJob.user_id == current_user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tác vụ lồng tiếng.")
+
+    job_dir = os.path.join(settings.dubbing_dir, job_id)
+    dubbed_vocal_path = os.path.join(job_dir, "dubbed_vocals.wav")
+
+    if not os.path.exists(dubbed_vocal_path):
+        # Check if individual segment audio files exist to reassemble vocal track
+        segments_dir = os.path.join(job_dir, "segments")
+        tts_seg_dir = os.path.join(job_dir, "tts_segments")
+        target_seg_dir = segments_dir if os.path.exists(segments_dir) else tts_seg_dir
+        
+        if os.path.exists(target_seg_dir):
+            translated_list = json.loads(job.translated_subtitles or "[]")
+            segments_payload = []
+            for idx, seg in enumerate(translated_list):
+                seg_id = seg.get("id", idx + 1)
+                for fname in [f"segment_{seg_id}.wav", f"seg_{seg_id}.wav", f"{seg_id}.wav", f"seg_{idx+1}.wav"]:
+                    fpath = os.path.join(target_seg_dir, fname)
+                    if os.path.exists(fpath):
+                        segments_payload.append({
+                            "start": float(seg.get("start", 0.0)),
+                            "end": float(seg.get("end", 0.0)) if seg.get("end") else None,
+                            "file_path": fpath
+                        })
+                        break
+            if segments_payload:
+                total_dur = VideoDubbingService.get_audio_duration(job.original_audio_path or job.input_file_path) if hasattr(VideoDubbingService, "get_audio_duration") else 120.0
+                VideoDubbingService.assemble_dubbed_vocal(segments_payload, dubbed_vocal_path, total_dur)
+
+    if not os.path.exists(dubbed_vocal_path):
+        raise HTTPException(status_code=400, detail="Không tìm thấy tệp vocal lồng tiếng để hòa âm lại. Vui lòng bấm 'Lồng Tiếng Lại' để tổng hợp giọng đọc.")
+
+    output_video_path = os.path.join(job_dir, "output_dubbed.mp4")
+    vocal_v = payload.vocals_volume if payload.vocals_volume is not None else (job.vocals_volume or 1.0)
+    bgm_v = payload.bgm_volume if payload.bgm_volume is not None else (job.bgm_volume or 0.35)
+
+    job.vocals_volume = vocal_v
+    job.bgm_volume = bgm_v
+    db.commit()
+
+    VideoDubbingService.log_to_job(job_id, f"[REMIX] Hòa âm lại siêu tốc: Vocals={vocal_v}, BGM={bgm_v} với Auto-Ducking...")
+    VideoDubbingService.mix_and_mux_video(
+        video_path=job.input_file_path,
+        bgm_path=job.bgm_audio_path,
+        vocal_path=dubbed_vocal_path,
+        output_path=output_video_path,
+        vocal_vol=vocal_v,
+        bgm_vol=bgm_v
+    )
+
+    job.output_video_path = output_video_path
+    job.status = "completed"
+    job.progress = 100
+    job.message = "Hòa âm lại video thành công!"
+    db.commit()
+    db.refresh(job)
+
+    return {
+        "status": "success",
+        "message": "Hòa âm video thành công!",
+        "vocals_volume": job.vocals_volume,
+        "bgm_volume": job.bgm_volume,
+        "output_video_url": f"/v1/video-dubbing/jobs/{job.id}/output?t={int(time.time())}"
+    }
 
 # Endpoints to download assets
 @router.get("/jobs/{job_id}/video")

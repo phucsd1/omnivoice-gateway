@@ -951,6 +951,47 @@ export const api = {
     });
   },
 
+  reEditDubbingJob: async (jobId: string): Promise<VideoDubbingJobResponse> => {
+    return request<VideoDubbingJobResponse>(`/v1/video-dubbing/jobs/${jobId}/re-edit`, {
+      method: "POST",
+    });
+  },
+
+  shortenSubtitle: async (
+    jobId: string,
+    payload: {
+      segment_id: number;
+      text: string;
+      target_duration: number;
+      target_language?: string;
+      original_text?: string;
+      llm_profile_id?: string;
+    }
+  ): Promise<{
+    segment_id: number;
+    original_text?: string;
+    shortened_text: string;
+    estimated_duration: number;
+    target_duration: number;
+  }> => {
+    return request(`/v1/video-dubbing/jobs/${jobId}/shorten-subtitle`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  },
+
+  remixDubbingAudio: async (
+    jobId: string,
+    payload: { vocals_volume?: number; bgm_volume?: number }
+  ): Promise<{ status: string; message: string; output_video_url?: string; vocals_volume?: number; bgm_volume?: number }> => {
+    return request(`/v1/video-dubbing/jobs/${jobId}/remix`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  },
+
   reseparateDubbingAudio: async (jobId: string): Promise<VideoDubbingJobResponse> => {
     return request<VideoDubbingJobResponse>(`/v1/video-dubbing/jobs/${jobId}/re-separate`, {
       method: "POST",
