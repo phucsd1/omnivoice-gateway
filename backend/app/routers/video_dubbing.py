@@ -207,14 +207,73 @@ def sync_youtube_oauth(req: OAuthSyncRequest):
 class ProxyConfigPayload(BaseModel):
     proxy_url: str
 
+class ProxyPoolAddPayload(BaseModel):
+    raw_text: str
+
+@router.get("/proxy-pool")
+def get_proxy_pool():
+    info = VideoDubbingService.get_proxy_pool_info()
+    return {
+        "count": len(info),
+        "proxies": info,
+        "primary": info[0] if info else None
+    }
+
+@router.post("/proxy-pool/add")
+def add_proxy_pool(payload: ProxyPoolAddPayload):
+    text = payload.raw_text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Vui lòng cung cấp ít nhất một proxy.")
+    info = VideoDubbingService.add_to_proxy_pool(text)
+    return {
+        "status": "success",
+        "count": len(info),
+        "proxies": info,
+        "message": f"Đã cập nhật danh sách! Hiện có {len(info)} proxy trong pool."
+    }
+
+@router.post("/proxy-pool/test-all")
+def test_all_proxy_pool():
+    raw_proxies = VideoDubbingService.get_youtube_proxies()
+    if not raw_proxies:
+        return {"count": 0, "results": []}
+    
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=min(len(raw_proxies), 8)) as executor:
+        results = list(executor.map(VideoDubbingService.test_single_proxy, raw_proxies))
+        
+    return {
+        "count": len(results),
+        "results": results
+    }
+
+@router.delete("/proxy-pool/{proxy_hash}")
+def delete_proxy_item(proxy_hash: str):
+    info = VideoDubbingService.delete_from_proxy_pool(proxy_hash)
+    return {
+        "status": "success",
+        "count": len(info),
+        "proxies": info,
+        "message": "Đã xóa proxy khỏi pool."
+    }
+
+@router.delete("/proxy-pool")
+def clear_proxy_pool():
+    VideoDubbingService.clear_proxy_pool()
+    return {
+        "status": "success",
+        "count": 0,
+        "proxies": [],
+        "message": "Đã làm trống toàn bộ proxy pool."
+    }
+
+# Backward compatible endpoints
 @router.get("/proxy-status")
 def get_proxy_status():
-    proxy = VideoDubbingService.get_youtube_proxy()
-    if proxy:
-        import re
-        masked = re.sub(r'://([^:]+):([^@]+)@', r'://\1:***@', proxy)
-        return {"is_configured": True, "proxy": masked}
-    return {"is_configured": False, "proxy": None}
+    info = VideoDubbingService.get_proxy_pool_info()
+    if info:
+        return {"is_configured": True, "proxy": info[0]["masked"], "count": len(info)}
+    return {"is_configured": False, "proxy": None, "count": 0}
 
 @router.post("/set-proxy")
 def set_proxy(payload: ProxyConfigPayload):
@@ -223,71 +282,36 @@ def set_proxy(payload: ProxyConfigPayload):
         VideoDubbingService.delete_youtube_proxy()
         return {"status": "success", "message": "Đã xóa proxy"}
     
-    if not (p.startswith("http://") or p.startswith("https://") or p.startswith("socks5://") or p.startswith("socks5h://")):
-        p = f"http://{p}"
-        
-    VideoDubbingService.save_youtube_proxy(p)
-    import re
-    masked = re.sub(r'://([^:]+):([^@]+)@', r'://\1:***@', p)
-    return {"status": "success", "message": f"Đã lưu proxy thành công: {masked}", "proxy": masked}
+    info = VideoDubbingService.add_to_proxy_pool(p)
+    return {"status": "success", "message": f"Đã lưu proxy thành công: {info[0]['masked'] if info else p}", "proxy": info[0]["masked"] if info else p}
 
 @router.post("/test-proxy")
 def test_proxy(payload: ProxyConfigPayload):
-    import requests as py_requests
     p = payload.proxy_url.strip()
     if not p:
         raise HTTPException(status_code=400, detail="Vui lòng cung cấp URL proxy để kiểm tra.")
-    if not (p.startswith("http://") or p.startswith("https://") or p.startswith("socks5://") or p.startswith("socks5h://")):
-        p = f"http://{p}"
     
-    try:
-        proxies = {"http": p, "https": p}
-        r = py_requests.get("https://ipinfo.io/json", proxies=proxies, timeout=10)
-        if r.status_code == 200:
-            data = r.json()
-            return {
-                "status": "success",
-                "ip": data.get("ip"),
-                "country": data.get("country"),
-                "city": data.get("city"),
-                "org": data.get("org"),
-                "message": f"Kết nối Proxy thành công! IP xuất phát: {data.get('ip')} ({data.get('city')}, {data.get('country')} - {data.get('org')})"
-            }
-        else:
-            raise Exception(f"HTTP {r.status_code}: {r.text[:150]}")
-    except Exception as e:
+    res = VideoDubbingService.test_single_proxy(p)
+    if res["status"] == "online":
+        return {
+            "status": "success",
+            "ip": res.get("ip"),
+            "country": res.get("country"),
+            "city": res.get("city"),
+            "org": res.get("org"),
+            "latency_ms": res.get("latency_ms"),
+            "message": f"Kết nối Proxy thành công! IP: {res.get('ip')} ({res.get('city')}, {res.get('country')} - {res.get('org')}) - Độ trễ: {res.get('latency_ms')}ms"
+        }
+    else:
         return {
             "status": "error",
-            "message": f"Không thể kết nối qua Proxy: {str(e)}"
+            "message": f"Không thể kết nối qua Proxy: {res.get('message')}"
         }
 
 @router.delete("/delete-proxy")
 def delete_proxy():
     VideoDubbingService.delete_youtube_proxy()
     return {"status": "success", "message": "Đã xóa cấu hình Proxy."}
-
-class TailscaleConnectPayload(BaseModel):
-    auth_key: Optional[str] = None
-
-class TailscaleExitNodePayload(BaseModel):
-    exit_node: str
-
-@router.get("/tailscale/status")
-def get_tailscale_status():
-    from app.services.tailscale_service import TailscaleService
-    return TailscaleService.get_status()
-
-@router.post("/tailscale/connect")
-def connect_tailscale(payload: TailscaleConnectPayload):
-    from app.services.tailscale_service import TailscaleService
-    res = TailscaleService.start_tailscale(payload.auth_key)
-    return res
-
-@router.post("/tailscale/set-exit-node")
-def set_tailscale_exit_node(payload: TailscaleExitNodePayload):
-    from app.services.tailscale_service import TailscaleService
-    res = TailscaleService.set_exit_node(payload.exit_node)
-    return res
 
 def run_dubbing_pipeline(job_id: str):
     """Background task to run the video dubbing stages (Download -> Extract Audio -> Separate -> Transcribe -> Translate)."""

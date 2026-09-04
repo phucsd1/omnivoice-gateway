@@ -836,31 +836,60 @@ export const api = {
     });
   },
 
-  getTailscaleStatus: async (): Promise<{
-    installed: boolean;
-    running: boolean;
-    connected: boolean;
-    tailscale_ip?: string;
-    hostname?: string;
-    peers?: Array<{ id: string; hostname: string; os: string; ip?: string; online: boolean; exit_node: boolean; exit_node_option: boolean }>;
-    message?: string;
+  getProxyPool: async (): Promise<{
+    count: number;
+    proxies: Array<{ hash: string; masked: string; scheme: string; host: string; port: string; has_auth: boolean }>;
+    primary?: { hash: string; masked: string; scheme: string; host: string; port: string; has_auth: boolean };
   }> => {
-    return request("/v1/video-dubbing/tailscale/status");
+    return request("/v1/video-dubbing/proxy-pool");
   },
 
-  connectTailscale: async (authKey?: string): Promise<{ status: string; message: string }> => {
-    return request("/v1/video-dubbing/tailscale/connect", {
+  addProxyPool: async (rawText: string): Promise<{
+    status: string;
+    count: number;
+    proxies: Array<{ hash: string; masked: string; scheme: string; host: string; port: string; has_auth: boolean }>;
+    message: string;
+  }> => {
+    return request("/v1/video-dubbing/proxy-pool/add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ auth_key: authKey || null }),
+      body: JSON.stringify({ raw_text: rawText }),
     });
   },
 
-  setTailscaleExitNode: async (exitNode: string): Promise<{ status: string; message: string }> => {
-    return request("/v1/video-dubbing/tailscale/set-exit-node", {
+  testAllProxiesInPool: async (): Promise<{
+    count: number;
+    results: Array<{
+      hash: string;
+      masked: string;
+      status: "online" | "offline";
+      latency_ms: number;
+      ip?: string;
+      country?: string;
+      city?: string;
+      org?: string;
+      message: string;
+    }>;
+  }> => {
+    return request("/v1/video-dubbing/proxy-pool/test-all", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ exit_node: exitNode }),
+    });
+  },
+
+  deleteProxyFromPool: async (proxyHash: string): Promise<{
+    status: string;
+    count: number;
+    proxies: Array<{ hash: string; masked: string; scheme: string; host: string; port: string; has_auth: boolean }>;
+    message: string;
+  }> => {
+    return request(`/v1/video-dubbing/proxy-pool/${proxyHash}`, {
+      method: "DELETE",
+    });
+  },
+
+  clearProxyPool: async (): Promise<{ status: string; count: number; proxies: []; message: string }> => {
+    return request("/v1/video-dubbing/proxy-pool", {
+      method: "DELETE",
     });
   },
 

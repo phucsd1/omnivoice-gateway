@@ -189,80 +189,256 @@ class VideoDubbingService:
             pass
 
     @staticmethod
+    def mask_proxy_url(proxy_url: Optional[str]) -> str:
+        if not proxy_url:
+            return ""
+        return re.sub(r'://([^:]+):([^@]+)@', r'://\1:***@', proxy_url.strip())
+
+    @staticmethod
+    def hash_proxy_url(proxy_url: str) -> str:
+        import hashlib
+        return hashlib.md5(proxy_url.strip().encode('utf-8')).hexdigest()[:12]
+
+    @staticmethod
     def get_youtube_proxy() -> Optional[str]:
+        proxies = VideoDubbingService.get_youtube_proxies()
+        return proxies[0] if proxies else None
+
+    @staticmethod
+    def get_youtube_proxies() -> List[str]:
+        proxies: List[str] = []
+
         # 1. Environment variable
         for k in ["YOUTUBE_PROXY", "HTTP_PROXY", "HTTPS_PROXY"]:
             val = os.environ.get(k)
             if val and val.strip():
-                return val.strip()
-        
-        # 2. File storage
-        proxy_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "storage", "youtube_proxy.txt"))
-        if os.path.exists(proxy_file):
+                proxies.append(val.strip())
+
+        # 2. File storage storage/youtube_proxies.txt
+        pool_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "storage", "youtube_proxies.txt"))
+        if os.path.exists(pool_file):
             try:
-                with open(proxy_file, "r", encoding="utf-8") as f:
-                    val = f.read().strip()
-                    if val:
-                        return val
+                with open(pool_file, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#"):
+                            proxies.append(line)
             except Exception:
                 pass
 
-        # 3. DB SystemSetting
+        # 3. DB SystemSetting (youtube_proxy_pool)
         try:
             from app.database import SessionLocal
             from app.models import SystemSetting
             db = SessionLocal()
-            entry = db.query(SystemSetting).filter(SystemSetting.key == "youtube_proxy").first()
-            if entry and entry.value.strip():
-                return entry.value.strip()
+            entry = db.query(SystemSetting).filter(SystemSetting.key == "youtube_proxy_pool").first()
+            if entry and entry.value:
+                parsed = json.loads(entry.value)
+                if isinstance(parsed, list):
+                    for item in parsed:
+                        if isinstance(item, str) and item.strip():
+                            proxies.append(item.strip())
         except Exception:
             pass
 
-        # 4. Tailscale userspace proxy (localhost:1055) fallback if active
+        # 4. Fallback legacy storage/youtube_proxy.txt and single DB key
+        legacy_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "storage", "youtube_proxy.txt"))
+        if os.path.exists(legacy_file):
+            try:
+                with open(legacy_file, "r", encoding="utf-8") as f:
+                    val = f.read().strip()
+                    if val and not val.startswith("#"):
+                        proxies.append(val)
+            except Exception:
+                pass
+
         try:
-            from app.services.tailscale_service import TailscaleService
-            if TailscaleService.is_proxy_available():
-                return "http://127.0.0.1:1055"
+            from app.database import SessionLocal
+            from app.models import SystemSetting
+            db = SessionLocal()
+            legacy_entry = db.query(SystemSetting).filter(SystemSetting.key == "youtube_proxy").first()
+            if legacy_entry and legacy_entry.value and legacy_entry.value.strip():
+                proxies.append(legacy_entry.value.strip())
         except Exception:
             pass
 
-        return None
+        # Normalize format and deduplicate preserving order
+        seen = set()
+        clean_proxies: List[str] = []
+        for p in proxies:
+            p = p.strip()
+            if not p:
+                continue
+            if not (p.startswith("http://") or p.startswith("https://") or p.startswith("socks5://") or p.startswith("socks5h://")):
+                p = f"http://{p}"
+            if p not in seen:
+                seen.add(p)
+                clean_proxies.append(p)
+
+        return clean_proxies
 
     @staticmethod
-    def save_youtube_proxy(proxy_url: str):
-        proxy_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "storage", "youtube_proxy.txt"))
-        os.makedirs(os.path.dirname(proxy_file), exist_ok=True)
-        with open(proxy_file, "w", encoding="utf-8") as f:
-            f.write(proxy_url.strip())
-        
+    def save_youtube_proxy_pool(proxies: List[str]):
+        seen = set()
+        clean: List[str] = []
+        for p in proxies:
+            p = p.strip()
+            if not p:
+                continue
+            if not (p.startswith("http://") or p.startswith("https://") or p.startswith("socks5://") or p.startswith("socks5h://")):
+                p = f"http://{p}"
+            if p not in seen:
+                seen.add(p)
+                clean.append(p)
+
+        # 1. Save to storage/youtube_proxies.txt
+        pool_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "storage", "youtube_proxies.txt"))
+        os.makedirs(os.path.dirname(pool_file), exist_ok=True)
+        with open(pool_file, "w", encoding="utf-8") as f:
+            f.write("\n".join(clean))
+
+        # 2. Save to DB SystemSetting
         try:
             from app.database import SessionLocal
             from app.models import SystemSetting
             db = SessionLocal()
-            entry = db.query(SystemSetting).filter(SystemSetting.key == "youtube_proxy").first()
+            entry = db.query(SystemSetting).filter(SystemSetting.key == "youtube_proxy_pool").first()
             if not entry:
-                entry = SystemSetting(key="youtube_proxy", value=proxy_url.strip())
+                entry = SystemSetting(key="youtube_proxy_pool", value=json.dumps(clean))
                 db.add(entry)
             else:
-                entry.value = proxy_url.strip()
+                entry.value = json.dumps(clean)
+
+            # Sync legacy youtube_proxy key with primary proxy
+            single_entry = db.query(SystemSetting).filter(SystemSetting.key == "youtube_proxy").first()
+            first_val = clean[0] if clean else ""
+            if not single_entry:
+                single_entry = SystemSetting(key="youtube_proxy", value=first_val)
+                db.add(single_entry)
+            else:
+                single_entry.value = first_val
+
             db.commit()
         except Exception:
             pass
 
     @staticmethod
+    def save_youtube_proxy(proxy_url: str):
+        # Backward compatibility: saves single proxy by adding/replacing primary in pool
+        p = proxy_url.strip()
+        if not p:
+            VideoDubbingService.delete_youtube_proxy()
+            return
+        current = VideoDubbingService.get_youtube_proxies()
+        if p not in current:
+            current.insert(0, p)
+        VideoDubbingService.save_youtube_proxy_pool(current)
+
+    @staticmethod
+    def add_to_proxy_pool(raw_text: str) -> List[Dict[str, Any]]:
+        current = VideoDubbingService.get_youtube_proxies()
+        # Parse newline or comma separated
+        new_items = []
+        for line in raw_text.replace(",", "\n").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#"):
+                new_items.append(line)
+        
+        combined = current + new_items
+        VideoDubbingService.save_youtube_proxy_pool(combined)
+        return VideoDubbingService.get_proxy_pool_info()
+
+    @staticmethod
+    def delete_from_proxy_pool(proxy_hash: str) -> List[Dict[str, Any]]:
+        current = VideoDubbingService.get_youtube_proxies()
+        filtered = [p for p in current if VideoDubbingService.hash_proxy_url(p) != proxy_hash]
+        VideoDubbingService.save_youtube_proxy_pool(filtered)
+        return VideoDubbingService.get_proxy_pool_info()
+
+    @staticmethod
+    def clear_proxy_pool():
+        VideoDubbingService.save_youtube_proxy_pool([])
+
+    @staticmethod
     def delete_youtube_proxy():
-        proxy_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "storage", "youtube_proxy.txt"))
-        if os.path.exists(proxy_file):
-            try: os.remove(proxy_file)
-            except Exception: pass
+        VideoDubbingService.clear_proxy_pool()
+
+    @staticmethod
+    def get_proxy_pool_info() -> List[Dict[str, Any]]:
+        import urllib.parse
+        proxies = VideoDubbingService.get_youtube_proxies()
+        results = []
+        for p in proxies:
+            h = VideoDubbingService.hash_proxy_url(p)
+            masked = VideoDubbingService.mask_proxy_url(p)
+            try:
+                parsed = urllib.parse.urlparse(p)
+                scheme = parsed.scheme or "http"
+                host = parsed.hostname or ""
+                port = str(parsed.port) if parsed.port else ""
+                has_auth = bool(parsed.username or parsed.password)
+            except Exception:
+                scheme, host, port, has_auth = "http", p, "", False
+            results.append({
+                "hash": h,
+                "masked": masked,
+                "scheme": scheme,
+                "host": host,
+                "port": port,
+                "has_auth": has_auth
+            })
+        return results
+
+    @staticmethod
+    def test_single_proxy(proxy_url: str, timeout: int = 8) -> Dict[str, Any]:
+        import time, requests as py_requests
+        p = proxy_url.strip()
+        if not (p.startswith("http://") or p.startswith("https://") or p.startswith("socks5://") or p.startswith("socks5h://")):
+            p = f"http://{p}"
+        h = VideoDubbingService.hash_proxy_url(p)
+        masked = VideoDubbingService.mask_proxy_url(p)
+        t0 = time.perf_counter()
         try:
-            from app.database import SessionLocal
-            from app.models import SystemSetting
-            db = SessionLocal()
-            entry = db.query(SystemSetting).filter(SystemSetting.key == "youtube_proxy").first()
-            if entry:
-                db.delete(entry)
-                db.commit()
+            proxies = {"http": p, "https": p}
+            r = py_requests.get("https://ipinfo.io/json", proxies=proxies, timeout=timeout)
+            latency_ms = int((time.perf_counter() - t0) * 1000)
+            if r.status_code == 200:
+                data = r.json()
+                return {
+                    "hash": h,
+                    "masked": masked,
+                    "status": "online",
+                    "latency_ms": latency_ms,
+                    "ip": data.get("ip"),
+                    "country": data.get("country"),
+                    "city": data.get("city"),
+                    "org": data.get("org"),
+                    "message": f"Online ({latency_ms}ms) - IP: {data.get('ip')} [{data.get('country', 'N/A')}]"
+                }
+            else:
+                return {
+                    "hash": h,
+                    "masked": masked,
+                    "status": "offline",
+                    "latency_ms": latency_ms,
+                    "message": f"HTTP {r.status_code}: {r.text[:80]}"
+                }
+        except Exception as e:
+            latency_ms = int((time.perf_counter() - t0) * 1000)
+            err_str = str(e)
+            if "407" in err_str:
+                err_clean = "407 Proxy Authentication Required (Sai user/mật khẩu proxy)"
+            elif "timed out" in err_str.lower() or "timeout" in err_str.lower():
+                err_clean = "Connection Timed Out (Proxy không phản hồi)"
+            else:
+                err_clean = err_str[:120]
+            return {
+                "hash": h,
+                "masked": masked,
+                "status": "offline",
+                "latency_ms": latency_ms,
+                "message": err_clean
+            }
         except Exception:
             pass
 
@@ -382,35 +558,92 @@ class VideoDubbingService:
         standard_url = f"https://www.youtube.com/watch?v={v_match.group(1)}" if v_match else url
 
         cache_dir = VideoDubbingService.get_oauth_cache_dir()
-        proxy_url = VideoDubbingService.get_youtube_proxy()
-        if proxy_url:
-            masked_p = re.sub(r'://([^:]+):([^@]+)@', r'://\1:***@', proxy_url)
-            _log(f"Routing YouTube download through Residential Proxy: {masked_p}")
 
-        # Method 1: Authenticated Subprocess yt-dlp via YouTube TV OAuth (Primary when user connected 1-Click)
-        if has_oauth:
+        # Retrieve Proxy Pool (or single Direct attempt if no proxies configured)
+        proxy_pool = VideoDubbingService.get_youtube_proxies()
+        proxy_attempts = proxy_pool if proxy_pool else [None]
+        _log(f"Configured Proxy Pool: {len(proxy_pool)} proxy(s) available. Attempting download...")
+
+        last_error_summary = []
+
+        for p_idx, proxy_url in enumerate(proxy_attempts):
+            masked_p = VideoDubbingService.mask_proxy_url(proxy_url) if proxy_url else "Direct Connection (Không dùng proxy)"
+            _log(f"--- [Proxy {p_idx + 1}/{len(proxy_attempts)}] Thử tải video qua: {masked_p} ---")
+
+            err_oauth = None
+            err_sub = None
+            err_pytubefix = None
+            err_ytdlp = None
+
+            # Method 1: Authenticated Subprocess yt-dlp via YouTube TV OAuth (Primary when user connected 1-Click)
+            if has_oauth:
+                try:
+                    _log(f"Starting Authenticated YouTube OAuth2 Downloader ({url}) via {masked_p}...")
+                    cmd_oauth = [
+                        sys.executable, "-m", "yt_dlp",
+                        "--no-warnings",
+                        "--no-check-certificate",
+                        "--cache-dir", cache_dir,
+                        "--username", "oauth2",
+                        "--password", "",
+                        "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best/18/17",
+                        "--merge-output-format", "mp4",
+                        "-o", os.path.join(output_dir, "input_video.%(ext)s"),
+                        "--socket-timeout", "45",
+                        "--print", "after_video:%(title)s",
+                    ]
+                    if proxy_url:
+                        cmd_oauth.extend(["--proxy", proxy_url])
+                    cmd_oauth.append(url)
+                    t0 = time.time()
+                    res_oauth = subprocess.run(cmd_oauth, capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL)
+                    if res_oauth.returncode == 0:
+                        stdout_lines = [line.strip() for line in res_oauth.stdout.strip().splitlines() if line.strip()]
+                        title = stdout_lines[0] if stdout_lines else "YouTube Video"
+                        for ext in ['.mp4', '.mkv', '.webm', '.m4a']:
+                            candidate = os.path.join(output_dir, f"input_video{ext}")
+                            if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
+                                if not candidate.endswith('.mp4'):
+                                    mp4_path = os.path.join(output_dir, "input_video.mp4")
+                                    subprocess.run(["ffmpeg", "-y", "-i", candidate, "-c", "copy", mp4_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                    try: os.remove(candidate)
+                                    except Exception: pass
+                                    candidate = mp4_path
+                                _log(f"OAuth2 download success via {masked_p}: '{title}' ({candidate}, size={os.path.getsize(candidate)} bytes in {time.time()-t0:.2f}s)")
+                                return candidate, title
+                    else:
+                        err_oauth = res_oauth.stderr[-300:] if res_oauth.stderr else f"Exit code {res_oauth.returncode}"
+                        _log(f"OAuth2 download failed via {masked_p} (rc={res_oauth.returncode}): {err_oauth}")
+                except Exception as e:
+                    err_oauth = str(e)
+                    _log(f"OAuth2 download exception via {masked_p}: {e}")
+
+            # Method 2: High-Performance Isolated Subprocess yt-dlp via Android Client (Direct Stream)
             try:
-                _log(f"Starting Authenticated YouTube OAuth2 Downloader ({url})...")
-                cmd_oauth = [
+                _log(f"Starting Isolated Subprocess YouTube Downloader ({url}) via {masked_p}...")
+                cmd = [
                     sys.executable, "-m", "yt_dlp",
                     "--no-warnings",
                     "--no-check-certificate",
-                    "--cache-dir", cache_dir,
-                    "--username", "oauth2",
-                    "--password", "",
+                    "--impersonate", "chrome",
+                    "--extractor-args", "youtube:player_skip=webpage,configs,js,initial_data;player_client=android",
                     "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best/18/17",
                     "--merge-output-format", "mp4",
                     "-o", os.path.join(output_dir, "input_video.%(ext)s"),
-                    "--socket-timeout", "60",
+                    "--socket-timeout", "40",
                     "--print", "after_video:%(title)s",
                 ]
                 if proxy_url:
-                    cmd_oauth.extend(["--proxy", proxy_url])
-                cmd_oauth.append(url)
+                    cmd.extend(["--proxy", proxy_url])
+                if has_user_cookies and cookie_path:
+                    cmd.extend(["--cookies", cookie_path])
+                    _log(f"Passing authenticated cookies to subprocess yt-dlp: {cookie_path}")
+                
+                cmd.append(url)
                 t0 = time.time()
-                res_oauth = subprocess.run(cmd_oauth, capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL)
-                if res_oauth.returncode == 0:
-                    stdout_lines = [line.strip() for line in res_oauth.stdout.strip().splitlines() if line.strip()]
+                res = subprocess.run(cmd, capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL)
+                if res.returncode == 0:
+                    stdout_lines = [line.strip() for line in res.stdout.strip().splitlines() if line.strip()]
                     title = stdout_lines[0] if stdout_lines else "YouTube Video"
                     for ext in ['.mp4', '.mkv', '.webm', '.m4a']:
                         candidate = os.path.join(output_dir, f"input_video{ext}")
@@ -421,133 +654,94 @@ class VideoDubbingService:
                                 try: os.remove(candidate)
                                 except Exception: pass
                                 candidate = mp4_path
-                            _log(f"OAuth2 download success: '{title}' ({candidate}, size={os.path.getsize(candidate)} bytes in {time.time()-t0:.2f}s)")
+                            _log(f"Subprocess yt-dlp download success via {masked_p}: '{title}' ({candidate}, size={os.path.getsize(candidate)} bytes in {time.time()-t0:.2f}s)")
                             return candidate, title
                 else:
-                    err_sub = res_oauth.stderr[-400:] if res_oauth.stderr else f"Exit code {res_oauth.returncode}"
-                    _log(f"OAuth2 download failed (rc={res_oauth.returncode}): {err_sub}")
+                    err_sub = res.stderr[-300:] if res.stderr else f"Exit code {res.returncode}"
+                    _log(f"Subprocess yt-dlp android failed via {masked_p} (rc={res.returncode}): {err_sub}")
             except Exception as e:
-                err_sub = e
-                _log(f"OAuth2 download exception: {e}")
+                err_sub = str(e)
+                _log(f"Subprocess yt-dlp android exception via {masked_p}: {e}")
 
-        # Method 2: High-Performance Isolated Subprocess yt-dlp via Android Client (Direct Stream)
-        try:
-            _log(f"Starting Isolated Subprocess YouTube Downloader ({url})...")
-            cmd = [
-                sys.executable, "-m", "yt_dlp",
-                "--no-warnings",
-                "--no-check-certificate",
-                "--impersonate", "chrome",
-                "--extractor-args", "youtube:player_skip=webpage,configs,js,initial_data;player_client=android",
-                "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best/18/17",
-                "--merge-output-format", "mp4",
-                "-o", os.path.join(output_dir, "input_video.%(ext)s"),
-                "--socket-timeout", "45",
-                "--print", "after_video:%(title)s",
-            ]
-            if proxy_url:
-                cmd.extend(["--proxy", proxy_url])
-            if has_user_cookies and cookie_path:
-                cmd.extend(["--cookies", cookie_path])
-                _log(f"Passing authenticated cookies to subprocess yt-dlp: {cookie_path}")
-            
-            cmd.append(url)
-            t0 = time.time()
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL)
-            if res.returncode == 0:
-                stdout_lines = [line.strip() for line in res.stdout.strip().splitlines() if line.strip()]
-                title = stdout_lines[0] if stdout_lines else "YouTube Video"
+            # Method 3: High-Speed HD pytubefix fallback with ANDROID_VR client
+            for client_name in ['ANDROID_VR', 'ANDROID']:
+                try:
+                    _log(f"Attempting YouTube download via pytubefix ({client_name}) via {masked_p}...")
+                    from pytubefix import YouTube
+                    proxies_ptf = {'http': proxy_url, 'https': proxy_url} if proxy_url else None
+                    yt = YouTube(url, client=client_name, proxies=proxies_ptf)
+                    title = yt.title or "YouTube Video"
+                    
+                    v_candidates = yt.streams.filter(only_video=True, file_extension='mp4')
+                    v_1080 = [s for s in v_candidates if s.resolution in ['1080p', '720p', '1440p']]
+                    v_stream = v_1080[0] if v_1080 else v_candidates.order_by('resolution').desc().first()
+                    a_stream = yt.streams.filter(only_audio=True, file_extension='mp4').order_by('abr').desc().first()
+                    
+                    if v_stream and a_stream:
+                        _log(f"Pytubefix ({client_name}) downloading stream: {v_stream.resolution} + audio {a_stream.abr}...")
+                        v_temp = os.path.join(output_dir, "ptf_v.mp4")
+                        a_temp = os.path.join(output_dir, "ptf_a.mp4")
+                        v_stream.download(output_path=output_dir, filename="ptf_v.mp4", timeout=180)
+                        a_stream.download(output_path=output_dir, filename="ptf_a.mp4", timeout=180)
+                        
+                        cmd_merge = ["ffmpeg", "-y", "-i", v_temp, "-i", a_temp, "-c", "copy", target_path]
+                        subprocess.run(cmd_merge, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        
+                        for f_tmp in [v_temp, a_temp]:
+                            if os.path.exists(f_tmp):
+                                try: os.remove(f_tmp)
+                                except Exception: pass
+                        
+                        if os.path.exists(target_path) and os.path.getsize(target_path) > 0:
+                            _log(f"Pytubefix HD download & merge success via {masked_p}: '{title}' ({target_path}, size={os.path.getsize(target_path)} bytes)")
+                            return target_path, title
+                except Exception as e:
+                    err_pytubefix = str(e)
+                    _log(f"Pytubefix ({client_name}) failed via {masked_p}: {e}")
+
+            # Method 4: In-process yt_dlp fallback
+            try:
+                _log(f"Attempting YouTube download via in-process yt-dlp fallback via {masked_p}...")
+                import yt_dlp
+                ydl_opts = {
+                    'socket_timeout': 30,
+                    'extractor_retries': 2,
+                    'extractor_args': {
+                        'youtube': {
+                            'player_client': ['android']
+                        }
+                    },
+                    'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+                    'merge_output_format': 'mp4',
+                    'outtmpl': os.path.join(output_dir, "input_video.%(ext)s"),
+                    'nocheckcertificate': True,
+                    'quiet': False
+                }
+                if proxy_url:
+                    ydl_opts['proxy'] = proxy_url
+                if has_user_cookies and cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
+                    ydl_opts['cookiefile'] = cookie_path
+
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(url, download=True)
+                    title = info.get('title', 'YouTube Video') if info else 'YouTube Video'
                 for ext in ['.mp4', '.mkv', '.webm', '.m4a']:
                     candidate = os.path.join(output_dir, f"input_video{ext}")
                     if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
-                        if not candidate.endswith('.mp4'):
-                            mp4_path = os.path.join(output_dir, "input_video.mp4")
-                            subprocess.run(["ffmpeg", "-y", "-i", candidate, "-c", "copy", mp4_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                            try: os.remove(candidate)
-                            except Exception: pass
-                            candidate = mp4_path
-                        _log(f"Subprocess yt-dlp download success: '{title}' ({candidate}, size={os.path.getsize(candidate)} bytes in {time.time()-t0:.2f}s)")
+                        _log(f"In-process yt-dlp download success via {masked_p}: '{title}' ({candidate})")
                         return candidate, title
-            else:
-                err_sub = res.stderr[-500:] if res.stderr else f"Exit code {res.returncode}"
-                _log(f"Subprocess yt-dlp android failed (rc={res.returncode}): {err_sub}")
-        except Exception as e:
-            err_sub = e
-            _log(f"Subprocess yt-dlp android exception: {e}")
-
-        # Method 3: High-Speed HD pytubefix fallback with ANDROID_VR client
-        for client_name in ['ANDROID_VR', 'ANDROID']:
-            try:
-                _log(f"Attempting YouTube download via pytubefix with {client_name} client...")
-                from pytubefix import YouTube
-                proxies_ptf = {'http': proxy_url, 'https': proxy_url} if proxy_url else None
-                yt = YouTube(url, client=client_name, proxies=proxies_ptf)
-                title = yt.title or "YouTube Video"
-                
-                v_candidates = yt.streams.filter(only_video=True, file_extension='mp4')
-                v_1080 = [s for s in v_candidates if s.resolution in ['1080p', '720p', '1440p']]
-                v_stream = v_1080[0] if v_1080 else v_candidates.order_by('resolution').desc().first()
-                a_stream = yt.streams.filter(only_audio=True, file_extension='mp4').order_by('abr').desc().first()
-                
-                if v_stream and a_stream:
-                    _log(f"Pytubefix ({client_name}) downloading stream: {v_stream.resolution} + audio {a_stream.abr}...")
-                    v_temp = os.path.join(output_dir, "ptf_v.mp4")
-                    a_temp = os.path.join(output_dir, "ptf_a.mp4")
-                    v_stream.download(output_path=output_dir, filename="ptf_v.mp4", timeout=180)
-                    a_stream.download(output_path=output_dir, filename="ptf_a.mp4", timeout=180)
-                    
-                    cmd_merge = ["ffmpeg", "-y", "-i", v_temp, "-i", a_temp, "-c", "copy", target_path]
-                    subprocess.run(cmd_merge, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    
-                    for f_tmp in [v_temp, a_temp]:
-                        if os.path.exists(f_tmp):
-                            try: os.remove(f_tmp)
-                            except Exception: pass
-                    
-                    if os.path.exists(target_path) and os.path.getsize(target_path) > 0:
-                        _log(f"Pytubefix HD download & merge success: '{title}' ({target_path}, size={os.path.getsize(target_path)} bytes)")
-                        return target_path, title
             except Exception as e:
-                err_pytubefix = e
-                _log(f"Pytubefix ({client_name}) failed: {e}")
+                err_ytdlp = str(e)
+                _log(f"In-process yt-dlp failed via {masked_p}: {e}")
 
-        # Method 4: In-process yt_dlp fallback
-        try:
-            _log("Attempting YouTube download via in-process yt-dlp fallback...")
-            import yt_dlp
-            ydl_opts = {
-                'socket_timeout': 30,
-                'extractor_retries': 2,
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['android']
-                    }
-                },
-                'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-                'merge_output_format': 'mp4',
-                'outtmpl': os.path.join(output_dir, "input_video.%(ext)s"),
-                'nocheckcertificate': True,
-                'quiet': False
-            }
-            if proxy_url:
-                ydl_opts['proxy'] = proxy_url
-            if has_user_cookies and cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
-                ydl_opts['cookiefile'] = cookie_path
+            fail_desc = f"{masked_p}: (Subprocess: {err_sub or 'N/A'}, In-process: {err_ytdlp or 'N/A'}, pytubefix: {err_pytubefix or 'N/A'})"
+            last_error_summary.append(fail_desc)
+            if p_idx + 1 < len(proxy_attempts):
+                _log(f"⚠️ Proxy [{masked_p}] thất bại. Tự động chuyển sang Proxy [{p_idx + 2}/{len(proxy_attempts)}]...")
 
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                title = info.get('title', 'YouTube Video') if info else 'YouTube Video'
-            for ext in ['.mp4', '.mkv', '.webm', '.m4a']:
-                candidate = os.path.join(output_dir, f"input_video{ext}")
-                if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
-                    return candidate, title
-        except Exception as e:
-            err_ytdlp = e
-            _log(f"In-process yt-dlp failed: {e}")
-
-        err_msg = f"Không thể tải video từ YouTube: (yt-dlp: {err_ytdlp}) | (CLI: {err_sub}) | (pytubefix: {err_pytubefix})"
+        err_msg = f"Không thể tải video từ YouTube sau khi thử qua {len(proxy_attempts)} cấu hình proxy/kết nối:\n" + "\n".join(f"• {e}" for e in last_error_summary[-5:])
         if not has_oauth and not has_user_cookies:
-            err_msg += "\n💡 HƯỚNG DẪN: YouTube yêu cầu xác thực để tải video trên máy chủ Cloud. Bạn chỉ cần bấm nút '🔑 Kết nối YouTube (1-Click)' (ngay phía trên ô nhập link) để liên kết tài khoản Google chỉ trong 3 giây mà không cần dán cookie!"
+            err_msg += "\n💡 HƯỚNG DẪN: Bạn có thể thêm Proxy dân cư mới vào tab 'Proxy Dân Cư' hoặc bấm '🔑 Đăng Nhập 1-Click' để tải trực tiếp."
         raise Exception(err_msg)
 
     @staticmethod
