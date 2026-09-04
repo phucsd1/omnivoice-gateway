@@ -951,6 +951,12 @@ export const api = {
     });
   },
 
+  reseparateDubbingAudio: async (jobId: string): Promise<VideoDubbingJobResponse> => {
+    return request<VideoDubbingJobResponse>(`/v1/video-dubbing/jobs/${jobId}/re-separate`, {
+      method: "POST",
+    });
+  },
+
   getDubbingFileUrl: (jobId: string, type: 'video' | 'vocals' | 'bgm' | 'output'): string => {
     const token = localStorage.getItem("VITE_JWT_TOKEN");
     const baseUrl = getApiBaseUrl();

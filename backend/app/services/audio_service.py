@@ -71,3 +71,17 @@ class AudioService:
         except Exception as e:
             print(f"[AudioService] Failed to copy audio file from {source_path} to {destination_path}: {e}")
             return False
+
+    @staticmethod
+    def generate_mock_wav(filepath: str, duration: float = 3.0, freq: float = 440.0, sample_rate: int = 24000):
+        """Generates a simple sine wave WAV file for mock testing and fallbacks."""
+        import numpy as np
+        duration = max(0.1, float(duration))
+        t = np.linspace(0, duration, int(sample_rate * duration), False)
+        audio = 0.5 * np.sin(2 * np.pi * freq * t)
+        fade_len = min(len(audio) // 4, int(sample_rate * 0.01))
+        if fade_len > 0 and len(audio) > 2 * fade_len:
+            audio[:fade_len] *= np.linspace(0, 1, fade_len)
+            audio[-fade_len:] *= np.linspace(1, 0, fade_len)
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        sf.write(filepath, audio, sample_rate, format='WAV', subtype='PCM_16')

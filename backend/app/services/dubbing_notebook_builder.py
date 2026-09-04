@@ -222,28 +222,34 @@ def main():
 
                 try:
                     log(f"Executing Demucs separation on {{local_ref_path}}...")
-                    subprocess.run([
-                        "demucs", "--two-stems=vocals",
-                        "-o", "demucs_out",
-                        local_ref_path
-                    ], check=True)
+                    demucs_cmd = [sys.executable, "-m", "demucs", "--two-stems=vocals", "-o", "demucs_out", local_ref_path]
+                    try:
+                        subprocess.run(demucs_cmd, check=True)
+                    except Exception:
+                        subprocess.run([
+                            "demucs", "--two-stems=vocals",
+                            "-o", "demucs_out",
+                            local_ref_path
+                        ], check=True)
 
                     extracted_vocals = None
                     extracted_bgm = None
                     for root, dirs, files in os.walk("demucs_out"):
                         for file in files:
-                            full_p = os.path.join(root, file)
-                            if "vocals" in file.lower():
-                                extracted_vocals = full_p
-                            elif any(k in file.lower() for k in ["no_vocals", "bgm", "music"]):
-                                extracted_bgm = full_p
+                            fl = file.lower()
+                            if fl.endswith((".wav", ".mp3", ".flac")):
+                                full_p = os.path.join(root, file)
+                                if "no_vocals" in fl or "bgm" in fl or "music" in fl or "accompaniment" in fl:
+                                    extracted_bgm = full_p
+                                elif "vocals" in fl:
+                                    extracted_vocals = full_p
 
                     if extracted_vocals and extracted_bgm:
                         shutil.copy2(extracted_vocals, vocals_path)
                         shutil.copy2(extracted_bgm, bgm_path)
-                        log("Demucs separation completed successfully.")
+                        log(f"Demucs separation completed successfully. Vocals: {{extracted_vocals}}, BGM: {{extracted_bgm}}")
                     else:
-                        raise Exception("Could not find Demucs output files.")
+                        raise Exception(f"Could not find Demucs output files (vocals={{extracted_vocals}}, bgm={{extracted_bgm}}).")
                 except Exception as sep_err:
                     log(f"Demucs separation error: {{sep_err}}. Falling back to local copy.")
                     shutil.copy2(local_ref_path, vocals_path)

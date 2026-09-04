@@ -32,7 +32,10 @@ import {
   Eye,
   Play,
   Layers,
-  Zap
+  Zap,
+  Volume2,
+  VolumeX,
+  RotateCcw
 } from "lucide-react";
 import { api, type VideoDubbingJobResponse, type SubtitleSegment, type LLMProfile } from "../api/client";
 import { PageHeader } from "./ui/PageHeader";
@@ -121,6 +124,9 @@ export default function DubbingStudio() {
 
   const [vocalsVolume, setVocalsVolume] = useState(1.0);
   const [bgmVolume, setBgmVolume] = useState(0.4);
+  const [vocalsMuted, setVocalsMuted] = useState(false);
+  const [bgmMuted, setBgmMuted] = useState(false);
+  const [reseparating, setReseparating] = useState(false);
 
   // YouTube Authentication States (OAuth, Cookie, Residential Proxy Pool)
   const [activeModalTab, setActiveModalTab] = useState<"proxy" | "oauth" | "cookies">("proxy");
@@ -667,10 +673,47 @@ export default function DubbingStudio() {
     }
   };
 
+  // Programmatically ensure video element is 100% muted when separate tracks exist
+  useEffect(() => {
+    if (videoPlayerRef.current) {
+      if (job?.vocals_audio_path || job?.bgm_audio_path) {
+        videoPlayerRef.current.muted = true;
+        videoPlayerRef.current.volume = 0;
+      }
+    }
+  }, [job?.vocals_audio_path, job?.bgm_audio_path, jobId]);
+
+  // Sync vocals volume and mute
+  useEffect(() => {
+    if (vocalsPlayerRef.current) {
+      vocalsPlayerRef.current.volume = vocalsMuted ? 0 : Math.min(1, Math.max(0, vocalsVolume));
+    }
+  }, [vocalsVolume, vocalsMuted]);
+
+  // Sync BGM volume and mute
+  useEffect(() => {
+    if (bgmPlayerRef.current) {
+      bgmPlayerRef.current.volume = bgmMuted ? 0 : Math.min(1, Math.max(0, bgmVolume));
+    }
+  }, [bgmVolume, bgmMuted]);
+
   // Sync separate audio tracks with video player
   const handleVideoPlay = () => {
-    vocalsPlayerRef.current?.play();
-    bgmPlayerRef.current?.play();
+    if (job?.vocals_audio_path || job?.bgm_audio_path) {
+      if (videoPlayerRef.current) {
+        videoPlayerRef.current.muted = true;
+        videoPlayerRef.current.volume = 0;
+      }
+    }
+    const t = videoPlayerRef.current?.currentTime || 0;
+    if (vocalsPlayerRef.current) {
+      vocalsPlayerRef.current.currentTime = t;
+      vocalsPlayerRef.current.play().catch(() => {});
+    }
+    if (bgmPlayerRef.current) {
+      bgmPlayerRef.current.currentTime = t;
+      bgmPlayerRef.current.play().catch(() => {});
+    }
   };
 
   const handleVideoPause = () => {
@@ -683,6 +726,99 @@ export default function DubbingStudio() {
       const t = videoPlayerRef.current.currentTime;
       if (vocalsPlayerRef.current) vocalsPlayerRef.current.currentTime = t;
       if (bgmPlayerRef.current) bgmPlayerRef.current.currentTime = t;
+    }
+  };
+
+  const handleVideoRateChange = () => {
+    if (videoPlayerRef.current) {
+      const rate = videoPlayerRef.current.playbackRate;
+      if (vocalsPlayerRef.current) vocalsPlayerRef.current.playbackRate = rate;
+      if (bgmPlayerRef.current) bgmPlayerRef.current.playbackRate = rate;
+    }
+  };
+
+  const handleVideoTimeUpdate = () => {
+    if (!videoPlayerRef.current) return;
+    const t = videoPlayerRef.current.currentTime;
+    if (vocalsPlayerRef.current && Math.abs(vocalsPlayerRef.current.currentTime - t) > 0.2) {
+      vocalsPlayerRef.current.currentTime = t;
+    }
+    if (bgmPlayerRef.current && Math.abs(bgmPlayerRef.current.currentTime - t) > 0.2) {
+      bgmPlayerRef.current.currentTime = t;
+    }
+  };
+
+  const handleVideoWaiting = () => {
+    vocalsPlayerRef.current?.pause();
+    bgmPlayerRef.current?.pause();
+  };
+
+  const handleVideoPlaying = () => {
+    const t = videoPlayerRef.current?.currentTime || 0;
+    if (vocalsPlayerRef.current && vocalsPlayerRef.current.paused) {
+      vocalsPlayerRef.current.currentTime = t;
+      vocalsPlayerRef.current.play().catch(() => {});
+    }
+    if (bgmPlayerRef.current && bgmPlayerRef.current.paused) {
+      bgmPlayerRef.current.currentTime = t;
+      bgmPlayerRef.current.play().catch(() => {});
+    }
+  };
+
+  const handleVideoVolumeChange = () => {
+    if (job?.vocals_audio_path || job?.bgm_audio_path) {
+      if (videoPlayerRef.current && (!videoPlayerRef.current.muted || videoPlayerRef.current.volume > 0)) {
+        videoPlayerRef.current.muted = true;
+        videoPlayerRef.current.volume = 0;
+      }
+    }
+  };
+
+  // Solo & Mute logic
+  const isSoloVocals = !vocalsMuted && bgmMuted;
+  const isSoloBgm = vocalsMuted && !bgmMuted;
+
+  const handleToggleSoloVocals = () => {
+    if (isSoloVocals) {
+      setBgmMuted(false);
+    } else {
+      setVocalsMuted(false);
+      setBgmMuted(true);
+    }
+  };
+
+  const handleToggleSoloBgm = () => {
+    if (isSoloBgm) {
+      setVocalsMuted(false);
+    } else {
+      setVocalsMuted(true);
+      setBgmMuted(false);
+    }
+  };
+
+  const handleResetMix = () => {
+    setVocalsVolume(1.0);
+    setBgmVolume(0.4);
+    setVocalsMuted(false);
+    setBgmMuted(false);
+  };
+
+  const handleReseparateAudio = async () => {
+    if (!jobId) return;
+    if (!confirm("Bạn có chắc chắn muốn tách lại âm thanh (Vocals & BGM) bằng bộ tách mới không?")) return;
+    try {
+      setReseparating(true);
+      const updated = await api.reseparateDubbingAudio(jobId);
+      setJob(updated);
+      setTimeout(() => {
+        if (vocalsPlayerRef.current) vocalsPlayerRef.current.load();
+        if (bgmPlayerRef.current) bgmPlayerRef.current.load();
+      }, 300);
+      alert("Tách lại âm thanh thành công! Hãy bấm Play để nghe thử.");
+    } catch (err: any) {
+      alert(`Lỗi khi tách lại âm thanh: ${err.message || "Không thể thực hiện"}`);
+    } finally {
+      setReseparating(false);
     }
   };
 
@@ -1669,65 +1805,174 @@ export default function DubbingStudio() {
                   onPlay={handleVideoPlay}
                   onPause={handleVideoPause}
                   onSeeked={handleVideoSeek}
+                  onRateChange={handleVideoRateChange}
+                  onTimeUpdate={handleVideoTimeUpdate}
+                  onWaiting={handleVideoWaiting}
+                  onPlaying={handleVideoPlaying}
+                  onVolumeChange={handleVideoVolumeChange}
                   className="w-full h-full object-contain"
                 />
                 
                 {job.vocals_audio_path && (
-                  <audio ref={vocalsPlayerRef} src={api.getDubbingFileUrl(jobId, "vocals")} />
+                  <audio ref={vocalsPlayerRef} src={api.getDubbingFileUrl(jobId, "vocals")} preload="auto" />
                 )}
                 {job.bgm_audio_path && (
-                  <audio ref={bgmPlayerRef} src={api.getDubbingFileUrl(jobId, "bgm")} />
+                  <audio ref={bgmPlayerRef} src={api.getDubbingFileUrl(jobId, "bgm")} preload="auto" />
                 )}
               </div>
 
               {/* Audio Track Mix Panel */}
-              <div className="p-4 bg-secondary/30 rounded-xl border border-border flex flex-col gap-3">
-                <div className="flex items-center gap-1.5 border-b border-border/60 pb-2">
-                  <Sliders className="w-3.5 h-3.5 text-primary" />
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">Bộ trộn tách kênh âm thanh</h4>
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-medium text-foreground">Giọng Thoại Đã Tách (Vocals)</span>
-                    <div className="flex items-center gap-3 w-2/3">
-                      <input
-                        type="range"
-                        min="0"
-                        max="2"
-                        step="0.1"
-                        value={vocalsVolume}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value);
-                          setVocalsVolume(val);
-                          if (vocalsPlayerRef.current) vocalsPlayerRef.current.volume = val / 2;
-                        }}
-                        className="w-full accent-primary bg-secondary h-1.5 rounded-lg cursor-pointer"
-                      />
-                      <span className="text-[10px] font-bold text-muted-foreground w-8 text-right">{Math.round(vocalsVolume * 100)}%</span>
-                    </div>
+              <div className="p-4 bg-secondary/30 rounded-xl border border-border flex flex-col gap-4">
+                <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Sliders className="w-4 h-4 text-primary" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">Bộ trộn tách kênh âm thanh</h4>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                      Live Sync
+                    </span>
                   </div>
 
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-medium text-foreground">Nhạc Nền / Hiệu Ứng (BGM)</span>
-                    <div className="flex items-center gap-3 w-2/3">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={handleReseparateAudio}
+                      disabled={reseparating}
+                      title="Chạy lại thuật toán tách giọng và nhạc nền"
+                      className="px-2 py-1 bg-secondary hover:bg-secondary/80 text-foreground text-[10px] font-medium rounded-lg border border-border flex items-center gap-1 transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      {reseparating ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                          <span>Đang tách...</span>
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-3 h-3 text-primary" />
+                          <span>Tách Lại Stems</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      onClick={handleResetMix}
+                      title="Khôi phục âm lượng mặc định"
+                      className="p-1 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3.5">
+                  {/* Track 1: Vocals */}
+                  <div className="p-2.5 rounded-lg bg-background/60 border border-border/50 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Mic className="w-3.5 h-3.5 text-primary" />
+                        <span className="text-xs font-semibold text-foreground">Giọng Thoại Đã Tách (Vocals)</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={handleToggleSoloVocals}
+                          className={`px-2 py-0.5 text-[10px] font-bold rounded uppercase transition-colors ${
+                            isSoloVocals
+                              ? "bg-amber-500 text-white shadow-sm shadow-amber-500/30"
+                              : "bg-secondary hover:bg-secondary/80 text-muted-foreground"
+                          }`}
+                          title="Chỉ nghe giọng thoại (tắt nhạc nền)"
+                        >
+                          Solo
+                        </button>
+                        <button
+                          onClick={() => setVocalsMuted(prev => !prev)}
+                          className={`p-1 rounded transition-colors ${
+                            vocalsMuted
+                              ? "bg-rose-500/10 text-rose-500"
+                              : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                          }`}
+                          title={vocalsMuted ? "Bật âm thanh giọng thoại" : "Tắt tiếng giọng thoại"}
+                        >
+                          {vocalsMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
                       <input
                         type="range"
                         min="0"
                         max="1"
-                        step="0.05"
-                        value={bgmVolume}
+                        step="0.01"
+                        value={vocalsMuted ? 0 : vocalsVolume}
                         onChange={(e) => {
                           const val = parseFloat(e.target.value);
-                          setBgmVolume(val);
-                          if (bgmPlayerRef.current) bgmPlayerRef.current.volume = val;
+                          setVocalsVolume(val);
+                          if (vocalsMuted && val > 0) setVocalsMuted(false);
                         }}
                         className="w-full accent-primary bg-secondary h-1.5 rounded-lg cursor-pointer"
                       />
-                      <span className="text-[10px] font-bold text-muted-foreground w-8 text-right">{Math.round(bgmVolume * 100)}%</span>
+                      <span className={`text-[10px] font-mono font-bold w-10 text-right ${vocalsMuted ? "text-rose-500" : "text-muted-foreground"}`}>
+                        {vocalsMuted ? "MUTE" : `${Math.round(vocalsVolume * 100)}%`}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Track 2: BGM */}
+                  <div className="p-2.5 rounded-lg bg-background/60 border border-border/50 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Music className="w-3.5 h-3.5 text-accent" />
+                        <span className="text-xs font-semibold text-foreground">Nhạc Nền / Hiệu Ứng (BGM)</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={handleToggleSoloBgm}
+                          className={`px-2 py-0.5 text-[10px] font-bold rounded uppercase transition-colors ${
+                            isSoloBgm
+                              ? "bg-amber-500 text-white shadow-sm shadow-amber-500/30"
+                              : "bg-secondary hover:bg-secondary/80 text-muted-foreground"
+                          }`}
+                          title="Chỉ nghe nhạc nền (tắt giọng thoại)"
+                        >
+                          Solo
+                        </button>
+                        <button
+                          onClick={() => setBgmMuted(prev => !prev)}
+                          className={`p-1 rounded transition-colors ${
+                            bgmMuted
+                              ? "bg-rose-500/10 text-rose-500"
+                              : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                          }`}
+                          title={bgmMuted ? "Bật âm thanh nhạc nền" : "Tắt tiếng nhạc nền"}
+                        >
+                          {bgmMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        value={bgmMuted ? 0 : bgmVolume}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          setBgmVolume(val);
+                          if (bgmMuted && val > 0) setBgmMuted(false);
+                        }}
+                        className="w-full accent-accent bg-secondary h-1.5 rounded-lg cursor-pointer"
+                      />
+                      <span className={`text-[10px] font-mono font-bold w-10 text-right ${bgmMuted ? "text-rose-500" : "text-muted-foreground"}`}>
+                        {bgmMuted ? "MUTE" : `${Math.round(bgmVolume * 100)}%`}
+                      </span>
                     </div>
                   </div>
                 </div>
+
+                <p className="text-[10px] text-muted-foreground/80 leading-relaxed italic bg-secondary/20 p-2 rounded-lg border border-border/40">
+                  💡 Giọng nói và nhạc nền đã được cách ly thành 2 track độc lập. Bạn có thể bấm <strong>Solo</strong> để thẩm âm từng track hoặc kéo thanh trượt để tinh chỉnh tỷ lệ hòa trộn trước khi hoàn tất lồng tiếng.
+                </p>
               </div>
 
               <button

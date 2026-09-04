@@ -53,8 +53,14 @@ def test_video_dubbing_flow():
     user_headers = {"Authorization": f"Bearer {token}"}
 
     # 2. Submit a video dubbing job (mock file upload)
-    # Generate a dummy small video file or mock audio file
-    dummy_video = io.BytesIO(b"RIFF\x24\x08\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x80\x3e\x00\x00\x00\x7d\x00\x00\x02\x00\x10\x00data\x00\x08\x00\x00\x00\x00\x00\x00\x00\x00")
+    import tempfile, uuid
+    from app.services.audio_service import AudioService
+    dummy_audio_path = os.path.join(tempfile.gettempdir(), f"test_dub_{uuid.uuid4().hex}.wav")
+    AudioService.generate_mock_wav(dummy_audio_path, duration=2.0, freq=440.0)
+    with open(dummy_audio_path, "rb") as f:
+        dummy_video = io.BytesIO(f.read())
+    if os.path.exists(dummy_audio_path):
+        os.remove(dummy_audio_path)
     files = {"file": ("test.mp4", dummy_video, "video/mp4")}
     data_payload = {"target_language": "English"}
 
@@ -123,6 +129,17 @@ def test_video_dubbing_flow():
     
     bgm_res = client.get(f"/v1/video-dubbing/jobs/{job_id}/bgm", headers=user_headers)
     assert bgm_res.status_code == 200
+
+    # Ensure vocals and bgm are distinct and not duplicate copies
+    import hashlib
+    assert hashlib.md5(vocals_res.content).hexdigest() != hashlib.md5(bgm_res.content).hexdigest()
+    
+    # 8. Test re-separate endpoint
+    resep_res = client.post(f"/v1/video-dubbing/jobs/{job_id}/re-separate", headers=user_headers)
+    assert resep_res.status_code == 200
+    resep_data = resep_res.json()
+    assert resep_data["vocals_audio_path"] is not None
+    assert resep_data["bgm_audio_path"] is not None
     
     output_res = client.get(f"/v1/video-dubbing/jobs/{job_id}/output", headers=user_headers)
     assert output_res.status_code == 200

@@ -78,10 +78,9 @@ class MockWorker:
             vocals_path = os.path.join(job_dir, "vocals.wav")
             bgm_path = os.path.join(job_dir, "bgm.wav")
             
-            # Generate mock files
+            # Generate separated files
             if job.ref_audio_path and os.path.exists(job.ref_audio_path):
-                shutil.copy2(job.ref_audio_path, vocals_path)
-                shutil.copy2(job.ref_audio_path, bgm_path)
+                VideoDubbingService.separate_audio_stems(job.ref_audio_path, vocals_path, bgm_path, job_id=dub_job_id)
             else:
                 MockWorker._generate_sine_wav(vocals_path, duration_sec=5.0)
                 MockWorker._generate_sine_wav(bgm_path, duration_sec=5.0)

@@ -17,6 +17,7 @@ from app.utils.auth import get_user_or_api_key
 from app.config import settings
 from app.services.video_dubbing_service import VideoDubbingService
 from app.services.job_service import JobService
+from app.services.audio_service import AudioService
 
 from app.database import get_db, SessionLocal
 
@@ -377,12 +378,10 @@ def run_dubbing_pipeline(job_id: str):
         VideoDubbingService.log_to_job(job_id, f"Kiểm tra Worker mode. Chế độ: {mode_val}, GPU Worker active: {is_worker_active}")
 
         if mode_val == "mock":
-            VideoDubbingService.log_to_job(job_id, "[MOCK] Thực hiện tách âm thanh giả lập (chế độ MOCK được bật cố định)...")
-            # Mock Audio Separation: copy original audio to vocals and BGM
+            VideoDubbingService.log_to_job(job_id, "[MOCK] Thực hiện tách âm thanh (Vocals & BGM bằng FFmpeg/Demucs)...")
             vocals_path = os.path.join(job_dir, "vocals.wav")
             bgm_path = os.path.join(job_dir, "bgm.wav")
-            shutil.copy2(orig_audio_path, vocals_path)
-            shutil.copy2(orig_audio_path, bgm_path)
+            VideoDubbingService.separate_audio_stems(orig_audio_path, vocals_path, bgm_path, job_id=job_id)
             job.vocals_audio_path = vocals_path
             job.bgm_audio_path = bgm_path
             db.commit()
@@ -924,6 +923,44 @@ def retry_dubbing_translation(
         VideoDubbingService.log_to_job(job_id, f"⚠️ Lỗi khi dịch lại phụ đề: {err_msg}")
         raise HTTPException(status_code=500, detail=f"Lỗi dịch thuật qua LLM: {err_msg}")
 
+    return _format_dubbing_job_response(job)
+
+@router.post("/jobs/{job_id}/re-separate", response_model=VideoDubbingJobResponse)
+def reseparate_audio_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_user_or_api_key)
+):
+    """Tách lại âm thanh Vocals và BGM cho tác vụ hiện tại."""
+    job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id, VideoDubbingJob.user_id == current_user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tác vụ lồng tiếng.")
+
+    job_dir = os.path.join(settings.dubbing_dir, job_id)
+    os.makedirs(job_dir, exist_ok=True)
+    
+    orig_audio_path = job.original_audio_path
+    if not orig_audio_path or not os.path.exists(orig_audio_path):
+        if job.input_file_path and os.path.exists(job.input_file_path):
+            orig_audio_path = os.path.join(job_dir, "original_audio.wav")
+            VideoDubbingService.extract_audio_ffmpeg(job.input_file_path, orig_audio_path)
+            job.original_audio_path = orig_audio_path
+            db.commit()
+        else:
+            raise HTTPException(status_code=400, detail="Không tìm thấy tệp video hoặc audio gốc để tách lại.")
+
+    vocals_path = os.path.join(job_dir, "vocals.wav")
+    bgm_path = os.path.join(job_dir, "bgm.wav")
+
+    VideoDubbingService.log_to_job(job_id, "Bắt đầu yêu cầu tách lại âm thanh Vocals & BGM...")
+    success = VideoDubbingService.separate_audio_stems(orig_audio_path, vocals_path, bgm_path, job_id=job_id)
+    if not success:
+        raise HTTPException(status_code=500, detail="Tách lại âm thanh không thành công.")
+
+    job.vocals_audio_path = vocals_path
+    job.bgm_audio_path = bgm_path
+    db.commit()
+    VideoDubbingService.log_to_job(job_id, "Tách lại âm thanh thành công và đã cập nhật đường dẫn stems.")
     return _format_dubbing_job_response(job)
 
 @router.delete("/jobs/{job_id}", response_model=dict)
