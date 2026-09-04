@@ -26,7 +26,12 @@ import {
   Copy,
   Check,
   LogOut,
-  Globe
+  Globe,
+  Plus,
+  Search,
+  Eye,
+  Play,
+  Layers
 } from "lucide-react";
 import { api, type VideoDubbingJobResponse, type SubtitleSegment, type LLMProfile } from "../api/client";
 import { PageHeader } from "./ui/PageHeader";
@@ -44,7 +49,33 @@ const PIPELINE_STEPS = [
   { id: "muxing_video", label: "Đóng Gói", desc: "Xuất video lồng tiếng MP4", icon: Film }
 ];
 
+function getYouTubeId(url?: string | null): string {
+  if (!url) return "";
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  return match ? match[1] : (url.length > 20 ? url.slice(-11) : url);
+}
+
 export default function DubbingStudio() {
+  // Navigation / Multi-project states: 'create' | 'workspace' | 'list'
+  const [viewMode, setViewMode] = useState<"create" | "workspace" | "list">(() => {
+    return localStorage.getItem("active_dubbing_job_id") ? "workspace" : "create";
+  });
+  const [allJobs, setAllJobs] = useState<VideoDubbingJobResponse[]>([]);
+  const [loadingAllJobs, setLoadingAllJobs] = useState(false);
+  const [jobsFilter, setJobsFilter] = useState<string>("all");
+  const [jobsSearch, setJobsSearch] = useState<string>("");
+
+  const [openJobTabs, setOpenJobTabs] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("open_dubbing_job_tabs");
+      if (saved) return JSON.parse(saved);
+      const single = localStorage.getItem("active_dubbing_job_id");
+      return single ? [single] : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [targetLanguage, setTargetLanguage] = useState("Vietnamese"); // Default to Vietnamese
@@ -129,6 +160,28 @@ export default function DubbingStudio() {
   }>>({});
   const [proxyPoolMsg, setProxyPoolMsg] = useState<string | null>(null);
 
+  const fetchAllJobs = async (showLoading = false) => {
+    if (showLoading) setLoadingAllJobs(true);
+    try {
+      const res = await api.listDubbingJobs(1, 100);
+      setAllJobs(res.jobs || []);
+
+      // Auto-populate openJobTabs with running jobs
+      setOpenJobTabs(prev => {
+        const runningIds = (res.jobs || [])
+          .filter(j => j.status !== "completed" && j.status !== "failed")
+          .map(j => j.id);
+        const merged = Array.from(new Set([...prev, ...runningIds]));
+        localStorage.setItem("open_dubbing_job_tabs", JSON.stringify(merged));
+        return merged;
+      });
+    } catch (err: any) {
+      console.error("Lỗi lấy danh sách dự án:", err);
+    } finally {
+      if (showLoading) setLoadingAllJobs(false);
+    }
+  };
+
   // Restore active job from localStorage on mount & fetch settings & auth statuses
   useEffect(() => {
     fetchSystemLlmSettings();
@@ -136,6 +189,7 @@ export default function DubbingStudio() {
     fetchCookieStatus();
     fetchOAuthStatus();
     fetchProxyPool();
+    fetchAllJobs(true);
     if (jobId) {
       fetchJobDetails(jobId);
     }
@@ -153,8 +207,14 @@ export default function DubbingStudio() {
       fetchOAuthStatus();
     }
 
+    // Periodic background poll for all jobs
+    const allJobsInterval = setInterval(() => {
+      fetchAllJobs(false);
+    }, 4000);
+
     return () => {
       if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      clearInterval(allJobsInterval);
     };
   }, []);
 
@@ -488,9 +548,23 @@ export default function DubbingStudio() {
         selectedLlmProfileId || undefined
       );
 
+      // Add to open tabs and set active in workspace
+      setOpenJobTabs(prev => {
+        const next = [response.id, ...prev.filter(id => id !== response.id)];
+        localStorage.setItem("open_dubbing_job_tabs", JSON.stringify(next));
+        return next;
+      });
       setJobId(response.id);
       localStorage.setItem("active_dubbing_job_id", response.id);
       setJob(response);
+      setAllJobs(prev => [response, ...prev.filter(j => j.id !== response.id)]);
+      setViewMode("workspace");
+
+      // Reset create form inputs so user can create next video immediately if they want
+      setYoutubeUrl("");
+      setSelectedFile(null);
+      setUploadedJobId(null);
+      setUploadedVideoUrl(null);
     } catch (err: any) {
       setError(err.message || "Không thể khởi tạo tác vụ lồng tiếng.");
     } finally {
@@ -557,6 +631,38 @@ export default function DubbingStudio() {
     setUploadedJobId(null);
     setUploadedVideoUrl(null);
     setJobLogs("");
+    setViewMode("create");
+  };
+
+  const handleCloseTab = (tabId: string) => {
+    const nextTabs = openJobTabs.filter(id => id !== tabId);
+    setOpenJobTabs(nextTabs);
+    localStorage.setItem("open_dubbing_job_tabs", JSON.stringify(nextTabs));
+
+    if (jobId === tabId) {
+      if (nextTabs.length > 0) {
+        const nextId = nextTabs[0];
+        setJobId(nextId);
+        localStorage.setItem("active_dubbing_job_id", nextId);
+        fetchJobDetails(nextId);
+      } else {
+        resetState();
+      }
+    }
+  };
+
+  const handleDeleteJob = async (idToDelete: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa vĩnh viễn dự án lồng tiếng này không?")) return;
+    try {
+      await api.deleteDubbingJob(idToDelete);
+      setAllJobs(prev => prev.filter(j => j.id !== idToDelete));
+      handleCloseTab(idToDelete);
+      if (jobId === idToDelete) {
+        resetState();
+      }
+    } catch (err: any) {
+      alert(`Lỗi khi xóa: ${err.message || "Không thể xóa dự án"}`);
+    }
   };
 
   // Sync separate audio tracks with video player
@@ -599,22 +705,195 @@ export default function DubbingStudio() {
 
   const currentStepIdx = getActiveStepIndex();
 
+  const runningJobs = allJobs.filter(j => j.status !== "completed" && j.status !== "failed");
+  const reviewJobs = allJobs.filter(j => j.status === "awaiting_review");
+  const completedJobs = allJobs.filter(j => j.status === "completed");
+  const failedJobs = allJobs.filter(j => j.status === "failed");
+
+  const filteredJobs = allJobs.filter(j => {
+    if (jobsFilter === "running") {
+      if (j.status === "completed" || j.status === "failed") return false;
+    } else if (jobsFilter === "awaiting_review") {
+      if (j.status !== "awaiting_review") return false;
+    } else if (jobsFilter === "completed") {
+      if (j.status !== "completed") return false;
+    } else if (jobsFilter === "failed") {
+      if (j.status !== "failed") return false;
+    }
+
+    if (jobsSearch.trim()) {
+      const q = jobsSearch.toLowerCase();
+      const matchUrl = j.source_url?.toLowerCase().includes(q);
+      const matchId = j.id.toLowerCase().includes(q);
+      const matchLang = j.target_language.toLowerCase().includes(q);
+      return matchUrl || matchId || matchLang;
+    }
+    return true;
+  });
+
   return (
     <div className="w-full flex flex-col gap-6 animate-fadeIn">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <PageHeader
           title="Studio Lồng Tiếng Video AI"
-          description="Dịch thuật phụ đề đa ngôn ngữ qua LLM, bóc tách nhạc nền Demucs và lồng tiếng tự động bằng OmniVoice Clone."
+          description="Lồng tiếng video đa ngôn ngữ song song, bóc tách nhạc nền Demucs, dịch thuật AI & clone giọng OmniVoice."
           icon={<Film className="w-5 h-5" />}
         />
-        {jobId && (
+        
+        <div className="flex items-center gap-2">
+          {/* Button: YouTube / Proxy Settings */}
           <button
-            onClick={resetState}
-            className="flex items-center gap-2 px-3.5 py-2 bg-secondary hover:bg-secondary/80 text-foreground text-xs font-semibold rounded-xl border border-border transition-colors cursor-pointer"
+            type="button"
+            onClick={() => setShowCookieModal(true)}
+            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+              proxyPool.length > 0 
+                ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30 hover:bg-purple-500/20"
+                : oauthStatus?.connected
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+                : "bg-secondary hover:bg-secondary/80 text-foreground border-border"
+            }`}
           >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Tạo dự án mới</span>
+            <Globe className="w-3.5 h-3.5" />
+            <span>
+              {proxyPool.length > 0 ? `Proxy Pool (${proxyPool.length})` : oauthStatus?.connected ? "YouTube: Đã kết nối" : "Proxy / YouTube"}
+            </span>
+          </button>
+
+          {/* Button: Tất Cả Dự Án */}
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode("list");
+              fetchAllJobs(true);
+            }}
+            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+              viewMode === "list"
+                ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                : "bg-secondary hover:bg-secondary/80 text-foreground border-border"
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Tất Cả Dự Án</span>
+            {allJobs.length > 0 && (
+              <span className={`px-1.5 py-0.2 text-[10px] font-bold rounded-full ${
+                viewMode === "list" ? "bg-white/20 text-white" : "bg-primary/20 text-primary"
+              }`}>
+                {allJobs.length}
+              </span>
+            )}
+          </button>
+
+          {/* Button: Tạo Dự Án Mới */}
+          <button
+            type="button"
+            onClick={() => setViewMode("create")}
+            className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+              viewMode === "create"
+                ? "bg-gradient-to-r from-primary to-accent text-white border-transparent shadow-md"
+                : "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
+            }`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Dự Án Mới</span>
+          </button>
+        </div>
+      </div>
+
+      {/* --- REALTIME PROJECT SWITCHER TAB BAR --- */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-border/60 scrollbar-thin">
+        {/* Tab 1: Tạo Dự Án Mới */}
+        <button
+          type="button"
+          onClick={() => setViewMode("create")}
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 ${
+            viewMode === "create"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary"
+          }`}
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>+ Dự Án Mới</span>
+        </button>
+
+        {/* Tab pills for open jobs */}
+        {openJobTabs.map((tid) => {
+          const tabJob = allJobs.find(j => j.id === tid) || (tid === jobId ? job : null);
+          const isSelected = viewMode === "workspace" && jobId === tid;
+          
+          const isReview = tabJob?.status === "awaiting_review";
+          const isCompleted = tabJob?.status === "completed";
+          const isFailed = tabJob?.status === "failed";
+          const isRunning = tabJob && !isCompleted && !isFailed && !isReview;
+
+          const title = tabJob?.source_url 
+            ? (tabJob.source_url.includes("youtu") ? "YouTube: " + getYouTubeId(tabJob.source_url) : tabJob.source_url.split("/").pop())
+            : `Dự án #${tid.slice(0, 6)}`;
+
+          return (
+            <div
+              key={tid}
+              className={`group flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer shrink-0 border ${
+                isSelected
+                  ? "bg-card text-foreground border-primary shadow-sm ring-1 ring-primary/30 font-bold"
+                  : isReview
+                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20"
+                  : "bg-secondary/30 text-muted-foreground border-border/50 hover:text-foreground hover:bg-secondary"
+              }`}
+              onClick={() => {
+                setJobId(tid);
+                setViewMode("workspace");
+                localStorage.setItem("active_dubbing_job_id", tid);
+                fetchJobDetails(tid);
+              }}
+            >
+              {isRunning && <Loader2 className="w-3 h-3 animate-spin text-primary shrink-0" />}
+              {isReview && <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />}
+              {isCompleted && <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />}
+              {isFailed && <AlertCircle className="w-3 h-3 text-destructive shrink-0" />}
+              
+              <span className="max-w-[130px] truncate">{title}</span>
+              
+              {tabJob && (
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                  isReview 
+                    ? "bg-amber-500 text-white animate-pulse" 
+                    : isCompleted 
+                    ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" 
+                    : isFailed 
+                    ? "bg-destructive/20 text-destructive"
+                    : "bg-primary/20 text-primary"
+                }`}>
+                  {isReview ? "Chờ duyệt" : isCompleted ? "Xong" : `${tabJob.progress}%`}
+                </span>
+              )}
+
+              {/* Close tab button */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCloseTab(tid);
+                }}
+                className="opacity-50 hover:opacity-100 p-0.5 rounded hover:bg-secondary transition-opacity ml-0.5"
+                title="Đóng tab này"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          );
+        })}
+
+        {allJobs.length > openJobTabs.length && (
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode("list");
+              fetchAllJobs(true);
+            }}
+            className="text-[11px] text-muted-foreground hover:text-primary font-medium px-2 py-1 shrink-0 ml-auto cursor-pointer"
+          >
+            Xem tất cả ({allJobs.length}) &rarr;
           </button>
         )}
       </div>
@@ -626,9 +905,73 @@ export default function DubbingStudio() {
         </div>
       )}
 
-      {/* --- STEPPER PROGRESS BAR (REALTIME PIPELINE) --- */}
-      {jobId && job && (
-        <SectionCard title="Tiến Trình Xử Lý Realtime">
+      {/* --- VIEW MODE 2: WORKSPACE (Tiến trình realtime) --- */}
+      {viewMode === "workspace" && jobId && job && (
+        <div className="flex flex-col gap-4">
+          {/* Workspace Job Top Bar */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4 bg-card border border-border rounded-2xl shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-xl shrink-0 ${
+                job.source_type === "youtube" ? "bg-red-500/10 text-red-500" : "bg-primary/10 text-primary"
+              }`}>
+                {job.source_type === "youtube" ? <Play className="w-5 h-5" /> : <Film className="w-5 h-5" />}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono font-bold text-muted-foreground">ID: #{job.id.slice(0, 8)}</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    job.status === "completed"
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                      : job.status === "awaiting_review"
+                      ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 animate-pulse"
+                      : job.status === "failed"
+                      ? "bg-destructive/10 text-destructive border-destructive/30"
+                      : "bg-primary/10 text-primary border-primary/30"
+                  }`}>
+                    {job.status === "completed" ? "Hoàn tất" : job.status === "awaiting_review" ? "Cần kiểm duyệt" : job.status === "failed" ? "Lỗi" : `Đang xử lý ${job.progress}%`}
+                  </span>
+                </div>
+                <h3 className="text-sm font-bold text-foreground line-clamp-1 max-w-md sm:max-w-xl mt-0.5">
+                  {job.source_url || `Dự án video #${job.id.slice(0, 8)}`}
+                </h3>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <button
+                type="button"
+                onClick={() => setViewMode("create")}
+                className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold rounded-xl border border-primary/20 transition-all flex items-center gap-1.5 cursor-pointer"
+                title="Tạo thêm video khác"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Thêm Video</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setViewMode("list");
+                  fetchAllJobs(true);
+                }}
+                className="px-3 py-1.5 bg-secondary hover:bg-secondary/80 text-foreground text-xs font-semibold rounded-xl border border-border transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Tất Cả Dự Án</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleDeleteJob(job.id)}
+                className="p-1.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded-xl border border-border/60 transition-colors cursor-pointer"
+                title="Xóa dự án này"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <SectionCard title="Tiến Trình Xử Lý Realtime">
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -730,11 +1073,307 @@ export default function DubbingStudio() {
             </div>
           </div>
         </SectionCard>
+        </div>
       )}
 
-      {/* --- FORM SETUP & LLM CONFIGURATION (STEP 1) --- */}
-      {!jobId && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Workspace Empty State */}
+      {viewMode === "workspace" && (!jobId || !job) && (
+        <div className="p-12 bg-secondary/10 border border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-center gap-3">
+          <Film className="w-10 h-10 text-muted-foreground/50" />
+          <div>
+            <h4 className="text-sm font-bold text-foreground">Chưa có dự án nào được chọn</h4>
+            <p className="text-xs text-muted-foreground mt-1">Chọn một dự án từ danh sách hoặc khởi tạo video lồng tiếng mới.</p>
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            <button
+              type="button"
+              onClick={() => setViewMode("create")}
+              className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs rounded-xl shadow transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Tạo Dự Án Mới</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setViewMode("list");
+                fetchAllJobs(true);
+              }}
+              className="px-4 py-2 bg-secondary hover:bg-secondary/80 text-foreground font-bold text-xs rounded-xl border border-border transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Xem Tất Cả Dự Án ({allJobs.length})</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* VIEW MODE 3: ALL PROJECTS MANAGER (LIST / GRID)                           */}
+      {/* ========================================================================= */}
+      {viewMode === "list" && (
+        <div className="flex flex-col gap-5 animate-fadeIn">
+          {/* Filter & Search Bar */}
+          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 p-4 bg-secondary/20 border border-border rounded-2xl">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+              {[
+                { id: "all", label: "Tất Cả", count: allJobs.length },
+                { id: "running", label: "Đang Xử Lý", count: runningJobs.length },
+                { id: "awaiting_review", label: "Chờ Duyệt", count: reviewJobs.length },
+                { id: "completed", label: "Hoàn Tất", count: completedJobs.length },
+                { id: "failed", label: "Lỗi", count: failedJobs.length },
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setJobsFilter(f.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                    jobsFilter === f.id
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span>{f.label}</span>
+                  <span className={`px-1.5 py-0.2 text-[10px] rounded-full font-extrabold ${
+                    jobsFilter === f.id ? "bg-white/20 text-white" : "bg-card text-foreground"
+                  }`}>
+                    {f.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 sm:w-64">
+                <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm dự án..."
+                  value={jobsSearch}
+                  onChange={(e) => setJobsSearch(e.target.value)}
+                  className="w-full bg-background border border-border rounded-xl pl-9 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => fetchAllJobs(true)}
+                disabled={loadingAllJobs}
+                className="p-2 bg-secondary hover:bg-secondary/80 text-foreground border border-border rounded-xl transition-colors cursor-pointer"
+                title="Làm mới danh sách"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingAllJobs ? "animate-spin" : ""}`} />
+              </button>
+            </div>
+          </div>
+
+          {/* Jobs Cards Grid */}
+          {loadingAllJobs && allJobs.length === 0 ? (
+            <div className="p-12 flex flex-col items-center justify-center text-center gap-3">
+              <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              <span className="text-xs text-muted-foreground font-medium">Đang tải danh sách các dự án lồng tiếng...</span>
+            </div>
+          ) : filteredJobs.length === 0 ? (
+            <div className="p-12 bg-secondary/10 border border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-center gap-3">
+              <Film className="w-10 h-10 text-muted-foreground/50" />
+              <div>
+                <h4 className="text-sm font-bold text-foreground">Không tìm thấy dự án lồng tiếng nào</h4>
+                <p className="text-xs text-muted-foreground mt-1">Bấm nút bên dưới để khởi tạo một video lồng tiếng mới.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewMode("create")}
+                className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs rounded-xl shadow transition-all flex items-center gap-1.5 cursor-pointer mt-2"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Bắt Đầu Dự Án Mới</span>
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filteredJobs.map((j) => {
+                const isReview = j.status === "awaiting_review";
+                const isCompleted = j.status === "completed";
+                const isFailed = j.status === "failed";
+                const isRunning = !isCompleted && !isFailed && !isReview;
+
+                const isYt = j.source_type === "youtube";
+                const ytId = getYouTubeId(j.source_url);
+
+                return (
+                  <div
+                    key={j.id}
+                    className="flex flex-col justify-between p-4 bg-card hover:border-primary/50 border border-border rounded-2xl transition-all shadow-sm group"
+                  >
+                    <div className="flex flex-col gap-3">
+                      {/* Card Top: Source Icon, ID & Timestamp */}
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`p-2 rounded-xl shrink-0 ${isYt ? "bg-red-500/10 text-red-500" : "bg-primary/10 text-primary"}`}>
+                            {isYt ? <Play className="w-4 h-4" /> : <Film className="w-4 h-4" />}
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-mono text-muted-foreground">ID: #{j.id.slice(0, 8)}</span>
+                            <span className="block text-[10px] text-muted-foreground">
+                              {new Date(j.created_at).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Status Badge */}
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          isCompleted
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                            : isReview
+                            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 animate-pulse"
+                            : isFailed
+                            ? "bg-destructive/10 text-destructive border-destructive/30"
+                            : "bg-primary/10 text-primary border-primary/30"
+                        }`}>
+                          {isCompleted ? "Hoàn tất" : isReview ? "● Cần duyệt phụ đề" : isFailed ? "Thất bại" : `Đang xử lý (${j.progress}%)`}
+                        </span>
+                      </div>
+
+                      {/* Video Title / Source URL */}
+                      <div>
+                        <h4 className="text-xs font-bold text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors">
+                          {j.source_url ? j.source_url : `Tệp video: #${j.id.slice(0, 8)}`}
+                        </h4>
+                        {isYt && ytId && (
+                          <a
+                            href={j.source_url || ""}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-red-500 mt-1"
+                          >
+                            <span>Xem YouTube gốc</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        )}
+                      </div>
+
+                      {/* Progress bar if running */}
+                      {isRunning && (
+                        <div className="flex flex-col gap-1 mt-1">
+                          <div className="w-full bg-secondary h-1.5 rounded-full overflow-hidden">
+                            <div
+                              className="bg-primary h-full transition-all duration-300"
+                              style={{ width: `${j.progress}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] text-muted-foreground truncate">{j.message || "Đang xử lý..."}</span>
+                        </div>
+                      )}
+
+                      {/* Target Language tag */}
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground pt-1 border-t border-border/40">
+                        <Languages className="w-3 h-3 text-primary shrink-0" />
+                        <span>Ngôn ngữ đích: <strong className="text-foreground">{j.target_language}</strong></span>
+                      </div>
+                    </div>
+
+                    {/* Card Actions */}
+                    <div className="flex items-center justify-between gap-2 pt-3 mt-3 border-t border-border">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenJobTabs(prev => Array.from(new Set([j.id, ...prev])));
+                          setJobId(j.id);
+                          setViewMode("workspace");
+                          localStorage.setItem("active_dubbing_job_id", j.id);
+                          fetchJobDetails(j.id);
+                        }}
+                        className="flex-1 py-1.5 px-3 bg-secondary hover:bg-secondary/80 text-foreground font-bold text-xs rounded-xl border border-border transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Mở Studio</span>
+                      </button>
+
+                      {isCompleted && (
+                        <a
+                          href={api.getDubbingFileUrl(j.id, "output")}
+                          download={`dubbed_${j.id}.mp4`}
+                          className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-500/30 transition-colors"
+                          title="Tải video MP4"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteJob(j.id)}
+                        className="p-2 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded-xl transition-colors cursor-pointer"
+                        title="Xóa dự án này"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* VIEW MODE 1: FORM SETUP / CREATE NEW PROJECT (viewMode === "create")      */}
+      {/* ========================================================================= */}
+      {viewMode === "create" && (
+        <div className="flex flex-col gap-6 animate-fadeIn">
+          {/* Running jobs ticker banner if any active jobs in background */}
+          {runningJobs.length > 0 && (
+            <div className="p-3.5 bg-primary/5 border border-primary/20 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Sparkles className="w-4 h-4 text-primary animate-pulse shrink-0" />
+                <span className="font-bold text-foreground">
+                  Đang có {runningJobs.length} dự án xử lý ngầm:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {runningJobs.map(rj => {
+                    const isRev = rj.status === "awaiting_review";
+                    const rTitle = rj.source_url ? (rj.source_url.includes("youtu") ? "YT: " + getYouTubeId(rj.source_url) : rj.source_url.split("/").pop()) : `#${rj.id.slice(0, 6)}`;
+                    return (
+                      <button
+                        key={rj.id}
+                        type="button"
+                        onClick={() => {
+                          setOpenJobTabs(prev => Array.from(new Set([rj.id, ...prev])));
+                          setJobId(rj.id);
+                          setViewMode("workspace");
+                          localStorage.setItem("active_dubbing_job_id", rj.id);
+                          fetchJobDetails(rj.id);
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                          isRev
+                            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20 animate-pulse"
+                            : "bg-secondary hover:bg-secondary/80 text-foreground border-border"
+                        }`}
+                      >
+                        {isRev ? (
+                          <span className="text-amber-500">● Cần duyệt phụ đề</span>
+                        ) : (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin text-primary shrink-0" />
+                            <span>{rTitle} ({rj.progress}%)</span>
+                          </>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                className="text-[11px] text-primary hover:underline font-bold whitespace-nowrap shrink-0 ml-auto sm:ml-0 cursor-pointer"
+              >
+                Xem tất cả &rarr;
+              </button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <SectionCard title="Tải Lên Video Đầu Vào">
               <form onSubmit={handleStartDubbing} className="flex flex-col gap-5">
@@ -983,10 +1622,11 @@ export default function DubbingStudio() {
             </SectionCard>
           </div>
         </div>
+        </div>
       )}
 
       {/* --- STEP 3: SUBTITLE REVIEW & EDIT STUDIO --- */}
-      {jobId && job && job.status === "awaiting_review" && (
+      {viewMode === "workspace" && jobId && job && job.status === "awaiting_review" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* Left: Video Player & Audio Controls */}
@@ -1146,7 +1786,7 @@ export default function DubbingStudio() {
       )}
 
       {/* --- STEP 5: FINAL OUTPUT PREVIEW & DOWNLOAD --- */}
-      {jobId && job && job.status === "completed" && (
+      {viewMode === "workspace" && jobId && job && job.status === "completed" && (
         <SectionCard title="Hoàn Tất Lồng Tiếng Video!">
           <div className="flex flex-col items-center gap-6 text-center max-w-3xl mx-auto py-4">
             <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500">

@@ -256,6 +256,12 @@ class VideoDubbingJobResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+class VideoDubbingJobListResponse(BaseModel):
+    total: int
+    page: int
+    page_size: int
+    jobs: List[VideoDubbingJobResponse]
+
 class LLMProfileResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

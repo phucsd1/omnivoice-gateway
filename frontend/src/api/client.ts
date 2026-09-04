@@ -901,6 +901,20 @@ export const api = {
     return request<VideoDubbingJobResponse>(`/v1/video-dubbing/jobs/${jobId}?t=${Date.now()}`);
   },
 
+  listDubbingJobs: async (page = 1, pageSize = 50, status?: string): Promise<VideoDubbingJobListResponse> => {
+    let url = `/v1/video-dubbing/jobs?page=${page}&page_size=${pageSize}&t=${Date.now()}`;
+    if (status && status !== "all") {
+      url += `&status=${encodeURIComponent(status)}`;
+    }
+    return request<VideoDubbingJobListResponse>(url);
+  },
+
+  deleteDubbingJob: async (jobId: string): Promise<{ status: string; message: string; id: string }> => {
+    return request<{ status: string; message: string; id: string }>(`/v1/video-dubbing/jobs/${jobId}`, {
+      method: "DELETE",
+    });
+  },
+
   updateDubbingSubtitles: async (jobId: string, originalSubtitles?: SubtitleSegment[], translatedSubtitles?: SubtitleSegment[]): Promise<{ status: string; message: string }> => {
     return request<{ status: string; message: string }>(`/v1/video-dubbing/jobs/${jobId}/subtitles`, {
       method: "PUT",
@@ -1022,3 +1036,11 @@ export interface VideoDubbingJobResponse {
   created_at: string;
   updated_at: string;
 }
+
+export interface VideoDubbingJobListResponse {
+  total: number;
+  page: number;
+  page_size: number;
+  jobs: VideoDubbingJobResponse[];
+}
+

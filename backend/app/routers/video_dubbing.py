@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User, VideoDubbingJob, TTSJob, SystemSetting
-from app.schemas import VideoDubbingJobResponse, SubtitleSegment, SubtitleUpdateRequest
+from app.schemas import VideoDubbingJobResponse, SubtitleSegment, SubtitleUpdateRequest, VideoDubbingJobListResponse
 from app.utils.auth import get_user_or_api_key
 from app.config import settings
 from app.services.video_dubbing_service import VideoDubbingService
@@ -772,17 +772,7 @@ async def create_dubbing_job(
 
     return job
 
-@router.get("/jobs/{job_id}", response_model=VideoDubbingJobResponse)
-def get_dubbing_job(
-    job_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_user_or_api_key)
-):
-    """Lấy thông tin tiến độ và phụ đề của tác vụ lồng tiếng."""
-    job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id, VideoDubbingJob.user_id == current_user.id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Không tìm thấy tác vụ lồng tiếng.")
-    
+def _format_dubbing_job_response(job: VideoDubbingJob) -> VideoDubbingJobResponse:
     # Parse subtitles JSON into Pydantic models
     orig_subs = []
     if job.original_subtitles:
@@ -798,7 +788,7 @@ def get_dubbing_job(
         except Exception:
             pass
 
-    output_video_url = f"/v1/video-dubbing/jobs/{job_id}/output" if job.status == "completed" else None
+    output_video_url = f"/v1/video-dubbing/jobs/{job.id}/output" if job.status == "completed" else None
 
     return VideoDubbingJobResponse(
         id=job.id,
@@ -820,6 +810,65 @@ def get_dubbing_job(
         created_at=job.created_at,
         updated_at=job.updated_at
     )
+
+@router.get("/jobs", response_model=VideoDubbingJobListResponse)
+def list_dubbing_jobs(
+    page: int = 1,
+    page_size: int = 50,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_user_or_api_key)
+):
+    """Lấy danh sách tất cả các tác vụ lồng tiếng của người dùng."""
+    query = db.query(VideoDubbingJob).filter(VideoDubbingJob.user_id == current_user.id)
+    if status and status != "all":
+        query = query.filter(VideoDubbingJob.status == status)
+        
+    total = query.count()
+    jobs = query.order_by(VideoDubbingJob.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    
+    return VideoDubbingJobListResponse(
+        total=total,
+        page=page,
+        page_size=page_size,
+        jobs=[_format_dubbing_job_response(j) for j in jobs]
+    )
+
+@router.get("/jobs/{job_id}", response_model=VideoDubbingJobResponse)
+def get_dubbing_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_user_or_api_key)
+):
+    """Lấy thông tin tiến độ và phụ đề của tác vụ lồng tiếng."""
+    job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id, VideoDubbingJob.user_id == current_user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tác vụ lồng tiếng.")
+    
+    return _format_dubbing_job_response(job)
+
+@router.delete("/jobs/{job_id}", response_model=dict)
+def delete_dubbing_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_user_or_api_key)
+):
+    """Xóa một tác vụ lồng tiếng và dọn dẹp các tệp liên quan."""
+    job = db.query(VideoDubbingJob).filter(VideoDubbingJob.id == job_id, VideoDubbingJob.user_id == current_user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tác vụ lồng tiếng.")
+        
+    # Dọn dẹp thư mục lưu trữ cục bộ nếu có
+    try:
+        job_dir = os.path.join(settings.STORAGE_DIR, "dubbing", job_id)
+        if os.path.exists(job_dir):
+            shutil.rmtree(job_dir, ignore_errors=True)
+    except Exception as e:
+        print(f"[DeleteDubbingJob] Warning: Error cleaning up folder {job_id}: {e}")
+        
+    db.delete(job)
+    db.commit()
+    return {"status": "success", "message": "Đã xóa tác vụ lồng tiếng thành công", "id": job_id}
 
 @router.put("/jobs/{job_id}/subtitles", response_model=dict)
 def update_dubbing_subtitles(
