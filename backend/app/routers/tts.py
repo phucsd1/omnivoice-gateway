@@ -72,7 +72,8 @@ def get_tts_job(job_id: str, db: Session = Depends(get_db), current_user: User =
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Không tìm thấy TTS Job {job_id}"
         )
-    audio_url = f"{settings.API_BASE_URL}/v1/tts/jobs/{job.id}/audio" if job.status == "completed" else None
+    api_base = getattr(settings, "API_BASE_URL", "") or ""
+    audio_url = f"{api_base}/v1/tts/jobs/{job.id}/audio" if job.status == "completed" else None
     return {
         "job_id": job.id,
         "job_type": job.job_type,

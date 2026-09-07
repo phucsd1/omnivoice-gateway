@@ -22,6 +22,8 @@ from datetime import datetime
 # Configure UTF-8 for Windows console
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 # Định nghĩa 5 bài test chuẩn hóa
 TEST_CASES = [
@@ -140,12 +142,13 @@ def run_single_test(base_url: str, token: str, test_info: dict, out_dir: str, vo
     job_id = job_data.get("job_id")
     print(f"[+] Tạo job thành công! Job ID: {job_id}")
 
-    # Polling job status
-    poll_url = f"{base_url.rstrip('/')}/v1/tts/jobs/{job_id}"
+    # Polling job status via standard /v1/jobs/{job_id} endpoint
+    poll_url = f"{base_url.rstrip('/')}/v1/jobs/{job_id}"
     last_status = None
     boot_start_time = None
     ready_time = None
     t_complete = None
+    final_job_data = {}
     
     while True:
         elapsed = round(time.time() - t0, 1)
@@ -153,33 +156,34 @@ def run_single_test(base_url: str, token: str, test_info: dict, out_dir: str, vo
             r = requests.get(poll_url, headers=headers, timeout=15)
             if r.status_code == 200:
                 data = r.json()
+                final_job_data = data
                 status_str = data.get("status")
                 msg = data.get("message") or ""
                 progress = data.get("progress", 0)
 
                 if status_str != last_status or progress % 25 == 0:
-                    print(f"  [{elapsed:5.1f}s] Trạng thái: {status_str} ({progress}%) | {msg}")
+                    print(f"  [{elapsed:5.1f}s] Trạng thái: {status_str} ({progress}%) | {msg}", flush=True)
                     last_status = status_str
 
-                if status_str in ["starting_worker", "queued_kaggle"] and not boot_start_time:
+                if status_str in ["starting_worker", "queued_kaggle", "booting_kaggle"] and not boot_start_time:
                     boot_start_time = time.time()
 
-                if status_str == "busy" and not ready_time:
+                if status_str in ["busy", "running"] and not ready_time:
                     ready_time = time.time()
 
                 if status_str == "completed":
                     t_complete = time.time()
-                    print(f"[+] Job {job_id} hoàn thành sau {round(t_complete - t0, 2)}s!")
+                    print(f"[+] Job {job_id} hoàn thành sau {round(t_complete - t0, 2)}s!", flush=True)
                     break
 
                 if status_str == "failed":
                     err = data.get("error_message") or msg or "Unknown error"
-                    print(f"[!] Job {job_id} thất bại: {err}")
+                    print(f"[!] Job {job_id} thất bại: {err}", flush=True)
                     return {"name": test_name, "status": "failed", "error": err, "total_time": elapsed}
 
             time.sleep(1.0)
         except Exception as poll_err:
-            print(f"[!] Lỗi khi thăm dò trạng thái: {poll_err}")
+            print(f"[!] Lỗi khi thăm dò trạng thái: {poll_err}", flush=True)
             time.sleep(2.0)
 
     # Download output audio
@@ -192,13 +196,16 @@ def run_single_test(base_url: str, token: str, test_info: dict, out_dir: str, vo
             with open(audio_file, "wb") as f:
                 f.write(ares.content)
             audio_duration = get_audio_duration_wav(audio_file)
-            print(f"[+] Đã tải tệp âm thanh: {audio_file} (Thời lượng: {audio_duration}s, Kích thước: {len(ares.content):,} bytes)")
+            print(f"[+] Đã tải tệp âm thanh: {audio_file} (Thời lượng: {audio_duration}s, Kích thước: {len(ares.content):,} bytes)", flush=True)
     except Exception as a_err:
-        print(f"[!] Không thể tải audio: {a_err}")
+        print(f"[!] Không thể tải audio: {a_err}", flush=True)
 
     total_time = round(t_complete - t0, 2)
-    boot_time = round(ready_time - boot_start_time, 2) if (ready_time and boot_start_time) else 0.0
-    infer_time = round(t_complete - (ready_time or boot_start_time or t0), 2)
+    server_queue = final_job_data.get("queue_time")
+    server_infer = final_job_data.get("processing_time")
+    
+    boot_time = round(server_queue, 2) if server_queue is not None else (round(ready_time - boot_start_time, 2) if (ready_time and boot_start_time) else 0.0)
+    infer_time = round(server_infer, 2) if server_infer is not None else round(t_complete - (ready_time or boot_start_time or t0), 2)
     rtf = round(infer_time / audio_duration, 2) if audio_duration > 0 else 0.0
 
     return {
