@@ -121,6 +121,7 @@ class TTSJob(Base):
     pad_duration = Column(Float, nullable=True)
     fade_duration = Column(Float, nullable=True)
     cdn_audio_url = Column(Text, nullable=True)
+    normalize_text = Column(Boolean, nullable=True, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

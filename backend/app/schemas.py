@@ -139,6 +139,7 @@ class TTSJobCreate(BaseModel):
     language: Optional[str] = None
     pad_duration: Optional[float] = None
     fade_duration: Optional[float] = None
+    normalize_text: Optional[bool] = Field(True, description="Tự động chuẩn hóa số, ngày tháng, tiền tệ thành chữ đọc.")
 
 class TTSJobResponse(BaseModel):
     job_id: str
@@ -224,6 +225,10 @@ class WorkerJobPayload(BaseModel):
     audio_chunk_duration: Optional[float] = 15.0
     audio_chunk_threshold: Optional[float] = 30.0
     with_alignment: Optional[bool] = Field(False, description="Yêu cầu worker trích xuất và tải lên mốc thời gian (alignment) từng từ.")
+    language: Optional[str] = None
+    pad_duration: Optional[float] = None
+    fade_duration: Optional[float] = None
+    normalize_text: Optional[bool] = True
 
 class WorkerNextJobResponse(BaseModel):
     job: Optional[WorkerJobPayload] = None

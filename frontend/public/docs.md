@@ -54,6 +54,10 @@ The TTS pipeline operates asynchronously. You create a job, poll its status, and
 | `audio_chunk_duration` | float | Optional | `15.0` | Maximum length of single chunks when processing long text (in seconds). |
 | `audio_chunk_threshold` | float | Optional | `30.0` | Text length threshold (in characters/seconds) to trigger multi-chunk division. |
 | `with_alignment` | boolean | Optional | `false` | Return word-level timestamps (start and end times) in the job status. |
+| `language` | string | Optional | - | Target language code (e.g. `vi`, `en`, `zh`, `ja`, `ko`, `fr`, `de`, `es`). |
+| `pad_duration` | float | Optional | - | Additional silence padding duration (seconds). |
+| `fade_duration` | float | Optional | - | Smooth fade in/out duration (seconds). |
+| `normalize_text` | boolean | Optional | `true` | Automatically normalize numbers, dates, abbreviations, and currencies into words. |
 
 #### Response (200 OK)
 ```json
@@ -140,6 +144,17 @@ Correct spelling overrides when terms, abbreviations, or names are mispronounced
   * `"read as [B EY1 S]"` (forces pronunciation matching the word "base").
 * **Chinese Pinyin & Tones**: Capitalized Pinyin syllables followed by tone numbers (1-4) inside brackets:
   * `"打[ZHE2]出售"` (forces folding tone 2 for 折).
+
+### 5.3 Text Normalization (Đọc chuẩn số & ký tự)
+Khi `normalize_text` được đặt thành `true` (mặc định), engine tự động chuyển hóa:
+* Các con số và số thứ tự: `123` -> `"một trăm hai mươi ba"`.
+* Ngày tháng, năm: `20/11/2024` -> `"ngày hai mươi tháng mười một năm hai nghìn không trăm hai mươi tư"`.
+* Tiền tệ và đơn vị: `50.000đ`, `$100` -> `"năm mươi nghìn đồng"`, `"một trăm đô la"`.
+* Tỷ lệ phần trăm và đơn vị đo lường: `99%`, `50km/h` -> `"chín mươi chín phần trăm"`, `"năm mươi ki-lô-mét trên giờ"`.
+
+### 5.4 Engine Performance & FlashInfer Acceleration
+* **FlashInfer Ragged Attention**: Tối ưu hóa bộ xử lý GPU giúp tăng tốc độ sinh giọng nói gấp 2x–3x lần với độ trễ cực thấp.
+* **VoiceClonePrompt Caching**: Tự động trích xuất và lưu trữ bộ nhớ đệm đặc trưng âm thanh mẫu (`VoiceClonePrompt`) trong các tác vụ lồng tiếng video (dubbing) và sinh audio đa đoạn, giảm hơn 70% thời gian xử lý toàn trình.
 
 ---
 
@@ -338,7 +353,8 @@ curl -X POST "https://voice.oloka.net/v1/tts/jobs" \
     "text": "Xin chào, đây là cURL request.",
     "speed": 1.0,
     "num_step": 32,
-    "with_alignment": true
+    "with_alignment": true,
+    "normalize_text": true
   }'
 
 # 2. Get Job Status (Repeat every 3-5 seconds)
@@ -367,7 +383,8 @@ payload = {
     "mode": "clone_voice",
     "voice_sample_id": "vs_xxxx",
     "text": "Xin chào, đây là tích hợp Python.",
-    "with_alignment": True
+    "with_alignment": True,
+    "normalize_text": True
 }
 
 # 1. Submit request
@@ -420,7 +437,8 @@ async function execute() {
       mode: 'clone_voice',
       voice_sample_id: 'vs_xxxx',
       text: 'Xin chào từ NodeJS client.',
-      with_alignment: true
+      with_alignment: true,
+      normalize_text: true
     })
   });
   const { job_id } = await res.json();

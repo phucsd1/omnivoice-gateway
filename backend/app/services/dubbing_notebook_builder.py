@@ -78,7 +78,8 @@ class DubbingNotebookBuilder:
             "numpy",
             "demucs",
             "openai-whisper",
-            "omnivoice",
+            "omnivoice @ git+https://github.com/k2-fsa/OmniVoice.git",
+            "num2words",
             "huggingface_hub",
             "modelscope"
         ]
@@ -169,6 +170,12 @@ def main():
             load_asr=True
         )
         log("OmniVoice model loaded successfully.")
+        try:
+            from omnivoice.models.omnivoice_flashinfer import apply_flashinfer
+            apply_flashinfer(model, enable_cuda_graph=False)
+            log("⚡ FlashInfer acceleration applied to OmniVoice (2x+ speedup).")
+        except Exception as fi_err:
+            log(f"FlashInfer not applied (running standard inference): {{fi_err}}")
     except Exception as e:
         log(f"Warning: Failed to load OmniVoice model directly: {{e}}")
 
@@ -282,6 +289,21 @@ def main():
                 segments = json.loads(job.get("text", "[]"))
                 created_files = []
 
+                # Pre-compute VoiceClonePrompt ONCE for all segments
+                voice_clone_prompt = None
+                if model and local_ref_path and os.path.exists(local_ref_path):
+                    if hasattr(model, "create_voice_clone_prompt"):
+                        try:
+                            log("Pre-computing reusable VoiceClonePrompt for dubbing segments...")
+                            voice_clone_prompt = model.create_voice_clone_prompt(
+                                ref_audio=local_ref_path,
+                                ref_text=job.get("ref_text")
+                            )
+                            log("VoiceClonePrompt successfully pre-computed.")
+                        except Exception as p_err:
+                            log(f"Notice: VoiceClonePrompt precompute fallback: {{p_err}}")
+                            voice_clone_prompt = None
+
                 for idx, seg in enumerate(segments):
                     seg_id = seg.get("id", idx + 1) if isinstance(seg, dict) else (idx + 1)
                     seg_text = seg.get("text", "") if isinstance(seg, dict) else str(seg)
@@ -292,11 +314,33 @@ def main():
                     log(f"Dubbing segment {{seg_id}}: '{{seg_text}}' (target dur: {{target_dur}}s)")
 
                     if model:
-                        audio_res = model.generate(text=seg_text, ref_audio=local_ref_path)
+                        gen_kwargs = {{"text": seg_text, "normalize_text": True}}
+                        if voice_clone_prompt is not None:
+                            gen_kwargs["voice_clone_prompt"] = voice_clone_prompt
+                        elif local_ref_path and os.path.exists(local_ref_path):
+                            gen_kwargs["ref_audio"] = local_ref_path
+
+                        try:
+                            audio_res = model.generate(**gen_kwargs)
+                        except TypeError as t_err:
+                            if "normalize_text" in str(t_err):
+                                gen_kwargs.pop("normalize_text", None)
+                                audio_res = model.generate(**gen_kwargs)
+                            else:
+                                raise
+
                         synth_dur = len(audio_res[0]) / 24000.0
                         if synth_dur > target_dur + 0.2:
                             speed_val = min(2.5, max(1.1, synth_dur / target_dur))
-                            audio_res = model.generate(text=seg_text, ref_audio=local_ref_path, speed=speed_val)
+                            gen_kwargs["speed"] = speed_val
+                            try:
+                                audio_res = model.generate(**gen_kwargs)
+                            except TypeError as t_err:
+                                if "normalize_text" in str(t_err):
+                                    gen_kwargs.pop("normalize_text", None)
+                                    audio_res = model.generate(**gen_kwargs)
+                                else:
+                                    raise
                         seg_wav = f"segment_{{seg_id}}.wav"
                         sf.write(seg_wav, audio_res[0], 24000, format='WAV', subtype='PCM_16')
                         created_files.append(seg_wav)

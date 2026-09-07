@@ -285,6 +285,7 @@ export interface OmniVoiceParams {
   language?: string;
   pad_duration?: number;
   fade_duration?: number;
+  normalize_text?: boolean;
 }
 
 export const api = {

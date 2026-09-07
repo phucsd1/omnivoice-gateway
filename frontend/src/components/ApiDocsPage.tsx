@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Terminal, FileCode, Check, Play, Copy, ArrowLeft, KeyRound, BookOpen, Cpu, Code, Volume2, Sparkles, Library } from "lucide-react";
+import { Terminal, FileCode, Check, Play, Copy, ArrowLeft, KeyRound, BookOpen, Cpu, Code, Volume2, Sparkles, Library, Zap } from "lucide-react";
 import { api, getApiBaseUrl } from "../api/client";
 import type { ApiKeyResponse } from "../api/client";
 
@@ -45,7 +45,8 @@ curl -X POST "${baseUrl}/v1/tts/jobs" \\
     "text": "[laughter] Xin chào, đây là giọng đọc nhân bản kèm tiếng cười.",
     "speed": 1.0,
     "num_step": 32,
-    "with_alignment": true
+    "with_alignment": true,
+    "normalize_text": true
   }'
 
 # Phản hồi sẽ trả về {"job_id": "job_xxxx", "status": "queued"}
@@ -94,7 +95,8 @@ payload = {
     "text": "[laughter] Xin chào, đây là mã tích hợp mẫu bằng ngôn ngữ Python.",
     "speed": 1.0,
     "num_step": 32,
-    "with_alignment": True
+    "with_alignment": True,
+    "normalize_text": True
 }
 
 print("Đang gửi yêu cầu TTS...")
@@ -176,7 +178,8 @@ async function generateSpeech() {
         text: '[laughter] Xin chào, đây là mã nguồn nhúng bằng Node.js.',
         speed: 1.0,
         num_step: 32,
-        with_alignment: true
+        with_alignment: true,
+        normalize_text: true
       })
     });
     
@@ -477,6 +480,38 @@ generateSpeech();`
                   Lấy mốc thời gian của từng từ (phục vụ làm phụ đề). Kiểu boolean (<code className="text-foreground bg-muted border border-border px-1.5 py-0.5 rounded font-mono font-semibold">true</code> / <code className="text-foreground bg-muted border border-border px-1.5 py-0.5 rounded font-mono font-semibold">false</code>). Mặc định là <code className="text-foreground bg-muted border border-border px-1.5 py-0.5 rounded font-mono font-semibold">false</code>. Khi đặt bằng <code className="text-foreground bg-muted border border-border px-1.5 py-0.5 rounded font-mono font-semibold">true</code>, API sinh hoặc kiểm tra trạng thái sẽ xuất dữ liệu mốc thời gian dạng danh sách JSON trong trường <code className="text-primary/90 font-mono">alignment</code>.
                 </p>
               </div>
+
+              <div>
+                <span className="font-mono text-primary/90 font-bold">language</span>
+                <span className="text-muted-foreground text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Mã ngôn ngữ đích (vd: <code className="text-foreground bg-muted border border-border px-1.5 py-0.5 rounded font-mono font-semibold">vi</code>, <code className="text-foreground bg-muted border border-border px-1.5 py-0.5 rounded font-mono font-semibold">en</code>, <code className="text-foreground bg-muted border border-border px-1.5 py-0.5 rounded font-mono font-semibold">zh</code>, <code className="text-foreground bg-muted border border-border px-1.5 py-0.5 rounded font-mono font-semibold">ja</code>, <code className="text-foreground bg-muted border border-border px-1.5 py-0.5 rounded font-mono font-semibold">ko</code>).
+                </p>
+              </div>
+
+              <div>
+                <span className="font-mono text-primary/90 font-bold">pad_duration</span>
+                <span className="text-muted-foreground text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Thời lượng đệm khoảng lặng (giây) vào đầu hoặc cuối file âm thanh (0.0 đến 2.0s).
+                </p>
+              </div>
+
+              <div>
+                <span className="font-mono text-primary/90 font-bold">fade_duration</span>
+                <span className="text-muted-foreground text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Thời lượng làm mượt fade in / fade out âm lượng ở hai đầu tệp âm thanh (0.0 đến 1.0s).
+                </p>
+              </div>
+
+              <div>
+                <span className="font-mono text-primary/90 font-bold">normalize_text</span>
+                <span className="text-muted-foreground text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Tự động chuẩn hóa số, ngày tháng, tiền tệ, đơn vị đo lường thành chữ đọc tự nhiên. Mặc định là <code className="text-foreground bg-muted border border-border px-1.5 py-0.5 rounded font-mono font-semibold">true</code>. Đặt bằng <code className="text-foreground bg-muted border border-border px-1.5 py-0.5 rounded font-mono font-semibold">false</code> nếu muốn đọc chính xác ký tự thô.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -774,6 +809,49 @@ generateSpeech();`
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Text Normalization & Engine Performance */}
+          <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-3 shadow-xl">
+            <div className="flex items-center gap-2 border-b border-border pb-2">
+              <Zap className="w-4 h-4 text-warning animate-pulse" />
+              <h3 className="font-bold text-xs text-foreground uppercase tracking-wider">
+                Chuẩn hóa văn bản thông minh &amp; Tăng tốc phần cứng GPU
+              </h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-2 p-3 bg-background/60 border border-border/60 rounded-xl">
+                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <BookOpen className="w-3.5 h-3.5 text-primary" />
+                  Chuẩn hóa văn bản (Normalize Text)
+                </span>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Khi bật <code className="text-primary font-mono">normalize_text: true</code> (mặc định), hệ thống tự động nhận diện và chuyển thành chữ đọc chuẩn xác:
+                </p>
+                <ul className="text-[11px] text-muted-foreground list-disc list-inside space-y-1 pl-1">
+                  <li><strong className="text-foreground">Số tự nhiên / thứ tự:</strong> <code className="text-[10px] font-mono">123</code> &rarr; <em>một trăm hai mươi ba</em></li>
+                  <li><strong className="text-foreground">Ngày tháng năm:</strong> <code className="text-[10px] font-mono">20/11/2024</code> &rarr; <em>ngày hai mươi tháng mười một...</em></li>
+                  <li><strong className="text-foreground">Tiền tệ:</strong> <code className="text-[10px] font-mono">50.000đ</code> &rarr; <em>năm mươi nghìn đồng</em>, <code className="text-[10px] font-mono">$100</code> &rarr; <em>một trăm đô la</em></li>
+                  <li><strong className="text-foreground">Đơn vị &amp; %:</strong> <code className="text-[10px] font-mono">99%</code> &rarr; <em>chín mươi chín phần trăm</em></li>
+                </ul>
+              </div>
+
+              <div className="flex flex-col gap-2 p-3 bg-background/60 border border-border/60 rounded-xl">
+                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Cpu className="w-3.5 h-3.5 text-warning" />
+                  Động cơ OmniVoice thế hệ mới &amp; Caching
+                </span>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Voice.oloka.net đã nâng cấp engine OmniVoice mới nhất với các cải tiến hiệu năng vượt trội:
+                </p>
+                <ul className="text-[11px] text-muted-foreground list-disc list-inside space-y-1 pl-1">
+                  <li><strong className="text-foreground">FlashInfer Ragged Attention:</strong> Tăng tốc xử lý GPU lên 2x–3x lần, giảm độ trễ cho từng câu đọc.</li>
+                  <li><strong className="text-foreground">VoiceClonePrompt Caching:</strong> Tự động lưu cache vector đặc trưng giọng mẫu trong tác vụ lồng tiếng video, tiết kiệm &gt;70% thời gian xử lý.</li>
+                  <li><strong className="text-foreground">Tùy biến đệm âm:</strong> Hỗ trợ tinh chỉnh <code className="text-primary font-mono">pad_duration</code> và <code className="text-primary font-mono">fade_duration</code> giúp câu thoại tự nhiên, không bị giật.</li>
+                </ul>
               </div>
             </div>
           </div>

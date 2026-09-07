@@ -54,6 +54,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
   const [language, setLanguage] = useState("");
   const [padDuration, setPadDuration] = useState<string>("");
   const [fadeDuration, setFadeDuration] = useState<string>("");
+  const [normalizeText, setNormalizeText] = useState<boolean>(true);
   
   const [activePreset, setActivePreset] = useState("Tự nhiên");
 
@@ -138,7 +139,8 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
       audio_chunk_threshold: audioChunkThreshold,
       language: language || undefined,
       pad_duration: padDuration !== "" ? parseFloat(padDuration) : undefined,
-      fade_duration: fadeDuration !== "" ? parseFloat(fadeDuration) : undefined
+      fade_duration: fadeDuration !== "" ? parseFloat(fadeDuration) : undefined,
+      normalize_text: normalizeText
     };
 
     try {
@@ -439,6 +441,19 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
                           className="bg-background border border-border rounded-lg text-xs p-2 focus:outline-none focus:ring-1 focus:ring-primary text-foreground w-full"
                         />
                       </div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-2.5 bg-background border border-border rounded-xl">
+                      <div className="flex flex-col pr-2">
+                        <span className="text-xs font-semibold text-foreground">Chuẩn hóa văn bản (Normalize Text)</span>
+                        <span className="text-[10px] text-muted-foreground">Tự động đọc chuẩn số, ngày tháng, tiền tệ thành chữ đọc</span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={normalizeText}
+                        onChange={e => setNormalizeText(e.target.checked)}
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary cursor-pointer accent-primary"
+                      />
                     </div>
                   </div>
                 )}

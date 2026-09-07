@@ -113,6 +113,6 @@ if os.path.exists("/data") and os.access("/data", os.W_OK):
         os.makedirs("/data/storage", exist_ok=True)
     except Exception as e:
         print(f"[Config] Error creating persistent storage directories: {e}")
-    settings.DATABASE_URL = "sqlite:////data/db/omnivoice_gateway.db?nolock=1"
+    settings.DATABASE_URL = "sqlite:////data/db/omnivoice_gateway.db"
     settings.STORAGE_DIR = "/data/storage"
 

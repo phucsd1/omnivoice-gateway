@@ -89,7 +89,7 @@ class KaggleNotebookBuilder:
     def generate_requirements(worker_dir: str) -> str:
         """Generates or updates the requirements.txt file."""
         req_path = os.path.join(worker_dir, "requirements.txt")
-        req_content = "omnivoice\nsoundfile\nrequests\nfaster-whisper\n"
+        req_content = "omnivoice @ git+https://github.com/k2-fsa/OmniVoice.git\nsoundfile\nrequests\nfaster-whisper\nnum2words\n"
         
         with open(req_path, "w", encoding="utf-8") as f:
             f.write(req_content)
@@ -163,16 +163,23 @@ os.environ["HUGGING_FACE_HUB_TOKEN"] = {repr(hf_token)}
 warnings.filterwarnings("ignore")
 
 def ensure_dependencies():
-    \"\"\"Dynamically checks and installs required packages inside the Kaggle environment if missing.\"\"\"
+    \"\"\"Dynamically checks and installs required packages inside the Kaggle environment if missing or outdated.\"\"\"
     missing = []
+    need_omnivoice_upgrade = False
     try:
         import omnivoice
-    except ImportError:
-        missing.append("omnivoice")
+        from omnivoice.models.omnivoice import VoiceClonePrompt
+    except (ImportError, AttributeError):
+        need_omnivoice_upgrade = True
+
     try:
         import soundfile
     except ImportError:
         missing.append("soundfile")
+    try:
+        import num2words
+    except ImportError:
+        missing.append("num2words")
     try:
         import modelscope
     except ImportError:
@@ -190,8 +197,21 @@ def ensure_dependencies():
     except ImportError:
         missing.append("faster-whisper")
         
+    import subprocess
+    if need_omnivoice_upgrade:
+        print("Installing/Upgrading OmniVoice to latest upstream with VoiceClonePrompt & FlashInfer...")
+        try:
+            subprocess.check_call([
+                sys.executable, "-m", "pip", "install", "-q",
+                "--no-cache-dir", "--prefer-binary",
+                "git+https://github.com/k2-fsa/OmniVoice.git"
+            ])
+            print("OmniVoice latest upstream installed successfully.")
+        except Exception as git_err:
+            print(f"Notice: git install failed ({{git_err}}), falling back to omnivoice[tn]...")
+            missing.append("omnivoice[tn]")
+
     if missing:
-        import subprocess
         print(f"Installing missing dependencies: {{', '.join(missing)}}")
         try:
             # Install packages silently with fast flags
@@ -204,6 +224,21 @@ def ensure_dependencies():
         except Exception as e:
             print(f"Failed to install dependencies: {{e}}")
             sys.exit(1)
+
+    # Optional: Try installing flashinfer for CUDA acceleration
+    try:
+        import flashinfer
+    except ImportError:
+        try:
+            import torch
+            if torch.cuda.is_available():
+                print("Attempting to install flashinfer-python for 2x inference speedup...")
+                subprocess.run([
+                    sys.executable, "-m", "pip", "install", "-q",
+                    "flashinfer-python", "--prefer-binary"
+                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=45)
+        except Exception:
+            pass
 
 # Ensure dependencies are available before anything else runs
 ensure_dependencies()
@@ -553,6 +588,14 @@ def main():
             )
             log("OmniVoice model loaded successfully from local path.")
         log("OmniVoice model loaded successfully.")
+
+        # Attempt FlashInfer acceleration (2x - 2.9x lossless speedup)
+        try:
+            from omnivoice.models.omnivoice_flashinfer import apply_flashinfer
+            apply_flashinfer(model, enable_cuda_graph=False)
+            log("⚡ FlashInfer acceleration successfully applied to OmniVoice (2x+ speedup).")
+        except Exception as fi_err:
+            log(f"FlashInfer acceleration not applied (running standard inference): {{fi_err}}")
     except Exception as e:
         log(f"CRITICAL ERROR loading OmniVoice model: {{e}}")
         try:
@@ -764,6 +807,21 @@ def main():
                     
                     created_files = []
                     
+                    # Pre-compute VoiceClonePrompt ONCE for all segments to save massive processing time
+                    voice_clone_prompt = None
+                    if local_ref_path and os.path.exists(local_ref_path):
+                        if hasattr(model, "create_voice_clone_prompt"):
+                            try:
+                                log("Pre-computing reusable VoiceClonePrompt for all segments...")
+                                voice_clone_prompt = model.create_voice_clone_prompt(
+                                    ref_audio=local_ref_path,
+                                    ref_text=job.get("ref_text")
+                                )
+                                log("VoiceClonePrompt successfully pre-computed.")
+                            except Exception as p_err:
+                                log(f"Notice: create_voice_clone_prompt fallback to raw audio: {{p_err}}")
+                                voice_clone_prompt = None
+
                     for idx, seg in enumerate(segments):
                         seg_id = seg.get("id", idx + 1) if isinstance(seg, dict) else (idx + 1)
                         seg_text = seg.get("text", "") if isinstance(seg, dict) else str(seg)
@@ -773,11 +831,21 @@ def main():
                         
                         log(f"Dubbing segment {{seg_id}}: '{{seg_text}}' (target duration: {{target_dur}}s)")
                         
+                        gen_kwargs = {{"text": seg_text, "normalize_text": True}}
+                        if voice_clone_prompt is not None:
+                            gen_kwargs["voice_clone_prompt"] = voice_clone_prompt
+                        elif local_ref_path and os.path.exists(local_ref_path):
+                            gen_kwargs["ref_audio"] = local_ref_path
+                        
                         # Generate first try
-                        audio_res = model.generate(
-                            text=seg_text,
-                            ref_audio=local_ref_path,
-                        )
+                        try:
+                            audio_res = model.generate(**gen_kwargs)
+                        except TypeError as t_err:
+                            if "normalize_text" in str(t_err):
+                                gen_kwargs.pop("normalize_text", None)
+                                audio_res = model.generate(**gen_kwargs)
+                            else:
+                                raise
                         
                         # Check duration
                         synth_dur = len(audio_res[0]) / 24000.0
@@ -787,11 +855,15 @@ def main():
                         if synth_dur > target_dur + 0.2:
                             speed_val = min(2.5, max(1.1, synth_dur / target_dur))
                             log(f"Re-generating segment {{seg_id}} with speed={{speed_val}}...")
-                            audio_res = model.generate(
-                                text=seg_text,
-                                ref_audio=local_ref_path,
-                                speed=speed_val
-                            )
+                            gen_kwargs["speed"] = speed_val
+                            try:
+                                audio_res = model.generate(**gen_kwargs)
+                            except TypeError as t_err:
+                                if "normalize_text" in str(t_err):
+                                    gen_kwargs.pop("normalize_text", None)
+                                    audio_res = model.generate(**gen_kwargs)
+                                else:
+                                    raise
                         
                         seg_wav_name = f"segment_{{seg_id}}.wav"
                         sf.write(seg_wav_name, audio_res[0], 24000, format='WAV', subtype='PCM_16')
@@ -883,14 +955,23 @@ def main():
                     "position_temperature", "class_temperature", "layer_penalty_factor",
                     "duration", "speed", "preprocess_prompt", "postprocess_output",
                     "audio_chunk_duration", "audio_chunk_threshold",
-                    "language", "pad_duration", "fade_duration"
+                    "language", "pad_duration", "fade_duration", "normalize_text"
                 ]
                 for key in optional_keys:
                     if key in job and job[key] is not None:
                         generate_args[key] = job[key]
+                if "normalize_text" not in generate_args:
+                    generate_args["normalize_text"] = True
 
                 log(f"Calling model.generate with arguments: {{list(generate_args.keys())}}")
-                audio_result = model.generate(**generate_args)
+                try:
+                    audio_result = model.generate(**generate_args)
+                except TypeError as t_err:
+                    if "normalize_text" in str(t_err):
+                        generate_args.pop("normalize_text", None)
+                        audio_result = model.generate(**generate_args)
+                    else:
+                        raise
 
                 # Clean up local ref path if exists
                 if local_ref_path and os.path.exists(local_ref_path):
@@ -1116,16 +1197,23 @@ os.environ["HUGGING_FACE_HUB_TOKEN"] = {repr(hf_token)}
 warnings.filterwarnings("ignore")
 
 def ensure_dependencies():
-    \"\"\"Dynamically checks and installs required packages inside the Kaggle environment if missing.\"\"\"
+    \"\"\"Dynamically checks and installs required packages inside the Kaggle environment if missing or outdated.\"\"\"
     missing = []
+    need_omnivoice_upgrade = False
     try:
         import omnivoice
-    except ImportError:
-        missing.append("omnivoice")
+        from omnivoice.models.omnivoice import VoiceClonePrompt
+    except (ImportError, AttributeError):
+        need_omnivoice_upgrade = True
+
     try:
         import soundfile
     except ImportError:
         missing.append("soundfile")
+    try:
+        import num2words
+    except ImportError:
+        missing.append("num2words")
     try:
         import modelscope
     except ImportError:
@@ -1143,8 +1231,21 @@ def ensure_dependencies():
     except ImportError:
         missing.append("faster-whisper")
         
+    import subprocess
+    if need_omnivoice_upgrade:
+        print("Installing/Upgrading OmniVoice to latest upstream with VoiceClonePrompt & FlashInfer...")
+        try:
+            subprocess.check_call([
+                sys.executable, "-m", "pip", "install", "-q",
+                "--no-cache-dir", "--prefer-binary",
+                "git+https://github.com/k2-fsa/OmniVoice.git"
+            ])
+            print("OmniVoice latest upstream installed successfully.")
+        except Exception as git_err:
+            print(f"Notice: git install failed ({{git_err}}), falling back to omnivoice[tn]...")
+            missing.append("omnivoice[tn]")
+
     if missing:
-        import subprocess
         print(f"Installing missing dependencies: {{', '.join(missing)}}")
         try:
             # Install packages silently with fast flags
@@ -1157,6 +1258,21 @@ def ensure_dependencies():
         except Exception as e:
             print(f"Failed to install dependencies: {{e}}")
             sys.exit(1)
+
+    # Optional: Try installing flashinfer for CUDA acceleration
+    try:
+        import flashinfer
+    except ImportError:
+        try:
+            import torch
+            if torch.cuda.is_available():
+                print("Attempting to install flashinfer-python for 2x inference speedup...")
+                subprocess.run([
+                    sys.executable, "-m", "pip", "install", "-q",
+                    "flashinfer-python", "--prefer-binary"
+                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=45)
+        except Exception:
+            pass
 
 # Ensure dependencies are available before anything else runs
 ensure_dependencies()
@@ -1338,6 +1454,16 @@ def main():
             print("OmniVoice model loaded successfully from local path.")
             sys.stdout.flush()
         print("OmniVoice model loaded successfully.")
+
+        # Attempt FlashInfer acceleration (2x - 2.9x lossless speedup)
+        try:
+            from omnivoice.models.omnivoice_flashinfer import apply_flashinfer
+            apply_flashinfer(model, enable_cuda_graph=False)
+            print("⚡ FlashInfer acceleration successfully applied to OmniVoice (2x+ speedup).")
+            sys.stdout.flush()
+        except Exception as fi_err:
+            print(f"FlashInfer acceleration not applied (running standard inference): {{fi_err}}")
+            sys.stdout.flush()
     except Exception as e:
         print(f"CRITICAL ERROR loading OmniVoice model: {{e}}")
         sys.stdout.flush()
@@ -1419,14 +1545,22 @@ def main():
             "audio_chunk_threshold": AUDIO_CHUNK_THRESHOLD,
             "language": LANGUAGE,
             "pad_duration": PAD_DURATION,
-            "fade_duration": FADE_DURATION
+            "fade_duration": FADE_DURATION,
+            "normalize_text": True
         }}
         for key, val in params_map.items():
             if val is not None:
                 generate_args[key] = val
 
         print(f"Calling model.generate with arguments: {{list(generate_args.keys())}}")
-        audio_result = model.generate(**generate_args)
+        try:
+            audio_result = model.generate(**generate_args)
+        except TypeError as t_err:
+            if "normalize_text" in str(t_err):
+                generate_args.pop("normalize_text", None)
+                audio_result = model.generate(**generate_args)
+            else:
+                raise
 
         # Save to output.wav in the current directory (which is /kaggle/working/ output folder)
         output_filename = "output.wav"

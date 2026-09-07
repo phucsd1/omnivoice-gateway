@@ -44,7 +44,8 @@ def create_tts_job(payload: TTSJobCreate, request: Request, db: Session = Depend
             with_alignment=payload.with_alignment,
             language=payload.language,
             pad_duration=payload.pad_duration,
-            fade_duration=payload.fade_duration
+            fade_duration=payload.fade_duration,
+            normalize_text=payload.normalize_text
         )
         return TTSJobResponse(
             job_id=job.id,

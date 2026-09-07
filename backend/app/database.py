@@ -7,21 +7,27 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.event import listens_for
 from app.config import settings
 
+def get_sqlite_path(db_url: str) -> str:
+    if not db_url.startswith("sqlite"):
+        return db_url
+    path = db_url
+    if "?" in path:
+        path = path.split("?")[0]
+    for prefix in ["sqlite:////", "sqlite:///", "sqlite://", "sqlite:"]:
+        if path.startswith(prefix):
+            path = path[len(prefix):]
+            if prefix == "sqlite:////" and not path.startswith("/"):
+                path = "/" + path
+            elif prefix == "sqlite:///" and not path.startswith(".") and not (len(path) > 1 and path[1] == ":") and not path.startswith("/"):
+                path = "/" + path
+            break
+    return path
+
 def test_db_writable(db_url: str) -> bool:
     if not db_url.startswith("sqlite"):
         return True
     
-    # Extract file path
-    db_path = db_url
-    if db_path.startswith("sqlite:///"):
-        db_path = db_path[10:]
-    elif db_path.startswith("sqlite://"):
-        db_path = db_path[9:]
-    elif db_path.startswith("sqlite:"):
-        db_path = db_path[7:]
-    if "?" in db_path:
-        db_path = db_path.split("?")[0]
-        
+    db_path = get_sqlite_path(db_url)
     parent_dir = os.path.dirname(db_path)
     if parent_dir:
         try:
@@ -30,10 +36,9 @@ def test_db_writable(db_url: str) -> bool:
             print(f"[Database Init] Failed to create directory {parent_dir}: {e}")
             return False
             
-    import sqlite3
     conn = None
     try:
-        conn = sqlite3.connect(db_path, timeout=5)
+        conn = sqlite3.connect(db_path, timeout=10)
         cursor = conn.cursor()
         cursor.execute("PRAGMA journal_mode=DELETE")
         cursor.execute("CREATE TABLE IF NOT EXISTS _write_test (id INTEGER PRIMARY KEY)")
@@ -55,16 +60,7 @@ def check_and_recover_database(db_url: str):
     if not db_url.startswith("sqlite"):
         return
         
-    db_path = db_url
-    if db_path.startswith("sqlite:///"):
-        db_path = db_path[10:]
-    elif db_path.startswith("sqlite://"):
-        db_path = db_path[9:]
-    elif db_path.startswith("sqlite:"):
-        db_path = db_path[7:]
-    if "?" in db_path:
-        db_path = db_path.split("?")[0]
-        
+    db_path = get_sqlite_path(db_url)
     if not os.path.exists(db_path):
         return
         
@@ -72,7 +68,7 @@ def check_and_recover_database(db_url: str):
     import time
     conn = None
     try:
-        conn = sqlite3.connect(db_path, timeout=5)
+        conn = sqlite3.connect(db_path, timeout=10)
         cursor = conn.cursor()
         cursor.execute("PRAGMA integrity_check")
         result = cursor.fetchone()[0]
@@ -136,16 +132,7 @@ if resolved_db_url.startswith("sqlite"):
 
 # Cleanup stale SQLite WAL/SHM lock files on start to prevent disk I/O errors on network drives
 if settings.DATABASE_URL.startswith("sqlite"):
-    db_path = settings.DATABASE_URL
-    if db_path.startswith("sqlite:///"):
-        db_path = db_path[10:]
-    elif db_path.startswith("sqlite://"):
-        db_path = db_path[9:]
-    elif db_path.startswith("sqlite:"):
-        db_path = db_path[7:]
-    if "?" in db_path:
-        db_path = db_path.split("?")[0]
-        
+    db_path = get_sqlite_path(settings.DATABASE_URL)
     for suffix in ["-shm", "-wal"]:
         lock_file = db_path + suffix
         if os.path.exists(lock_file):
@@ -155,13 +142,12 @@ if settings.DATABASE_URL.startswith("sqlite"):
             except Exception as e:
                 print(f"[Database Error] Failed to remove lock file {lock_file}: {e}")
 
-# For SQLite, we need connect_args={"check_same_thread": False, "timeout": 30, "uri": True}
+# For SQLite, we set timeout=60 and check_same_thread=False
 connect_args = {}
 if settings.DATABASE_URL.startswith("sqlite"):
     connect_args = {
         "check_same_thread": False,
-        "timeout": 30,
-        "uri": True
+        "timeout": 60
     }
 
 engine = create_engine(
@@ -169,7 +155,6 @@ engine = create_engine(
     connect_args=connect_args,
     echo=False
 )
-
 
 # Apply performance and lock-avoidance pragmas to SQLite connections
 @listens_for(engine, "connect")
@@ -179,7 +164,7 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
             cursor = dbapi_connection.cursor()
             # Force DELETE journal mode to avoid .shm / .wal lock files on NFS
             cursor.execute("PRAGMA journal_mode=DELETE")
-            cursor.execute("PRAGMA busy_timeout=30000")
+            cursor.execute("PRAGMA busy_timeout=60000")
             cursor.execute("PRAGMA synchronous=NORMAL")
             cursor.close()
         except Exception as e:
@@ -245,7 +230,8 @@ def migrate_database(db_url: str):
             "language": "VARCHAR(50)",
             "pad_duration": "FLOAT",
             "fade_duration": "FLOAT",
-            "cdn_audio_url": "TEXT"
+            "cdn_audio_url": "TEXT",
+            "normalize_text": "BOOLEAN DEFAULT 1"
         }
         
         for col, col_type in new_cols.items():
@@ -293,24 +279,11 @@ def migrate_database(db_url: str):
     finally:
         conn.close()
 
-    # Automatically rescue data from any backed up corrupted database files
-    salvage_corrupted_databases(db_url)
-    auto_align_legacy_user_ids(db_url)
-
 def auto_align_legacy_user_ids(db_url: str):
     if not db_url.startswith("sqlite"):
         return
         
-    db_path = db_url
-    if db_path.startswith("sqlite:///"):
-        db_path = db_path[10:]
-    elif db_path.startswith("sqlite://"):
-        db_path = db_path[9:]
-    elif db_path.startswith("sqlite:"):
-        db_path = db_path[7:]
-    if "?" in db_path:
-        db_path = db_path.split("?")[0]
-        
+    db_path = get_sqlite_path(db_url)
     if not os.path.exists(db_path):
         return
         
@@ -337,25 +310,16 @@ def salvage_corrupted_databases(db_url: str):
     if not db_url.startswith("sqlite"):
         return
         
-    db_path = db_url
-    if db_path.startswith("sqlite:///"):
-        db_path = db_path[10:]
-    elif db_path.startswith("sqlite://"):
-        db_path = db_path[9:]
-    elif db_path.startswith("sqlite:"):
-        db_path = db_path[7:]
-    if "?" in db_path:
-        db_path = db_path.split("?")[0]
-        
+    db_path = get_sqlite_path(db_url)
     db_dir = os.path.dirname(db_path) or "."
     base_name = os.path.basename(db_path)
     
     if not os.path.exists(db_dir):
         return
         
-    # Clean up any leftover recursive .restored or lock backup files
+    # Clean up any leftover lock backup files (keep .restored files as safe backups)
     for f in glob.glob(os.path.join(db_dir, f"{base_name}.corrupt_*")):
-        if f.count(".restored") > 0 or f.endswith("-shm") or f.endswith("-wal") or "-shm." in f or "-wal." in f:
+        if f.endswith("-shm") or f.endswith("-wal") or "-shm." in f or "-wal." in f:
             try: os.remove(f)
             except: pass
             
@@ -364,22 +328,41 @@ def salvage_corrupted_databases(db_url: str):
         if not f.endswith("-shm") and not f.endswith("-wal") and not f.endswith(".restored") and ".restored" not in f and "-shm." not in f and "-wal." not in f
     ]
     
-    if not corrupt_files:
-        return
-        
-    print(f"[Database Salvage] Found {len(corrupt_files)} corrupted backup database file(s) to restore.")
-    
-    tables_to_restore = [
-        "users", "api_keys", "voice_samples", "llm_profiles",
-        "system_settings", "tts_jobs", "worker_sessions", "api_usage_logs"
-    ]
-    
     try:
         target_conn = sqlite3.connect(db_path, timeout=30)
         target_cursor = target_conn.cursor()
     except Exception as e:
         print(f"[Database Salvage Error] Failed to connect to active database {db_path}: {e}")
         return
+
+    # If no unhandled corrupt files, check if active database is empty/incomplete (< 6 voice samples)
+    if not corrupt_files:
+        try:
+            target_cursor.execute("SELECT COUNT(*) FROM voice_samples")
+            vs_cnt = target_cursor.fetchone()[0]
+        except Exception:
+            vs_cnt = 0
+            
+        if vs_cnt < 6:
+            restored_candidates = [
+                f for f in glob.glob(os.path.join(db_dir, f"{base_name}.corrupt_*.restored"))
+                if not f.endswith("-shm") and not f.endswith("-wal")
+            ]
+            if restored_candidates:
+                print(f"[Database Salvage] Active database has only {vs_cnt} voice samples. Rescuing from {len(restored_candidates)} backup(s)...")
+                corrupt_files.extend(restored_candidates)
+
+    if not corrupt_files:
+        target_conn.close()
+        return
+        
+    print(f"[Database Salvage] Found {len(corrupt_files)} backup database file(s) to restore.")
+    
+    tables_to_restore = [
+        "users", "api_keys", "voice_samples", "llm_profiles",
+        "system_settings", "user_settings", "voice_design_previews",
+        "tts_jobs", "worker_sessions", "api_usage_logs", "video_dubbing_jobs"
+    ]
     
     for corrupt_file in corrupt_files:
         print(f"[Database Salvage] Rescuing data from {corrupt_file}...")
@@ -389,12 +372,24 @@ def salvage_corrupted_databases(db_url: str):
             
             for table in tables_to_restore:
                 try:
-                    source_cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,))
-                    if not source_cursor.fetchone():
+                    source_cursor.execute("SELECT name, sql FROM sqlite_master WHERE type='table' AND name=?", (table,))
+                    s_row = source_cursor.fetchone()
+                    if not s_row:
                         continue
+                    table_sql = s_row[1]
                         
                     target_cursor.execute(f"PRAGMA table_info({table})")
                     target_cols = [row[1] for row in target_cursor.fetchall()]
+                    if not target_cols and table_sql:
+                        try:
+                            target_cursor.execute(table_sql)
+                            target_conn.commit()
+                            target_cursor.execute(f"PRAGMA table_info({table})")
+                            target_cols = [row[1] for row in target_cursor.fetchall()]
+                        except Exception as create_err:
+                            print(f"[Database Salvage] Failed to create table '{table}': {create_err}")
+                            continue
+                            
                     if not target_cols:
                         continue
                         
@@ -443,9 +438,12 @@ def salvage_corrupted_databases(db_url: str):
                     print(f"[Database Salvage Error] Table '{table}': {table_err}")
             
             source_conn.close()
-            restored_path = f"{corrupt_file}.restored"
-            os.rename(corrupt_file, restored_path)
-            print(f"[Database Salvage] Data recovery completed for {corrupt_file} -> {restored_path}")
+            if not corrupt_file.endswith(".restored"):
+                restored_path = f"{corrupt_file}.restored"
+                os.rename(corrupt_file, restored_path)
+                print(f"[Database Salvage] Data recovery completed for {corrupt_file} -> {restored_path}")
+            else:
+                print(f"[Database Salvage] Data recovery completed from {corrupt_file}")
         except Exception as file_err:
             print(f"[Database Salvage Error] Opening {corrupt_file}: {file_err}")
             
@@ -457,9 +455,3 @@ def get_db():
         yield db
     finally:
         db.close()
-
-# Execute migration automatically on import
-try:
-    migrate_database(settings.DATABASE_URL)
-except Exception as _mig_err:
-    print(f"[Database Migration Warning] {_mig_err}")

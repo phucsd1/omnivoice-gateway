@@ -43,4 +43,8 @@ scratch/
 scratch_kaggle_test/
 omnivoice-gpu-worker.py
 omnivoice-worker.py
+backend/dubbing_jobs/
+*.mp4
+tmp_*
+test_*.py
 

@@ -101,7 +101,11 @@ def get_next_job(worker_id: str, request: Request, db: Session = Depends(get_db)
         postprocess_output=job.postprocess_output,
         audio_chunk_duration=job.audio_chunk_duration,
         audio_chunk_threshold=job.audio_chunk_threshold,
-        with_alignment=job.with_alignment
+        with_alignment=job.with_alignment,
+        language=getattr(job, "language", None),
+        pad_duration=getattr(job, "pad_duration", None),
+        fade_duration=getattr(job, "fade_duration", None),
+        normalize_text=getattr(job, "normalize_text", True) if getattr(job, "normalize_text", None) is not None else True
     )
 
     return WorkerNextJobResponse(job=payload, message="Job assigned")
