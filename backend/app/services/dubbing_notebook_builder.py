@@ -314,7 +314,7 @@ def main():
                     log(f"Dubbing segment {{seg_id}}: '{{seg_text}}' (target dur: {{target_dur}}s)")
 
                     if model:
-                        gen_kwargs = {{"text": seg_text, "normalize_text": True}}
+                        gen_kwargs = {{"text": seg_text}}
                         if voice_clone_prompt is not None:
                             gen_kwargs["voice_clone_prompt"] = voice_clone_prompt
                         elif local_ref_path and os.path.exists(local_ref_path):
@@ -322,8 +322,9 @@ def main():
 
                         try:
                             audio_res = model.generate(**gen_kwargs)
-                        except TypeError as t_err:
-                            if "normalize_text" in str(t_err):
+                        except (TypeError, ImportError, Exception) as t_err:
+                            err_str = str(t_err).lower()
+                            if any(k in err_str for k in ["normalize_text", "wetextprocessing", "pynini", "no module named 'tn'", "module 'tn'"]):
                                 gen_kwargs.pop("normalize_text", None)
                                 audio_res = model.generate(**gen_kwargs)
                             else:
@@ -335,8 +336,9 @@ def main():
                             gen_kwargs["speed"] = speed_val
                             try:
                                 audio_res = model.generate(**gen_kwargs)
-                            except TypeError as t_err:
-                                if "normalize_text" in str(t_err):
+                            except (TypeError, ImportError, Exception) as t_err:
+                                err_str = str(t_err).lower()
+                                if any(k in err_str for k in ["normalize_text", "wetextprocessing", "pynini", "no module named 'tn'", "module 'tn'"]):
                                     gen_kwargs.pop("normalize_text", None)
                                     audio_res = model.generate(**gen_kwargs)
                                 else:

@@ -231,7 +231,7 @@ def migrate_database(db_url: str):
             "pad_duration": "FLOAT",
             "fade_duration": "FLOAT",
             "cdn_audio_url": "TEXT",
-            "normalize_text": "BOOLEAN DEFAULT 1"
+            "normalize_text": "BOOLEAN DEFAULT 0"
         }
         
         for col, col_type in new_cols.items():

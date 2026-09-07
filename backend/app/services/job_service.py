@@ -108,7 +108,7 @@ class JobService:
         language: str = None,
         pad_duration: float = None,
         fade_duration: float = None,
-        normalize_text: bool = True
+        normalize_text: bool = False
     ) -> tuple[VoiceDesignPreview, TTSJob]:
         """Creates a VoiceDesignPreview entry and triggers a background preview TTS job."""
         preview_id = generate_id("vd")
@@ -189,7 +189,7 @@ class JobService:
         language: str = None,
         pad_duration: float = None,
         fade_duration: float = None,
-        normalize_text: bool = True
+        normalize_text: bool = False
     ) -> TTSJob:
         """Creates a TTS job based on the chosen mode (clone_voice, auto_voice, voice_design)."""
         job_id = generate_id("job")

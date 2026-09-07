@@ -57,7 +57,7 @@ The TTS pipeline operates asynchronously. You create a job, poll its status, and
 | `language` | string | Optional | - | Target language code (e.g. `vi`, `en`, `zh`, `ja`, `ko`, `fr`, `de`, `es`). |
 | `pad_duration` | float | Optional | - | Additional silence padding duration (seconds). |
 | `fade_duration` | float | Optional | - | Smooth fade in/out duration (seconds). |
-| `normalize_text` | boolean | Optional | `true` | Automatically normalize numbers, dates, abbreviations, and currencies into words. |
+| `normalize_text` | boolean | Optional | `false` | Automatically normalize numbers, dates, abbreviations, and currencies into words (English/Chinese). |
 
 #### Response (200 OK)
 ```json
@@ -146,7 +146,7 @@ Correct spelling overrides when terms, abbreviations, or names are mispronounced
   * `"打[ZHE2]出售"` (forces folding tone 2 for 折).
 
 ### 5.3 Text Normalization (Đọc chuẩn số & ký tự)
-Khi `normalize_text` được đặt thành `true` (mặc định), engine tự động chuyển hóa:
+Khi `normalize_text` được đặt thành `true` (mặc định: `false`, tối ưu cho Tiếng Anh & Tiếng Trung), engine tự động chuyển hóa:
 * Các con số và số thứ tự: `123` -> `"một trăm hai mươi ba"`.
 * Ngày tháng, năm: `20/11/2024` -> `"ngày hai mươi tháng mười một năm hai nghìn không trăm hai mươi tư"`.
 * Tiền tệ và đơn vị: `50.000đ`, `$100` -> `"năm mươi nghìn đồng"`, `"một trăm đô la"`.
@@ -354,7 +354,7 @@ curl -X POST "https://voice.oloka.net/v1/tts/jobs" \
     "speed": 1.0,
     "num_step": 32,
     "with_alignment": true,
-    "normalize_text": true
+    "normalize_text": false
   }'
 
 # 2. Get Job Status (Repeat every 3-5 seconds)
@@ -384,7 +384,7 @@ payload = {
     "voice_sample_id": "vs_xxxx",
     "text": "Xin chào, đây là tích hợp Python.",
     "with_alignment": True,
-    "normalize_text": True
+    "normalize_text": False
 }
 
 # 1. Submit request
@@ -438,7 +438,7 @@ async function execute() {
       voice_sample_id: 'vs_xxxx',
       text: 'Xin chào từ NodeJS client.',
       with_alignment: true,
-      normalize_text: true
+      normalize_text: false
     })
   });
   const { job_id } = await res.json();

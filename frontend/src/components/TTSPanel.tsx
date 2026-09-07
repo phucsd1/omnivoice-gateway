@@ -54,7 +54,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
   const [language, setLanguage] = useState("");
   const [padDuration, setPadDuration] = useState<string>("");
   const [fadeDuration, setFadeDuration] = useState<string>("");
-  const [normalizeText, setNormalizeText] = useState<boolean>(true);
+  const [normalizeText, setNormalizeText] = useState<boolean>(false);
   
   const [activePreset, setActivePreset] = useState("Tự nhiên");
 
@@ -446,7 +446,7 @@ export const TTSPanel: React.FC<TTSPanelProps> = ({
                     <div className="flex items-center justify-between p-2.5 bg-background border border-border rounded-xl">
                       <div className="flex flex-col pr-2">
                         <span className="text-xs font-semibold text-foreground">Chuẩn hóa văn bản (Normalize Text)</span>
-                        <span className="text-[10px] text-muted-foreground">Tự động đọc chuẩn số, ngày tháng, tiền tệ thành chữ đọc</span>
+                        <span className="text-[10px] text-muted-foreground">Tự động đọc chuẩn số, ngày tháng, tiền tệ thành chữ đọc (khuyên dùng cho Tiếng Anh/Trung)</span>
                       </div>
                       <input
                         type="checkbox"

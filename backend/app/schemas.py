@@ -139,7 +139,7 @@ class TTSJobCreate(BaseModel):
     language: Optional[str] = None
     pad_duration: Optional[float] = None
     fade_duration: Optional[float] = None
-    normalize_text: Optional[bool] = Field(True, description="Tự động chuẩn hóa số, ngày tháng, tiền tệ thành chữ đọc.")
+    normalize_text: Optional[bool] = Field(False, description="Tự động chuẩn hóa số, ngày tháng, tiền tệ thành chữ đọc (khuyên dùng cho Tiếng Anh/Trung). Mặc định: false.")
 
 class TTSJobResponse(BaseModel):
     job_id: str
@@ -228,7 +228,7 @@ class WorkerJobPayload(BaseModel):
     language: Optional[str] = None
     pad_duration: Optional[float] = None
     fade_duration: Optional[float] = None
-    normalize_text: Optional[bool] = True
+    normalize_text: Optional[bool] = False
 
 class WorkerNextJobResponse(BaseModel):
     job: Optional[WorkerJobPayload] = None

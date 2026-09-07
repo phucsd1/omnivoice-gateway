@@ -46,7 +46,7 @@ curl -X POST "${baseUrl}/v1/tts/jobs" \\
     "speed": 1.0,
     "num_step": 32,
     "with_alignment": true,
-    "normalize_text": true
+    "normalize_text": false
   }'
 
 # Phản hồi sẽ trả về {"job_id": "job_xxxx", "status": "queued"}
@@ -96,7 +96,7 @@ payload = {
     "speed": 1.0,
     "num_step": 32,
     "with_alignment": True,
-    "normalize_text": True
+    "normalize_text": False
 }
 
 print("Đang gửi yêu cầu TTS...")
@@ -179,7 +179,7 @@ async function generateSpeech() {
         speed: 1.0,
         num_step: 32,
         with_alignment: true,
-        normalize_text: true
+        normalize_text: false
       })
     });
     
@@ -509,7 +509,7 @@ generateSpeech();`
                 <span className="font-mono text-primary/90 font-bold">normalize_text</span>
                 <span className="text-muted-foreground text-[10px] ml-2 font-semibold">(Tùy chọn)</span>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
-                  Tự động chuẩn hóa số, ngày tháng, tiền tệ, đơn vị đo lường thành chữ đọc tự nhiên. Mặc định là <code className="text-foreground bg-muted border border-border px-1.5 py-0.5 rounded font-mono font-semibold">true</code>. Đặt bằng <code className="text-foreground bg-muted border border-border px-1.5 py-0.5 rounded font-mono font-semibold">false</code> nếu muốn đọc chính xác ký tự thô.
+                  Tự động chuẩn hóa số, ngày tháng, tiền tệ, đơn vị đo lường thành chữ đọc tự nhiên (tối ưu cho Tiếng Anh/Trung). Mặc định là <code className="text-foreground bg-muted border border-border px-1.5 py-0.5 rounded font-mono font-semibold">false</code>. Đặt bằng <code className="text-foreground bg-muted border border-border px-1.5 py-0.5 rounded font-mono font-semibold">true</code> khi cần chuẩn hóa văn bản Tiếng Anh/Trung.
                 </p>
               </div>
             </div>
@@ -829,7 +829,7 @@ generateSpeech();`
                   Chuẩn hóa văn bản (Normalize Text)
                 </span>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Khi bật <code className="text-primary font-mono">normalize_text: true</code> (mặc định), hệ thống tự động nhận diện và chuyển thành chữ đọc chuẩn xác:
+                  Khi bật <code className="text-primary font-mono">normalize_text: true</code> (mặc định: <code className="text-primary font-mono">false</code>, tối ưu cho Tiếng Anh &amp; Tiếng Trung), hệ thống tự động nhận diện và chuyển thành chữ đọc chuẩn xác:
                 </p>
                 <ul className="text-[11px] text-muted-foreground list-disc list-inside space-y-1 pl-1">
                   <li><strong className="text-foreground">Số tự nhiên / thứ tự:</strong> <code className="text-[10px] font-mono">123</code> &rarr; <em>một trăm hai mươi ba</em></li>

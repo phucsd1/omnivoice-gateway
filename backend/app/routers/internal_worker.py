@@ -105,7 +105,7 @@ def get_next_job(worker_id: str, request: Request, db: Session = Depends(get_db)
         language=getattr(job, "language", None),
         pad_duration=getattr(job, "pad_duration", None),
         fade_duration=getattr(job, "fade_duration", None),
-        normalize_text=getattr(job, "normalize_text", True) if getattr(job, "normalize_text", None) is not None else True
+        normalize_text=getattr(job, "normalize_text", False) if getattr(job, "normalize_text", None) is not None else False
     )
 
     return WorkerNextJobResponse(job=payload, message="Job assigned")

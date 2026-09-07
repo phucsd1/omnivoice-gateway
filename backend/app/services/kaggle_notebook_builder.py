@@ -240,6 +240,18 @@ def ensure_dependencies():
         except Exception:
             pass
 
+    # Optional: Try installing WeTextProcessing for text normalization if available
+    try:
+        from tn.english.normalizer import Normalizer
+    except ImportError:
+        try:
+            subprocess.run([
+                sys.executable, "-m", "pip", "install", "-q",
+                "WeTextProcessing", "--prefer-binary"
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=45)
+        except Exception:
+            pass
+
 # Ensure dependencies are available before anything else runs
 ensure_dependencies()
 
@@ -831,7 +843,7 @@ def main():
                         
                         log(f"Dubbing segment {{seg_id}}: '{{seg_text}}' (target duration: {{target_dur}}s)")
                         
-                        gen_kwargs = {{"text": seg_text, "normalize_text": True}}
+                        gen_kwargs = {{"text": seg_text}}
                         if voice_clone_prompt is not None:
                             gen_kwargs["voice_clone_prompt"] = voice_clone_prompt
                         elif local_ref_path and os.path.exists(local_ref_path):
@@ -840,8 +852,10 @@ def main():
                         # Generate first try
                         try:
                             audio_res = model.generate(**gen_kwargs)
-                        except TypeError as t_err:
-                            if "normalize_text" in str(t_err):
+                        except (TypeError, ImportError, Exception) as t_err:
+                            err_str = str(t_err).lower()
+                            if any(k in err_str for k in ["normalize_text", "wetextprocessing", "pynini", "no module named 'tn'", "module 'tn'"]):
+                                log(f"Notice: normalize_text failed ({{t_err}}). Retrying without text normalization...")
                                 gen_kwargs.pop("normalize_text", None)
                                 audio_res = model.generate(**gen_kwargs)
                             else:
@@ -858,8 +872,10 @@ def main():
                             gen_kwargs["speed"] = speed_val
                             try:
                                 audio_res = model.generate(**gen_kwargs)
-                            except TypeError as t_err:
-                                if "normalize_text" in str(t_err):
+                            except (TypeError, ImportError, Exception) as t_err:
+                                err_str = str(t_err).lower()
+                                if any(k in err_str for k in ["normalize_text", "wetextprocessing", "pynini", "no module named 'tn'", "module 'tn'"]):
+                                    log(f"Notice: normalize_text failed ({{t_err}}). Retrying without text normalization...")
                                     gen_kwargs.pop("normalize_text", None)
                                     audio_res = model.generate(**gen_kwargs)
                                 else:
@@ -960,14 +976,14 @@ def main():
                 for key in optional_keys:
                     if key in job and job[key] is not None:
                         generate_args[key] = job[key]
-                if "normalize_text" not in generate_args:
-                    generate_args["normalize_text"] = True
 
                 log(f"Calling model.generate with arguments: {{list(generate_args.keys())}}")
                 try:
                     audio_result = model.generate(**generate_args)
-                except TypeError as t_err:
-                    if "normalize_text" in str(t_err):
+                except (TypeError, ImportError, Exception) as gen_err:
+                    err_str = str(gen_err).lower()
+                    if any(k in err_str for k in ["normalize_text", "wetextprocessing", "pynini", "no module named 'tn'", "module 'tn'"]):
+                        log(f"Notice: normalize_text failed ({{gen_err}}). Retrying model.generate without text normalization...")
                         generate_args.pop("normalize_text", None)
                         audio_result = model.generate(**generate_args)
                     else:
@@ -1129,7 +1145,8 @@ if __name__ == '__main__':
                 "audio_chunk_threshold": 30.0,
                 "language": None,
                 "pad_duration": None,
-                "fade_duration": None
+                "fade_duration": None,
+                "normalize_text": False
             }
 
             if job:
@@ -1165,6 +1182,7 @@ if __name__ == '__main__':
             language = job_params["language"]
             pad_duration = job_params["pad_duration"]
             fade_duration = job_params["fade_duration"]
+            normalize_text = job_params.get("normalize_text", False)
 
             ref_audio_url = None
             if voice_sample_id:
@@ -1274,6 +1292,18 @@ def ensure_dependencies():
         except Exception:
             pass
 
+    # Optional: Try installing WeTextProcessing for text normalization if available
+    try:
+        from tn.english.normalizer import Normalizer
+    except ImportError:
+        try:
+            subprocess.run([
+                sys.executable, "-m", "pip", "install", "-q",
+                "WeTextProcessing", "--prefer-binary"
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=45)
+        except Exception:
+            pass
+
 # Ensure dependencies are available before anything else runs
 ensure_dependencies()
 
@@ -1303,6 +1333,7 @@ AUDIO_CHUNK_THRESHOLD = {audio_chunk_threshold}
 LANGUAGE = {repr(language)}
 PAD_DURATION = {pad_duration}
 FADE_DURATION = {fade_duration}
+NORMALIZE_TEXT = {repr(normalize_text)}
 WORKER_TOKEN = {repr(worker_token)}
 
 def main():
@@ -1546,7 +1577,7 @@ def main():
             "language": LANGUAGE,
             "pad_duration": PAD_DURATION,
             "fade_duration": FADE_DURATION,
-            "normalize_text": True
+            "normalize_text": NORMALIZE_TEXT
         }}
         for key, val in params_map.items():
             if val is not None:
@@ -1555,8 +1586,10 @@ def main():
         print(f"Calling model.generate with arguments: {{list(generate_args.keys())}}")
         try:
             audio_result = model.generate(**generate_args)
-        except TypeError as t_err:
-            if "normalize_text" in str(t_err):
+        except (TypeError, ImportError, Exception) as gen_err:
+            err_str = str(gen_err).lower()
+            if any(k in err_str for k in ["normalize_text", "wetextprocessing", "pynini", "no module named 'tn'", "module 'tn'"]):
+                print(f"Notice: normalize_text failed ({{gen_err}}). Retrying model.generate without text normalization...")
                 generate_args.pop("normalize_text", None)
                 audio_result = model.generate(**generate_args)
             else:

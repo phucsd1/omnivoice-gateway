@@ -64,7 +64,7 @@ def _build_job_response(job: TTSJob) -> JobStatusResponse:
         "language": job.language,
         "pad_duration": job.pad_duration,
         "fade_duration": job.fade_duration,
-        "normalize_text": getattr(job, "normalize_text", True)
+        "normalize_text": getattr(job, "normalize_text", False)
     }
     params_data = {k: v for k, v in params_data.items() if v is not None}
 
