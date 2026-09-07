@@ -120,7 +120,8 @@ WORKER_ID = f"dubbing-worker-{{os.uname().nodename if hasattr(os, 'uname') else 
 
 HEADERS = {{
     "Authorization": f"Bearer {{WORKER_TOKEN}}",
-    "User-Agent": f"OmniVoiceDubbingWorker/1.0 ({{WORKER_ID}})"
+    "User-Agent": f"OmniVoiceDubbingWorker/1.0 ({{WORKER_ID}})",
+    "X-Worker-Version": "2.1.0"
 }}
 
 def log(msg):
@@ -170,12 +171,6 @@ def main():
             load_asr=True
         )
         log("OmniVoice model loaded successfully.")
-        try:
-            from omnivoice.models.omnivoice_flashinfer import apply_flashinfer
-            apply_flashinfer(model, enable_cuda_graph=False)
-            log("⚡ FlashInfer acceleration applied to OmniVoice (2x+ speedup).")
-        except Exception as fi_err:
-            log(f"FlashInfer not applied (running standard inference): {{fi_err}}")
     except Exception as e:
         log(f"Warning: Failed to load OmniVoice model directly: {{e}}")
 

@@ -199,7 +199,7 @@ def ensure_dependencies():
         
     import subprocess
     if need_omnivoice_upgrade:
-        print("Installing/Upgrading OmniVoice to latest upstream with VoiceClonePrompt & FlashInfer...")
+        print("Installing/Upgrading OmniVoice to latest upstream with VoiceClonePrompt...")
         try:
             subprocess.check_call([
                 sys.executable, "-m", "pip", "install", "-q",
@@ -224,21 +224,6 @@ def ensure_dependencies():
         except Exception as e:
             print(f"Failed to install dependencies: {{e}}")
             sys.exit(1)
-
-    # Optional: Try installing flashinfer for CUDA acceleration
-    try:
-        import flashinfer
-    except ImportError:
-        try:
-            import torch
-            if torch.cuda.is_available():
-                print("Attempting to install flashinfer-python for 2x inference speedup...")
-                subprocess.run([
-                    sys.executable, "-m", "pip", "install", "-q",
-                    "flashinfer-python", "--prefer-binary"
-                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=45)
-        except Exception:
-            pass
 
     # Optional: Try installing WeTextProcessing for text normalization if available
     try:
@@ -266,7 +251,8 @@ IDLE_TIMEOUT = {idle_timeout}
 POLL_INTERVAL = {poll_interval}
 
 HEADERS = {{
-    "Authorization": f"Bearer {{WORKER_TOKEN}}"
+    "Authorization": f"Bearer {{WORKER_TOKEN}}",
+    "X-Worker-Version": "2.1.0"
 }}
 
 def log(msg: str):
@@ -601,13 +587,6 @@ def main():
             log("OmniVoice model loaded successfully from local path.")
         log("OmniVoice model loaded successfully.")
 
-        # Attempt FlashInfer acceleration (2x - 2.9x lossless speedup)
-        try:
-            from omnivoice.models.omnivoice_flashinfer import apply_flashinfer
-            apply_flashinfer(model, enable_cuda_graph=False)
-            log("⚡ FlashInfer acceleration successfully applied to OmniVoice (2x+ speedup).")
-        except Exception as fi_err:
-            log(f"FlashInfer acceleration not applied (running standard inference): {{fi_err}}")
     except Exception as e:
         log(f"CRITICAL ERROR loading OmniVoice model: {{e}}")
         try:
@@ -1251,7 +1230,7 @@ def ensure_dependencies():
         
     import subprocess
     if need_omnivoice_upgrade:
-        print("Installing/Upgrading OmniVoice to latest upstream with VoiceClonePrompt & FlashInfer...")
+        print("Installing/Upgrading OmniVoice to latest upstream with VoiceClonePrompt...")
         try:
             subprocess.check_call([
                 sys.executable, "-m", "pip", "install", "-q",
@@ -1276,21 +1255,6 @@ def ensure_dependencies():
         except Exception as e:
             print(f"Failed to install dependencies: {{e}}")
             sys.exit(1)
-
-    # Optional: Try installing flashinfer for CUDA acceleration
-    try:
-        import flashinfer
-    except ImportError:
-        try:
-            import torch
-            if torch.cuda.is_available():
-                print("Attempting to install flashinfer-python for 2x inference speedup...")
-                subprocess.run([
-                    sys.executable, "-m", "pip", "install", "-q",
-                    "flashinfer-python", "--prefer-binary"
-                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=45)
-        except Exception:
-            pass
 
     # Optional: Try installing WeTextProcessing for text normalization if available
     try:
@@ -1486,15 +1450,6 @@ def main():
             sys.stdout.flush()
         print("OmniVoice model loaded successfully.")
 
-        # Attempt FlashInfer acceleration (2x - 2.9x lossless speedup)
-        try:
-            from omnivoice.models.omnivoice_flashinfer import apply_flashinfer
-            apply_flashinfer(model, enable_cuda_graph=False)
-            print("⚡ FlashInfer acceleration successfully applied to OmniVoice (2x+ speedup).")
-            sys.stdout.flush()
-        except Exception as fi_err:
-            print(f"FlashInfer acceleration not applied (running standard inference): {{fi_err}}")
-            sys.stdout.flush()
     except Exception as e:
         print(f"CRITICAL ERROR loading OmniVoice model: {{e}}")
         sys.stdout.flush()

@@ -152,8 +152,8 @@ Khi `normalize_text` được đặt thành `true` (mặc định: `false`, tố
 * Tiền tệ và đơn vị: `50.000đ`, `$100` -> `"năm mươi nghìn đồng"`, `"một trăm đô la"`.
 * Tỷ lệ phần trăm và đơn vị đo lường: `99%`, `50km/h` -> `"chín mươi chín phần trăm"`, `"năm mươi ki-lô-mét trên giờ"`.
 
-### 5.4 Engine Performance & FlashInfer Acceleration
-* **FlashInfer Ragged Attention**: Tối ưu hóa bộ xử lý GPU giúp tăng tốc độ sinh giọng nói gấp 2x–3x lần với độ trễ cực thấp.
+### 5.4 Engine Performance & GPU Acceleration
+* **PyTorch Native SDPA Attention**: Tối ưu hóa bộ xử lý GPU CUDA với cơ chế Scaled Dot-Product Attention tích hợp sẵn, giúp sinh giọng nói với tốc độ cao, ổn định tuyệt đối và độ trễ cực thấp.
 * **VoiceClonePrompt Caching**: Tự động trích xuất và lưu trữ bộ nhớ đệm đặc trưng âm thanh mẫu (`VoiceClonePrompt`) trong các tác vụ lồng tiếng video (dubbing) và sinh audio đa đoạn, giảm hơn 70% thời gian xử lý toàn trình.
 
 ---

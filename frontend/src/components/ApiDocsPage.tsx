@@ -848,7 +848,7 @@ generateSpeech();`
                   Voice.oloka.net đã nâng cấp engine OmniVoice mới nhất với các cải tiến hiệu năng vượt trội:
                 </p>
                 <ul className="text-[11px] text-muted-foreground list-disc list-inside space-y-1 pl-1">
-                  <li><strong className="text-foreground">FlashInfer Ragged Attention:</strong> Tăng tốc xử lý GPU lên 2x–3x lần, giảm độ trễ cho từng câu đọc.</li>
+                  <li><strong className="text-foreground">PyTorch SDPA GPU Acceleration:</strong> Tối ưu hóa xử lý GPU với Scaled Dot-Product Attention, đảm bảo tốc độ sinh giọng nói cao và độ ổn định tuyệt đối.</li>
                   <li><strong className="text-foreground">VoiceClonePrompt Caching:</strong> Tự động lưu cache vector đặc trưng giọng mẫu trong tác vụ lồng tiếng video, tiết kiệm &gt;70% thời gian xử lý.</li>
                   <li><strong className="text-foreground">Tùy biến đệm âm:</strong> Hỗ trợ tinh chỉnh <code className="text-primary font-mono">pad_duration</code> và <code className="text-primary font-mono">fade_duration</code> giúp câu thoại tự nhiên, không bị giật.</li>
                 </ul>
