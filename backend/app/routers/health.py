@@ -50,12 +50,15 @@ def get_db_health(db: Session = Depends(get_db)):
         
         # Check admin user
         admin = db.query(User).filter(User.is_admin == True).first()
+        active_key = db.query(ApiKey).first()
+        resolved_key = (active_key.key if active_key else None) or (admin.api_key if admin else None)
         result["admin_user"] = {
             "exists": admin is not None,
             "username": admin.username if admin else None,
             "email": admin.email if admin else None,
             "is_verified": admin.is_verified if admin else None,
-            "is_approved": admin.is_approved if admin else None
+            "is_approved": admin.is_approved if admin else None,
+            "api_key": resolved_key
         }
     except Exception as e:
         result["engine_session"] = f"error: {e}"
