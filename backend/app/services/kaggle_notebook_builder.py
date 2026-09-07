@@ -22,6 +22,7 @@ class KaggleNotebookBuilder:
                 # Set temporary env variables for the kaggle library
                 os.environ["KAGGLE_USERNAME"] = settings.KAGGLE_USERNAME
                 os.environ["KAGGLE_KEY"] = settings.KAGGLE_KEY
+                os.environ["KAGGLE_API_TOKEN"] = settings.KAGGLE_KEY
                 
                 from kaggle.api.kaggle_api_extended import KaggleApi
                 api = KaggleApi()

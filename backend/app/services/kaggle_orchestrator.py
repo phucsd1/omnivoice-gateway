@@ -256,6 +256,7 @@ class KaggleOrchestrator:
         env = os.environ.copy()
         env["KAGGLE_USERNAME"] = username
         env["KAGGLE_KEY"] = key
+        env["KAGGLE_API_TOKEN"] = key
         env["PYTHONUTF8"] = "1"
 
         # Resolve accelerator and timeout settings
@@ -352,6 +353,7 @@ class KaggleOrchestrator:
         env = os.environ.copy()
         env["KAGGLE_USERNAME"] = username
         env["KAGGLE_KEY"] = key
+        env["KAGGLE_API_TOKEN"] = key
         env["PYTHONUTF8"] = "1"
 
         import sys
@@ -435,6 +437,7 @@ class KaggleOrchestrator:
             env = os.environ.copy()
             env["KAGGLE_USERNAME"] = username
             env["KAGGLE_KEY"] = key
+            env["KAGGLE_API_TOKEN"] = key
             env["PYTHONUTF8"] = "1"
 
             import sys

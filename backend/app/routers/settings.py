@@ -135,6 +135,7 @@ def test_kaggle_connection(db: Session = Depends(get_db), current_user: User = D
     env = os.environ.copy()
     env["KAGGLE_USERNAME"] = username
     env["KAGGLE_KEY"] = key
+    env["KAGGLE_API_TOKEN"] = key
     env["PYTHONUTF8"] = "1"
     
     # Run using sys.executable -c entrypoint to prevent Windows PATH lookup errors and module errors
@@ -206,6 +207,7 @@ def push_notebook_to_kaggle(db: Session = Depends(get_db), current_user: User = 
         env = os.environ.copy()
         env["KAGGLE_USERNAME"] = username
         env["KAGGLE_KEY"] = key
+        env["KAGGLE_API_TOKEN"] = key
         env["PYTHONUTF8"] = "1"
 
         # Map accelerator
@@ -274,6 +276,7 @@ def push_dubbing_notebook_to_kaggle(db: Session = Depends(get_db), current_user:
         env = os.environ.copy()
         env["KAGGLE_USERNAME"] = username
         env["KAGGLE_KEY"] = key
+        env["KAGGLE_API_TOKEN"] = key
         env["PYTHONUTF8"] = "1"
 
         dubbing_slug = f"{username}/omnivoice-dubbing-worker"

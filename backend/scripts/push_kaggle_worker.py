@@ -31,6 +31,7 @@ def main():
     env = os.environ.copy()
     env["KAGGLE_USERNAME"] = username
     env["KAGGLE_KEY"] = key
+    env["KAGGLE_API_TOKEN"] = key
     env["PYTHONUTF8"] = "1"
     
     # Construct CLI command
