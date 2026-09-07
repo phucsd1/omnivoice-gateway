@@ -96,6 +96,7 @@ class KaggleOrchestrator:
     _runner_stop_event = None
     _consecutive_poll_failures = {}
     _unknown_status_count = {}
+    _complete_grace_count = {}
 
     @classmethod
     def start_queue_runner(cls):
@@ -385,18 +386,21 @@ class KaggleOrchestrator:
             
             if "queued" in status_lower:
                 cls._unknown_status_count.pop(job.id, None)
+                cls._complete_grace_count.pop(job.id, None)
                 job.status = "queued_kaggle"
                 job.message = "Kaggle chưa cấp runtime/GPU, đang xếp hàng..."
                 job.progress = 15
                 db.commit()
             elif "running" in status_lower:
                 cls._unknown_status_count.pop(job.id, None)
+                cls._complete_grace_count.pop(job.id, None)
                 job.status = "starting_worker"
                 job.message = "Kaggle Worker đang tải môi trường chạy và mô hình..."
                 job.progress = 25
                 db.commit()
             elif "error" in status_lower or "failed" in status_lower:
                 cls._unknown_status_count.pop(job.id, None)
+                cls._complete_grace_count.pop(job.id, None)
                 job.status = "failed"
                 job.message = "Kaggle Worker gặp lỗi khi khởi động."
                 job.error_message = f"Kaggle boot error: {status_output}"
@@ -404,8 +408,25 @@ class KaggleOrchestrator:
                 # Shut down the worker session in DB
                 from app.services.worker_session_service import WorkerSessionService
                 WorkerSessionService.shutdown_worker(db, job.worker_id, f"Kaggle boot error: {status_output}")
-            elif "cancel" in status_lower or "complete" in status_lower or "stop" in status_lower:
+            elif "complete" in status_lower:
                 cls._unknown_status_count.pop(job.id, None)
+                # Kaggle API may report 'complete' from previous session for 20-30s after kernel push.
+                # Allow a grace period (e.g. 4 checks = 40s) before treating it as a true termination.
+                cls._complete_grace_count[job.id] = cls._complete_grace_count.get(job.id, 0) + 1
+                if cls._complete_grace_count[job.id] < 5:
+                    print(f"[KaggleOrchestrator] Worker {job.worker_id} status is 'complete' (likely stale from prior session). Grace check {cls._complete_grace_count[job.id]}/5, waiting for Kaggle transition...")
+                else:
+                    print(f"[KaggleOrchestrator] Worker {job.worker_id} status remained 'complete' after grace period. Failing job.")
+                    cls._complete_grace_count.pop(job.id, None)
+                    job.status = "failed"
+                    job.message = "Kaggle Worker đã dừng hoặc hoàn thành phiên trước mà không khởi động lại."
+                    job.error_message = f"Kaggle boot error: {status_output}"
+                    db.commit()
+                    from app.services.worker_session_service import WorkerSessionService
+                    WorkerSessionService.shutdown_worker(db, job.worker_id, f"Kaggle complete without restart: {status_output}")
+            elif "cancel" in status_lower or "stop" in status_lower:
+                cls._unknown_status_count.pop(job.id, None)
+                cls._complete_grace_count.pop(job.id, None)
                 job.status = "failed"
                 job.message = "Kaggle Worker đã dừng hoặc bị hủy."
                 job.error_message = f"Kaggle boot error: {status_output}"

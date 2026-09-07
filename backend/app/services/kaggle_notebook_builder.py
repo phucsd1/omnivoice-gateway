@@ -199,44 +199,38 @@ def ensure_dependencies():
         missing.append("faster-whisper")
         
     import subprocess
+    packages_to_install = []
     if need_omnivoice_upgrade:
-        print("Installing/Upgrading OmniVoice to latest upstream with VoiceClonePrompt...")
-        try:
-            subprocess.check_call([
-                sys.executable, "-m", "pip", "install", "-q",
-                "--no-cache-dir", "--prefer-binary",
-                "git+https://github.com/k2-fsa/OmniVoice.git"
-            ])
-            print("OmniVoice latest upstream installed successfully.")
-        except Exception as git_err:
-            print(f"Notice: git install failed ({{git_err}}), falling back to omnivoice[tn]...")
-            missing.append("omnivoice[tn]")
+        packages_to_install.append("git+https://github.com/k2-fsa/OmniVoice.git")
+    packages_to_install.extend(missing)
 
-    if missing:
-        print(f"Installing missing dependencies: {{', '.join(missing)}}")
+    if packages_to_install:
+        print(f"Installing missing dependencies: {{', '.join(packages_to_install)}}")
         try:
             # Install packages silently with fast flags
             subprocess.check_call([
                 sys.executable, "-m", "pip", "install", "-q", 
                 "--no-cache-dir", "--prefer-binary", 
                 "--no-warn-script-location"
-            ] + missing)
+            ] + packages_to_install)
             print("Dependencies installed successfully.")
         except Exception as e:
-            print(f"Failed to install dependencies: {{e}}")
-            sys.exit(1)
-
-    # Optional: Try installing WeTextProcessing for text normalization if available
-    try:
-        from tn.english.normalizer import Normalizer
-    except ImportError:
-        try:
-            subprocess.run([
-                sys.executable, "-m", "pip", "install", "-q",
-                "WeTextProcessing", "--prefer-binary"
-            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=45)
-        except Exception:
-            pass
+            if need_omnivoice_upgrade:
+                print(f"Notice: Batch install failed ({{e}}), falling back to omnivoice[tn]...")
+                try:
+                    fallback_packages = ["omnivoice[tn]"] + missing
+                    subprocess.check_call([
+                        sys.executable, "-m", "pip", "install", "-q",
+                        "--no-cache-dir", "--prefer-binary",
+                        "--no-warn-script-location"
+                    ] + fallback_packages)
+                    print("Fallback dependencies installed successfully.")
+                except Exception as fb_err:
+                    print(f"Failed to install fallback dependencies: {{fb_err}}")
+                    sys.exit(1)
+            else:
+                print(f"Failed to install dependencies: {{e}}")
+                sys.exit(1)
 
 # Ensure dependencies are available before anything else runs
 ensure_dependencies()
@@ -490,103 +484,103 @@ def main():
         model_dir = None
         model_loaded = False
         
-        # 1. First priority: Original Hugging Face Hub (direct download)
-        try:
-            log("Attempting to load model from Hugging Face Hub...")
-            model = OmniVoice.from_pretrained(
-                "k2-fsa/OmniVoice",
-                device_map="cuda:0",
-                dtype=torch.float16,
-                load_asr=True,
-            )
-            log("OmniVoice model loaded successfully from Hugging Face Hub.")
-            model_loaded = True
-        except Exception as hf_err:
-            log(f"Warning: Failed to load from Hugging Face Hub (CDN issue?): {{hf_err}}")
-            model_loaded = False
-        
-        # 2. Second priority: Mounted Kaggle Dataset (Fallback)
+        # 1. First priority: Mounted Kaggle Dataset (Instant offline load from NVMe/SSD, ~3-5s)
+        if os.path.exists("/kaggle/input"):
+            for root, dirs, files in os.walk("/kaggle/input"):
+                if "model.safetensors" in files and "config.json" in files:
+                    if not root.endswith("audio_tokenizer"):
+                        model_dir = root
+                        log(f"Found mounted model weights at: {{model_dir}}. Loading instantly from local disk...")
+                        break
+
+        if model_dir:
+            try:
+                # Check if tokenizer files are missing from model_dir
+                tokenizer_json = os.path.join(model_dir, "tokenizer.json")
+                tokenizer_config = os.path.join(model_dir, "tokenizer_config.json")
+                load_path = model_dir
+                if not os.path.exists(tokenizer_json) or not os.path.exists(tokenizer_config):
+                    log("Tokenizer files missing from mounted dataset. Symlinking to temp directory...")
+                    temp_model_dir = tempfile.mkdtemp()
+                    for f in os.listdir(model_dir):
+                        src_file = os.path.join(model_dir, f)
+                        dst_file = os.path.join(temp_model_dir, f)
+                        if os.path.isfile(src_file):
+                            try:
+                                os.symlink(src_file, dst_file)
+                            except Exception:
+                                shutil.copy2(src_file, dst_file)
+                    for filename in ["tokenizer.json", "tokenizer_config.json"]:
+                        dst_file = os.path.join(temp_model_dir, filename)
+                        if not os.path.exists(dst_file):
+                            try:
+                                res = requests.get(f"https://huggingface.co/k2-fsa/OmniVoice/resolve/main/{{filename}}", timeout=15)
+                                if res.status_code == 200:
+                                    with open(dst_file, "wb") as out_f:
+                                        out_f.write(res.content)
+                            except Exception:
+                                pass
+                    load_path = temp_model_dir
+
+                model = OmniVoice.from_pretrained(
+                    load_path,
+                    device_map="cuda:0",
+                    dtype=torch.float16,
+                    load_asr=True,
+                )
+                log(f"OmniVoice model loaded successfully from local disk: {{load_path}}.")
+                model_loaded = True
+            except Exception as local_err:
+                log(f"Warning: Failed to load from local mounted dataset ({{local_err}}). Falling back to Hugging Face...")
+                model_loaded = False
+
+        # 2. Second priority: Original Hugging Face Hub (Online fallback)
         if not model_loaded:
-            if os.path.exists("/kaggle/input"):
-                for root, dirs, files in os.walk("/kaggle/input"):
-                    if "model.safetensors" in files and "config.json" in files:
-                        if not root.endswith("audio_tokenizer"):
-                            model_dir = root
-                            log(f"Found mounted model weights at: {{model_dir}}. Loading instantly...")
-                            break
-        
+            try:
+                log("Attempting to load model from Hugging Face Hub...")
+                model = OmniVoice.from_pretrained(
+                    "k2-fsa/OmniVoice",
+                    device_map="cuda:0",
+                    dtype=torch.float16,
+                    load_asr=True,
+                )
+                log("OmniVoice model loaded successfully from Hugging Face Hub.")
+                model_loaded = True
+            except Exception as hf_err:
+                log(f"Warning: Failed to load from Hugging Face Hub (CDN issue?): {{hf_err}}")
+                model_loaded = False
+
         # 3. Third priority: ModelScope fallback (Stable alternative source if HF is down)
-        if not model_loaded and not model_dir:
+        if not model_loaded:
             try:
                 from modelscope import snapshot_download
                 log("Falling back to ModelScope to download model weights...")
-                model_dir = snapshot_download("k2-fsa/OmniVoice")
-                log(f"Model weights loaded locally via ModelScope at: {{model_dir}}")
+                ms_dir = snapshot_download("k2-fsa/OmniVoice")
+                model = OmniVoice.from_pretrained(
+                    ms_dir,
+                    device_map="cuda:0",
+                    dtype=torch.float16,
+                    load_asr=True,
+                )
+                log(f"OmniVoice model loaded successfully via ModelScope from: {{ms_dir}}")
+                model_loaded = True
             except Exception as ms_err:
                 log(f"CRITICAL: Failed to download from ModelScope: {{ms_err}}")
-                model_dir = "k2-fsa/OmniVoice"
+                raise ms_err
 
-        # Load from model_dir if it was not loaded from Hugging Face directly
-        if not model_loaded:
-            # Check if tokenizer files are missing from model_dir
-            tokenizer_json = os.path.join(model_dir, "tokenizer.json")
-            tokenizer_config = os.path.join(model_dir, "tokenizer_config.json")
-            if not os.path.exists(tokenizer_json) or not os.path.exists(tokenizer_config):
-                log("Tokenizer files are missing from local directory. Merging with downloaded tokenizer files...")
-                temp_model_dir = tempfile.mkdtemp()
-                # Create symbolic links to all files in model_dir
-                for f in os.listdir(model_dir):
-                    src_file = os.path.join(model_dir, f)
-                    dst_file = os.path.join(temp_model_dir, f)
-                    if os.path.isfile(src_file):
-                        try:
-                            os.symlink(src_file, dst_file)
-                        except Exception:
-                            shutil.copy2(src_file, dst_file)
-                # Download missing tokenizer files from Hugging Face Hub (or ModelScope fallback)
-                for filename in ["tokenizer.json", "tokenizer_config.json"]:
-                    dst_file = os.path.join(temp_model_dir, filename)
-                    if not os.path.exists(dst_file):
-                        success = False
-                        # 1. Try Hugging Face first
-                        try:
-                            log(f"Downloading {{filename}} from Hugging Face...")
-                            res = requests.get(f"https://huggingface.co/k2-fsa/OmniVoice/resolve/main/{{filename}}", timeout=30)
-                            if res.status_code == 200:
-                                with open(dst_file, "wb") as out_f:
-                                    out_f.write(res.content)
-                                success = True
-                                log(f"Successfully downloaded {{filename}} from Hugging Face.")
-                            else:
-                                log(f"Warning: Failed to download {{filename}} from HF (status: {{res.status_code}})")
-                        except Exception as dl_err:
-                            log(f"Warning: Failed to download {{filename}} from HF: {{dl_err}}")
-                        
-                        # 2. Try ModelScope fallback
-                        if not success:
-                            try:
-                                log(f"Attempting to download {{filename}} from ModelScope...")
-                                from modelscope.hub.file_download import model_file_download
-                                cache_file = model_file_download("k2-fsa/OmniVoice", file_path=filename)
-                                if cache_file and os.path.exists(cache_file):
-                                    shutil.copy2(cache_file, dst_file)
-                                    success = True
-                                    log(f"Successfully retrieved {{filename}} from ModelScope.")
-                            except Exception as ms_dl_err:
-                                log(f"Warning: Failed to download {{filename}} from ModelScope: {{ms_dl_err}}")
-                                
-                        if not success:
-                            raise FileNotFoundError(f"Tokenizer file '{{filename}}' is missing and could not be downloaded from Hugging Face or ModelScope. Aborting.")
-                model_dir = temp_model_dir
-
-            model = OmniVoice.from_pretrained(
-                model_dir,
-                device_map="cuda:0",
-                dtype=torch.float16,
-                load_asr=True,
-            )
-            log("OmniVoice model loaded successfully from local path.")
         log("OmniVoice model loaded successfully.")
+
+        # Background preload Whisper model so first alignment job does not wait ~27s
+        import threading
+        def preload_whisper():
+            try:
+                log("Background preloading Whisper model for fast word alignment...")
+                get_whisper_model()
+                log("Background Whisper model preloaded successfully.")
+            except Exception as wp_err:
+                log(f"Notice: Whisper background preload deferred: {{wp_err}}")
+
+        threading.Thread(target=preload_whisper, daemon=True).start()
 
     except Exception as e:
         log(f"CRITICAL ERROR loading OmniVoice model: {{e}}")
@@ -1230,44 +1224,38 @@ def ensure_dependencies():
         missing.append("faster-whisper")
         
     import subprocess
+    packages_to_install = []
     if need_omnivoice_upgrade:
-        print("Installing/Upgrading OmniVoice to latest upstream with VoiceClonePrompt...")
-        try:
-            subprocess.check_call([
-                sys.executable, "-m", "pip", "install", "-q",
-                "--no-cache-dir", "--prefer-binary",
-                "git+https://github.com/k2-fsa/OmniVoice.git"
-            ])
-            print("OmniVoice latest upstream installed successfully.")
-        except Exception as git_err:
-            print(f"Notice: git install failed ({{git_err}}), falling back to omnivoice[tn]...")
-            missing.append("omnivoice[tn]")
+        packages_to_install.append("git+https://github.com/k2-fsa/OmniVoice.git")
+    packages_to_install.extend(missing)
 
-    if missing:
-        print(f"Installing missing dependencies: {{', '.join(missing)}}")
+    if packages_to_install:
+        print(f"Installing missing dependencies: {{', '.join(packages_to_install)}}")
         try:
             # Install packages silently with fast flags
             subprocess.check_call([
                 sys.executable, "-m", "pip", "install", "-q", 
                 "--no-cache-dir", "--prefer-binary", 
                 "--no-warn-script-location"
-            ] + missing)
+            ] + packages_to_install)
             print("Dependencies installed successfully.")
         except Exception as e:
-            print(f"Failed to install dependencies: {{e}}")
-            sys.exit(1)
-
-    # Optional: Try installing WeTextProcessing for text normalization if available
-    try:
-        from tn.english.normalizer import Normalizer
-    except ImportError:
-        try:
-            subprocess.run([
-                sys.executable, "-m", "pip", "install", "-q",
-                "WeTextProcessing", "--prefer-binary"
-            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=45)
-        except Exception:
-            pass
+            if need_omnivoice_upgrade:
+                print(f"Notice: Batch install failed ({{e}}), falling back to omnivoice[tn]...")
+                try:
+                    fallback_packages = ["omnivoice[tn]"] + missing
+                    subprocess.check_call([
+                        sys.executable, "-m", "pip", "install", "-q",
+                        "--no-cache-dir", "--prefer-binary",
+                        "--no-warn-script-location"
+                    ] + fallback_packages)
+                    print("Fallback dependencies installed successfully.")
+                except Exception as fb_err:
+                    print(f"Failed to install fallback dependencies: {{fb_err}}")
+                    sys.exit(1)
+            else:
+                print(f"Failed to install dependencies: {{e}}")
+                sys.exit(1)
 
 # Ensure dependencies are available before anything else runs
 ensure_dependencies()
@@ -1334,122 +1322,104 @@ def main():
         model_dir = None
         model_loaded = False
         
-        # 1. First priority: Original Hugging Face Hub (direct download)
-        try:
-            print("Attempting to load model from Hugging Face Hub...")
-            sys.stdout.flush()
-            model = OmniVoice.from_pretrained(
-                "k2-fsa/OmniVoice",
-                device_map="cuda:0",
-                dtype=torch.float16,
-                load_asr=True,
-            )
-            print("OmniVoice model loaded successfully from Hugging Face Hub.")
-            sys.stdout.flush()
-            model_loaded = True
-        except Exception as hf_err:
-            print(f"Warning: Failed to load from Hugging Face Hub (CDN issue?): {{hf_err}}")
-            sys.stdout.flush()
-            model_loaded = False
-        
-        # 2. Second priority: Mounted Kaggle Dataset (Fallback)
+        # 1. First priority: Mounted Kaggle Dataset (Instant offline load from NVMe/SSD, ~3-5s)
+        if os.path.exists("/kaggle/input"):
+            for root, dirs, files in os.walk("/kaggle/input"):
+                if "model.safetensors" in files and "config.json" in files:
+                    if not root.endswith("audio_tokenizer"):
+                        model_dir = root
+                        print(f"Found mounted model weights at: {{model_dir}}. Loading instantly from local disk...")
+                        sys.stdout.flush()
+                        break
+
+        if model_dir:
+            try:
+                # Check if tokenizer files are missing from model_dir
+                tokenizer_json = os.path.join(model_dir, "tokenizer.json")
+                tokenizer_config = os.path.join(model_dir, "tokenizer_config.json")
+                load_path = model_dir
+                if not os.path.exists(tokenizer_json) or not os.path.exists(tokenizer_config):
+                    print("Tokenizer files missing from mounted dataset. Symlinking to temp directory...")
+                    sys.stdout.flush()
+                    import tempfile
+                    import shutil
+                    temp_model_dir = tempfile.mkdtemp()
+                    for f in os.listdir(model_dir):
+                        src_file = os.path.join(model_dir, f)
+                        dst_file = os.path.join(temp_model_dir, f)
+                        if os.path.isfile(src_file):
+                            try:
+                                os.symlink(src_file, dst_file)
+                            except Exception:
+                                shutil.copy2(src_file, dst_file)
+                    for filename in ["tokenizer.json", "tokenizer_config.json"]:
+                        dst_file = os.path.join(temp_model_dir, filename)
+                        if not os.path.exists(dst_file):
+                            try:
+                                res = requests.get(f"https://huggingface.co/k2-fsa/OmniVoice/resolve/main/{{filename}}", timeout=15)
+                                if res.status_code == 200:
+                                    with open(dst_file, "wb") as out_f:
+                                        out_f.write(res.content)
+                            except Exception:
+                                pass
+                    load_path = temp_model_dir
+
+                model = OmniVoice.from_pretrained(
+                    load_path,
+                    device_map="cuda:0",
+                    dtype=torch.float16,
+                    load_asr=True,
+                )
+                print(f"OmniVoice model loaded successfully from local disk: {{load_path}}.")
+                sys.stdout.flush()
+                model_loaded = True
+            except Exception as local_err:
+                print(f"Warning: Failed to load from local mounted dataset ({{local_err}}). Falling back to Hugging Face...")
+                sys.stdout.flush()
+                model_loaded = False
+
+        # 2. Second priority: Original Hugging Face Hub (Online fallback)
         if not model_loaded:
-            if os.path.exists("/kaggle/input"):
-                for root, dirs, files in os.walk("/kaggle/input"):
-                    if "model.safetensors" in files and "config.json" in files:
-                        if not root.endswith("audio_tokenizer"):
-                            model_dir = root
-                            print(f"Found mounted model weights at: {{model_dir}}. Loading instantly...")
-                            sys.stdout.flush()
-                            break
-        
+            try:
+                print("Attempting to load model from Hugging Face Hub...")
+                sys.stdout.flush()
+                model = OmniVoice.from_pretrained(
+                    "k2-fsa/OmniVoice",
+                    device_map="cuda:0",
+                    dtype=torch.float16,
+                    load_asr=True,
+                )
+                print("OmniVoice model loaded successfully from Hugging Face Hub.")
+                sys.stdout.flush()
+                model_loaded = True
+            except Exception as hf_err:
+                print(f"Warning: Failed to load from Hugging Face Hub (CDN issue?): {{hf_err}}")
+                sys.stdout.flush()
+                model_loaded = False
+
         # 3. Third priority: ModelScope fallback (Stable alternative source if HF is down)
-        if not model_loaded and not model_dir:
+        if not model_loaded:
             try:
                 from modelscope import snapshot_download
                 print("Falling back to ModelScope to download model weights...")
                 sys.stdout.flush()
-                model_dir = snapshot_download("k2-fsa/OmniVoice")
-                print(f"Model weights loaded locally via ModelScope at: {{model_dir}}")
+                ms_dir = snapshot_download("k2-fsa/OmniVoice")
+                model = OmniVoice.from_pretrained(
+                    ms_dir,
+                    device_map="cuda:0",
+                    dtype=torch.float16,
+                    load_asr=True,
+                )
+                print(f"OmniVoice model loaded successfully via ModelScope from: {{ms_dir}}")
                 sys.stdout.flush()
+                model_loaded = True
             except Exception as ms_err:
                 print(f"CRITICAL: Failed to download from ModelScope: {{ms_err}}")
                 sys.stdout.flush()
-                model_dir = "k2-fsa/OmniVoice"
+                raise ms_err
 
-        # Load from model_dir if it was not loaded from Hugging Face directly
-        if not model_loaded:
-            # Check if tokenizer files are missing from model_dir
-            tokenizer_json = os.path.join(model_dir, "tokenizer.json")
-            tokenizer_config = os.path.join(model_dir, "tokenizer_config.json")
-            if not os.path.exists(tokenizer_json) or not os.path.exists(tokenizer_config):
-                print("Tokenizer files are missing from local directory. Merging with downloaded tokenizer files...")
-                sys.stdout.flush()
-                import tempfile
-                import shutil
-                temp_model_dir = tempfile.mkdtemp()
-                # Create symbolic links to all files in model_dir
-                for f in os.listdir(model_dir):
-                    src_file = os.path.join(model_dir, f)
-                    dst_file = os.path.join(temp_model_dir, f)
-                    if os.path.isfile(src_file):
-                        try:
-                            os.symlink(src_file, dst_file)
-                        except Exception:
-                            shutil.copy2(src_file, dst_file)
-                # Download missing tokenizer files from Hugging Face Hub (or ModelScope fallback)
-                for filename in ["tokenizer.json", "tokenizer_config.json"]:
-                    dst_file = os.path.join(temp_model_dir, filename)
-                    if not os.path.exists(dst_file):
-                        success = False
-                        # 1. Try Hugging Face first
-                        try:
-                            print(f"Downloading {{filename}} from Hugging Face...")
-                            sys.stdout.flush()
-                            res = requests.get(f"https://huggingface.co/k2-fsa/OmniVoice/resolve/main/{{filename}}", timeout=30)
-                            if res.status_code == 200:
-                                with open(dst_file, "wb") as out_f:
-                                    out_f.write(res.content)
-                                success = True
-                                print(f"Successfully downloaded {{filename}} from Hugging Face.")
-                                sys.stdout.flush()
-                            else:
-                                print(f"Warning: Failed to download {{filename}} from HF (status: {{res.status_code}})")
-                                sys.stdout.flush()
-                        except Exception as dl_err:
-                            print(f"Warning: Failed to download {{filename}} from HF: {{dl_err}}")
-                            sys.stdout.flush()
-                        
-                        # 2. Try ModelScope fallback
-                        if not success:
-                            try:
-                                print(f"Attempting to download {{filename}} from ModelScope...")
-                                sys.stdout.flush()
-                                from modelscope.hub.file_download import model_file_download
-                                cache_file = model_file_download("k2-fsa/OmniVoice", file_path=filename)
-                                if cache_file and os.path.exists(cache_file):
-                                    import shutil
-                                    shutil.copy2(cache_file, dst_file)
-                                    success = True
-                                    print(f"Successfully retrieved {{filename}} from ModelScope.")
-                                    sys.stdout.flush()
-                            except Exception as ms_dl_err:
-                                print(f"Warning: Failed to download {{filename}} from ModelScope: {{ms_dl_err}}")
-                                sys.stdout.flush()
-                                
-                        if not success:
-                            raise FileNotFoundError(f"Tokenizer file '{{filename}}' is missing and could not be downloaded from Hugging Face or ModelScope. Aborting.")
-                model_dir = temp_model_dir
-
-            model = OmniVoice.from_pretrained(
-                model_dir,
-                device_map="cuda:0",
-                dtype=torch.float16,
-                load_asr=True,
-            )
-            print("OmniVoice model loaded successfully from local path.")
-            sys.stdout.flush()
         print("OmniVoice model loaded successfully.")
+        sys.stdout.flush()
 
     except Exception as e:
         print(f"CRITICAL ERROR loading OmniVoice model: {{e}}")
