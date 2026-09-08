@@ -97,6 +97,59 @@ class KaggleOrchestrator:
     _consecutive_poll_failures = {}
     _unknown_status_count = {}
     _complete_grace_count = {}
+    _boot_attempts = {}
+
+    @classmethod
+    def _cleanup_job_tracking(cls, job_id: str):
+        """Cleans up in-memory tracking states for a finished or departed job."""
+        cls._consecutive_poll_failures.pop(job_id, None)
+        cls._unknown_status_count.pop(job_id, None)
+        cls._complete_grace_count.pop(job_id, None)
+        cls._boot_attempts.pop(job_id, None)
+
+    @classmethod
+    def ensure_worker_running(cls, db=None):
+        """Ensures background queue runner is active."""
+        cls.start_queue_runner()
+
+    @classmethod
+    def _failover_or_retry_worker(cls, db, job, status_output: str, reason_label: str):
+        """
+        Handles worker failures (COMPLETE after grace, ERROR, CANCELLED, push failure)
+        by shutting down the failed worker session, failing over to the alternate worker slot,
+        and re-triggering the daemon worker without marking the client job as failed.
+        """
+        from app.services.worker_session_service import WorkerSessionService
+
+        old_worker_id = job.worker_id or "worker_1"
+        WorkerSessionService.shutdown_worker(db, old_worker_id, f"{reason_label}: {status_output}")
+
+        cls._complete_grace_count.pop(job.id, None)
+        cls._unknown_status_count.pop(job.id, None)
+        cls._consecutive_poll_failures.pop(job.id, None)
+
+        attempts = cls._boot_attempts.get(job.id, 0)
+        max_attempts = 4  # Allows alternating worker_1 <-> worker_2 up to 2 rounds
+
+        if attempts < max_attempts:
+            new_worker_id = "worker_2" if old_worker_id == "worker_1" else "worker_1"
+            print(f"[KaggleOrchestrator] Worker {old_worker_id} {reason_label} ('{status_output}'). Failing over to {new_worker_id} for job {job.id} (attempt {attempts + 1}/{max_attempts})...")
+
+            job.worker_id = new_worker_id
+            job.status = "starting_worker"
+            job.message = f"Máy chủ {old_worker_id} ({reason_label}). Đang tự động chuyển sang máy chủ dự phòng ({new_worker_id}) và tạo GPU mới..."
+            job.progress = 10
+            db.commit()
+            db.refresh(job)
+
+            cls._trigger_daemon_worker(db, job)
+        else:
+            print(f"[KaggleOrchestrator] Job {job.id} exceeded max boot attempts ({max_attempts}). Failing job.")
+            job.status = "failed"
+            job.message = "Không thể khởi động Kaggle Worker sau nhiều lần thử lại trên cả worker-1 và worker-2."
+            job.error_message = f"Kaggle boot error after {max_attempts} attempts: {status_output}"
+            db.commit()
+            cls._cleanup_job_tracking(job.id)
 
     @classmethod
     def start_queue_runner(cls):
@@ -175,6 +228,12 @@ class KaggleOrchestrator:
                 for b_job in booting_jobs:
                     cls._poll_booting_worker(db, b_job)
 
+                # Clean up any tracking for jobs that have left the booting states
+                booting_job_ids = {j.id for j in booting_jobs}
+                tracked_job_ids = set(cls._boot_attempts.keys()) | set(cls._complete_grace_count.keys()) | set(cls._consecutive_poll_failures.keys()) | set(cls._unknown_status_count.keys())
+                for j_id in (tracked_job_ids - booting_job_ids):
+                    cls._cleanup_job_tracking(j_id)
+
                 # Determine active or booting worker IDs
                 booting_worker_ids = {j.worker_id for j in booting_jobs if j.worker_id}
                 total_active_or_booting = active_worker_ids.union(booting_worker_ids)
@@ -210,18 +269,20 @@ class KaggleOrchestrator:
     @classmethod
     def _trigger_daemon_worker(cls, db, job):
         """Prepares daemon worker code and pushes it to Kaggle."""
-        print(f"[KaggleOrchestrator] Triggering daemon worker for job context {job.id} on slot {job.worker_id}")
+        cls._boot_attempts[job.id] = cls._boot_attempts.get(job.id, 0) + 1
+        current_attempt = cls._boot_attempts[job.id]
+        print(f"[KaggleOrchestrator] Triggering daemon worker for job context {job.id} on slot {job.worker_id} (attempt {current_attempt}/4)")
         
         # Update status to starting_worker
         job.status = "starting_worker"
-        job.message = "Đang chuẩn bị file cấu hình Kaggle..."
+        job.message = f"Đang chuẩn bị khởi động máy chủ Kaggle ({job.worker_id})..."
         job.progress = 5
         db.commit()
         db.refresh(job)
 
         # Register or update worker session in DB to immediately mark it as starting
         from app.services.worker_session_service import WorkerSessionService
-        WorkerSessionService.register_worker(db, job.worker_id, "starting", "Kaggle kernel is being pushed...")
+        WorkerSessionService.register_worker(db, job.worker_id, "starting", f"Kaggle kernel is being pushed (attempt {current_attempt})...")
 
         # Resolve credentials
         username, key, default_kernel_ref, default_worker_dir = cls.get_credentials(db, job.user_id)
@@ -247,10 +308,9 @@ class KaggleOrchestrator:
             from app.services.kaggle_notebook_builder import KaggleNotebookBuilder
             KaggleNotebookBuilder.prepare_all(job=job, db=db, is_daemon=True, user_id=job.user_id)
         except Exception as e:
-            job.status = "failed"
-            job.message = "Lỗi chuẩn bị mã nguồn."
-            job.error_message = str(e)
-            db.commit()
+            err_str = str(e)
+            print(f"[KaggleOrchestrator] Builder failed for {job.worker_id}: {err_str}")
+            cls._failover_or_retry_worker(db, job, err_str, "Builder Error")
             return
 
         # Prepare CLI environment with credentials
@@ -316,24 +376,18 @@ class KaggleOrchestrator:
             stdout, stderr = process.communicate()
             
             if process.returncode == 0:
-                print(f"[KaggleOrchestrator] Daemon worker kernel pushed successfully. Output: {stdout.strip()}")
+                print(f"[KaggleOrchestrator] Daemon worker kernel pushed successfully on {job.worker_id}. Output: {stdout.strip()}")
                 job.status = "queued_kaggle"
-                job.message = "Khởi động máy chủ Kaggle. Đang chờ hàng đợi..."
+                job.message = f"Khởi động máy chủ Kaggle ({job.worker_id}). Đang chờ hàng đợi..."
                 job.progress = 10
                 db.commit()
             else:
                 err_msg = stderr.strip() or stdout.strip() or "Unknown error."
-                print(f"[KaggleOrchestrator] Daemon pushing failed: {err_msg}")
-                job.status = "failed"
-                job.message = "Không thể khởi động máy chủ Kaggle."
-                job.error_message = err_msg
-                db.commit()
+                print(f"[KaggleOrchestrator] Daemon pushing failed on {job.worker_id}: {err_msg}")
+                cls._failover_or_retry_worker(db, job, err_msg, "Push failed")
         except Exception as e:
-            print(f"[KaggleOrchestrator] Exception pushing daemon worker: {e}")
-            job.status = "failed"
-            job.message = "Lỗi hệ thống khi khởi động máy chủ."
-            job.error_message = str(e)
-            db.commit()
+            print(f"[KaggleOrchestrator] Exception pushing daemon worker on {job.worker_id}: {e}")
+            cls._failover_or_retry_worker(db, job, str(e), "Exception pushing")
 
     @classmethod
     def _poll_booting_worker(cls, db, job):
@@ -364,23 +418,16 @@ class KaggleOrchestrator:
             res = subprocess.run(cmd, capture_output=True, env=env, text=True, shell=False)
             if res.returncode != 0:
                 err_msg = res.stderr.strip() or res.stdout.strip() or "Kaggle status command failed."
-                print(f"[KaggleOrchestrator] Warning: kaggle kernels status CLI failed: {err_msg}")
+                print(f"[KaggleOrchestrator] Warning: kaggle kernels status CLI failed for {job.worker_id}: {err_msg}")
                 # Increment failure count
                 cls._consecutive_poll_failures[job.id] = cls._consecutive_poll_failures.get(job.id, 0) + 1
-                if cls._consecutive_poll_failures[job.id] >= 30:  # 30 checks * 10s = 300s
-                    job.status = "failed"
-                    job.message = "Không thể thăm dò trạng thái máy chủ Kaggle."
-                    job.error_message = f"Kaggle CLI status failed consecutively: {err_msg}"
-                    db.commit()
-                    cls._consecutive_poll_failures.pop(job.id, None)
-                    # Shut down the worker session in DB
-                    from app.services.worker_session_service import WorkerSessionService
-                    WorkerSessionService.shutdown_worker(db, job.worker_id, f"Kaggle status check failed: {err_msg}")
+                if cls._consecutive_poll_failures[job.id] >= 15:  # 15 checks * 10s = 150s
+                    cls._failover_or_retry_worker(db, job, err_msg, "Status check failed")
                 return
 
             cls._consecutive_poll_failures[job.id] = 0
             status_output = res.stdout.strip()
-            print(f"[KaggleOrchestrator] Kaggle status for booting worker: {status_output}")
+            print(f"[KaggleOrchestrator] Kaggle status for booting worker ({job.worker_id}): {status_output}")
 
             status_lower = status_output.lower()
             
@@ -388,61 +435,43 @@ class KaggleOrchestrator:
                 cls._unknown_status_count.pop(job.id, None)
                 cls._complete_grace_count.pop(job.id, None)
                 job.status = "queued_kaggle"
-                job.message = "Kaggle chưa cấp runtime/GPU, đang xếp hàng..."
+                job.message = f"Kaggle ({job.worker_id}) chưa cấp runtime/GPU, đang xếp hàng..."
                 job.progress = 15
                 db.commit()
             elif "running" in status_lower:
                 cls._unknown_status_count.pop(job.id, None)
                 cls._complete_grace_count.pop(job.id, None)
                 job.status = "starting_worker"
-                job.message = "Kaggle Worker đang tải môi trường chạy và mô hình..."
+                job.message = f"Kaggle Worker ({job.worker_id}) đang tải môi trường chạy và mô hình..."
                 job.progress = 25
                 db.commit()
             elif "error" in status_lower or "failed" in status_lower:
                 cls._unknown_status_count.pop(job.id, None)
                 cls._complete_grace_count.pop(job.id, None)
-                job.status = "failed"
-                job.message = "Kaggle Worker gặp lỗi khi khởi động."
-                job.error_message = f"Kaggle boot error: {status_output}"
-                db.commit()
-                # Shut down the worker session in DB
-                from app.services.worker_session_service import WorkerSessionService
-                WorkerSessionService.shutdown_worker(db, job.worker_id, f"Kaggle boot error: {status_output}")
+                print(f"[KaggleOrchestrator] Worker {job.worker_id} reported ERROR/FAILED: {status_output}")
+                cls._failover_or_retry_worker(db, job, status_output, "Worker Error")
             elif "complete" in status_lower:
                 cls._unknown_status_count.pop(job.id, None)
                 # Kaggle API may report 'complete' from previous session for 20-30s after kernel push.
                 # Allow a grace period (e.g. 4 checks = 40s) before treating it as a true termination.
                 cls._complete_grace_count[job.id] = cls._complete_grace_count.get(job.id, 0) + 1
-                if cls._complete_grace_count[job.id] < 5:
-                    print(f"[KaggleOrchestrator] Worker {job.worker_id} status is 'complete' (likely stale from prior session). Grace check {cls._complete_grace_count[job.id]}/5, waiting for Kaggle transition...")
-                else:
-                    print(f"[KaggleOrchestrator] Worker {job.worker_id} status remained 'complete' after grace period. Failing job.")
-                    cls._complete_grace_count.pop(job.id, None)
-                    job.status = "failed"
-                    job.message = "Kaggle Worker đã dừng hoặc hoàn thành phiên trước mà không khởi động lại."
-                    job.error_message = f"Kaggle boot error: {status_output}"
+                if cls._complete_grace_count[job.id] < 4:
+                    print(f"[KaggleOrchestrator] Worker {job.worker_id} status is 'complete' (likely stale from prior session). Grace check {cls._complete_grace_count[job.id]}/4, waiting for Kaggle transition...")
+                    job.message = f"Đang chờ Kaggle ({job.worker_id}) hoàn tất cấp phát container GPU mới..."
                     db.commit()
-                    from app.services.worker_session_service import WorkerSessionService
-                    WorkerSessionService.shutdown_worker(db, job.worker_id, f"Kaggle complete without restart: {status_output}")
+                else:
+                    print(f"[KaggleOrchestrator] Worker {job.worker_id} status remained 'complete' after grace period. Triggering failover/re-push...")
+                    cls._failover_or_retry_worker(db, job, status_output, "Worker Complete without restart")
             elif "cancel" in status_lower or "stop" in status_lower:
                 cls._unknown_status_count.pop(job.id, None)
                 cls._complete_grace_count.pop(job.id, None)
-                job.status = "failed"
-                job.message = "Kaggle Worker đã dừng hoặc bị hủy."
-                job.error_message = f"Kaggle boot error: {status_output}"
-                db.commit()
-                # Shut down the worker session in DB
-                from app.services.worker_session_service import WorkerSessionService
-                WorkerSessionService.shutdown_worker(db, job.worker_id, f"Kaggle stopped/cancelled: {status_output}")
+                print(f"[KaggleOrchestrator] Worker {job.worker_id} reported CANCELLED/STOPPED: {status_output}")
+                cls._failover_or_retry_worker(db, job, status_output, "Worker Stopped/Cancelled")
             else:
                 print(f"[KaggleOrchestrator] Warning: unknown Kaggle status: {status_output}")
                 cls._unknown_status_count[job.id] = cls._unknown_status_count.get(job.id, 0) + 1
-                if cls._unknown_status_count[job.id] >= 30:  # 30 checks * 10s = 300s
-                    job.status = "failed"
-                    job.message = "Trạng thái máy chủ Kaggle không xác định quá lâu."
-                    job.error_message = f"Unknown Kaggle status consecutively: {status_output}"
-                    db.commit()
-                    cls._unknown_status_count.pop(job.id, None)
+                if cls._unknown_status_count[job.id] >= 20:  # 20 checks * 10s = 200s
+                    cls._failover_or_retry_worker(db, job, status_output, "Unknown status timeout")
                 
         except Exception as e:
             print(f"[KaggleOrchestrator] Exception polling booting worker: {e}")

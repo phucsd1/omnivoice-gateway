@@ -107,7 +107,7 @@ from omnivoice import OmniVoice
 PUBLIC_API_BASE_URL = 'https://voice.oloka.net'.rstrip("/")
 WORKER_TOKEN = 'ovg_live_017cb79711c97630fe4115677a004eb5a915dd5ba3f6283b'
 WORKER_ID = 'worker_1'
-IDLE_TIMEOUT = 100
+IDLE_TIMEOUT = 300
 POLL_INTERVAL = 1
 
 HEADERS = {

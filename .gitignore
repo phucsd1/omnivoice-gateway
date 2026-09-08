@@ -47,5 +47,6 @@ omnivoice-worker.py
 backend/dubbing_jobs/
 *.mp4
 tmp_*
-test_*.py
+/test_*.py
+!backend/tests/test_*.py
 
